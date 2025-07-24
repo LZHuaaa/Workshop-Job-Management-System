@@ -1,0 +1,461 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import '../theme/app_colors.dart';
+import '../widgets/dashboard_card.dart';
+import '../models/job_appointment.dart';
+import '../screens/job_details_screen.dart';
+import '../dialogs/new_job_dialog.dart';
+
+class JobsScreen extends StatefulWidget {
+  const JobsScreen({super.key});
+
+  @override
+  State<JobsScreen> createState() => _JobsScreenState();
+}
+
+class _JobsScreenState extends State<JobsScreen> {
+  String _selectedFilter = 'All';
+  final TextEditingController _searchController = TextEditingController();
+
+  final List<String> _filterOptions = [
+    'All',
+    'Scheduled',
+    'In Progress',
+    'Completed',
+    'Overdue',
+  ];
+
+  // Sample job data
+  List<JobAppointment> _allJobs = [
+    JobAppointment(
+      id: '1',
+      vehicleInfo: 'Proton Saga - WA 1234 A',
+      customerName: 'Ahmad bin Abdullah',
+      mechanicName: 'Lim Wei Ming',
+      startTime: DateTime.now().copyWith(hour: 9, minute: 0),
+      endTime: DateTime.now().copyWith(hour: 11, minute: 0),
+      serviceType: 'Oil Change & Filter',
+      status: JobStatus.inProgress,
+      estimatedCost: 89.99,
+      partsNeeded: ['Oil Filter', 'Engine Oil'],
+      notes: 'Customer requested synthetic oil',
+    ),
+    JobAppointment(
+      id: '2',
+      vehicleInfo: 'Perodua Myvi - KL 5678 B',
+      customerName: 'Tan Mei Ling',
+      mechanicName: 'Siti Nurhaliza binti Hassan',
+      startTime: DateTime.now().copyWith(hour: 14, minute: 0),
+      endTime: DateTime.now().copyWith(hour: 16, minute: 30),
+      serviceType: 'Brake Inspection & Repair',
+      status: JobStatus.scheduled,
+      estimatedCost: 245.50,
+      partsNeeded: ['Brake Pads', 'Brake Fluid'],
+    ),
+    JobAppointment(
+      id: '3',
+      vehicleInfo: 'Honda City - JB 9012 C',
+      customerName: 'Priya d/o Raman',
+      mechanicName: 'Raj Kumar a/l Suresh',
+      startTime: DateTime.now()
+          .subtract(const Duration(days: 1))
+          .copyWith(hour: 10, minute: 0),
+      endTime: DateTime.now()
+          .subtract(const Duration(days: 1))
+          .copyWith(hour: 12, minute: 0),
+      serviceType: 'Transmission Service',
+      status: JobStatus.completed,
+      estimatedCost: 189.99,
+    ),
+  ];
+
+  List<JobAppointment> get _filteredJobs {
+    List<JobAppointment> filtered = _allJobs;
+
+    // Apply status filter
+    if (_selectedFilter != 'All') {
+      if (_selectedFilter == 'Overdue') {
+        filtered = filtered.where((job) => job.isOverdue).toList();
+      } else {
+        final status = JobStatus.values.firstWhere(
+          (s) =>
+              s.name.toLowerCase() ==
+              _selectedFilter.toLowerCase().replaceAll(' ', ''),
+        );
+        filtered = filtered.where((job) => job.status == status).toList();
+      }
+    }
+
+    // Apply search filter
+    if (_searchController.text.isNotEmpty) {
+      final searchTerm = _searchController.text.toLowerCase();
+      filtered = filtered
+          .where((job) =>
+              job.vehicleInfo.toLowerCase().contains(searchTerm) ||
+              job.customerName.toLowerCase().contains(searchTerm) ||
+              job.mechanicName.toLowerCase().contains(searchTerm) ||
+              job.serviceType.toLowerCase().contains(searchTerm))
+          .toList();
+    }
+
+    return filtered;
+  }
+
+  void _addJob(JobAppointment job) {
+    setState(() {
+      _allJobs.add(job);
+    });
+  }
+
+  void _updateJob(JobAppointment updatedJob) {
+    setState(() {
+      final index = _allJobs.indexWhere((job) => job.id == updatedJob.id);
+      if (index != -1) {
+        _allJobs[index] = updatedJob;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Jobs',
+                        style: GoogleFonts.poppins(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () => _showCreateJobDialog(),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: Text(
+                          'New Job',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryPink,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Search Bar
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.backgroundLight,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (value) => setState(() {}),
+                      decoration: InputDecoration(
+                        hintText: 'Search jobs, customers, or vehicles...',
+                        hintStyle: GoogleFonts.poppins(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: AppColors.textSecondary,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.all(16),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Filter Chips
+                  SizedBox(
+                    height: 40,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _filterOptions.length,
+                      itemBuilder: (context, index) {
+                        final filter = _filterOptions[index];
+                        final isSelected = filter == _selectedFilter;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            label: Text(
+                              filter,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: isSelected
+                                    ? Colors.white
+                                    : AppColors.textSecondary,
+                              ),
+                            ),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                _selectedFilter = filter;
+                              });
+                            },
+                            backgroundColor: Colors.white,
+                            selectedColor: AppColors.primaryPink,
+                            checkmarkColor: Colors.white,
+                            side: BorderSide(
+                              color: isSelected
+                                  ? AppColors.primaryPink
+                                  : AppColors.textSecondary.withOpacity(0.3),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Jobs List
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(20),
+                itemCount: _filteredJobs.length,
+                itemBuilder: (context, index) {
+                  final job = _filteredJobs[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _buildJobCard(job),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJobCard(JobAppointment job) {
+    return GestureDetector(
+      onTap: () => _showJobDetails(job),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          job.vehicleInfo,
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          job.serviceType,
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(job.status),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      job.status.name.toUpperCase(),
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(
+                    Icons.person,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    job.customerName,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(
+                    Icons.build,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    job.mechanicName,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${DateFormat('MMM d, h:mm a').format(job.startTime)} - ${DateFormat('h:mm a').format(job.endTime)}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (job.estimatedCost != null)
+                    Text(
+                      'RM${job.estimatedCost!.toStringAsFixed(2)}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryPink,
+                      ),
+                    ),
+                ],
+              ),
+              if (job.partsNeeded != null && job.partsNeeded!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: job.partsNeeded!
+                      .map((part) => Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.softPink,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              part,
+                              style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                color: AppColors.primaryPink,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ))
+                      .toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getStatusColor(JobStatus status) {
+    switch (status) {
+      case JobStatus.scheduled:
+        return AppColors.accentPink;
+      case JobStatus.inProgress:
+        return AppColors.primaryPink;
+      case JobStatus.completed:
+        return AppColors.successGreen;
+      case JobStatus.cancelled:
+        return AppColors.textSecondary;
+    }
+  }
+
+  void _showJobDetails(JobAppointment job) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => JobDetailsScreen(
+          job: job,
+          onJobUpdated: _updateJob,
+        ),
+      ),
+    );
+  }
+
+  void _showCreateJobDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => NewJobDialog(
+        onJobCreated: _addJob,
+      ),
+    );
+  }
+}
