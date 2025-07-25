@@ -119,66 +119,66 @@ class _MainNavigationState extends State<MainNavigation>
         ),
         child: SafeArea(
           minimum: EdgeInsets.zero,
-          child: Row(
+              child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: _navigationItems.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              final isActive = index == _currentIndex;
+                children: _navigationItems.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
+                  final isActive = index == _currentIndex;
 
               return SizedBox(
                 width: itemWidth,
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () => _onTabTapped(index),
+                      onTap: () => _onTabTapped(index),
                     customBorder: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isActive
-                            ? AppColors.primaryPink.withOpacity(0.1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 200),
-                            child: Icon(
-                              isActive ? item.activeIcon : item.icon,
-                              key: ValueKey(isActive),
-                              color: isActive
-                                  ? AppColors.primaryPink
-                                  : AppColors.textSecondary,
-                              size: 24,
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? AppColors.primaryPink.withOpacity(0.1)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              child: Icon(
+                                isActive ? item.activeIcon : item.icon,
+                                key: ValueKey(isActive),
+                                color: isActive
+                                    ? AppColors.primaryPink
+                                    : AppColors.textSecondary,
+                                size: 24,
+                              ),
                             ),
-                          ),
                           const SizedBox(height: 2),
-                          Text(
-                            item.label,
-                            style: GoogleFonts.poppins(
+                            Text(
+                              item.label,
+                              style: GoogleFonts.poppins(
                               fontSize: 12,
-                              fontWeight: isActive
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color: isActive
-                                  ? AppColors.primaryPink
-                                  : AppColors.textSecondary,
-                            ),
+                                fontWeight: isActive
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: isActive
+                                    ? AppColors.primaryPink
+                                    : AppColors.textSecondary,
+                              ),
                             textAlign: TextAlign.center,
-                          ),
-                        ],
+                            ),
+                          ],
+                      ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              );
-            }).toList(),
+                  );
+                }).toList(),
           ),
         ),
       ),
