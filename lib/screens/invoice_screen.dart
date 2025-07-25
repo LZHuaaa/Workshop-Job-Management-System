@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import '../models/invoice.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../theme/app_colors.dart';
-import '../services/invoice_service.dart';
-import 'invoice_details_screen.dart';
+import '../models/invoice.dart';
+import '../widgets/dashboard_card.dart';
 
 class InvoiceScreen extends StatefulWidget {
   const InvoiceScreen({super.key});
@@ -12,424 +13,571 @@ class InvoiceScreen extends StatefulWidget {
 }
 
 class _InvoiceScreenState extends State<InvoiceScreen> {
-  final InvoiceService _invoiceService = InvoiceService();
-  List<Invoice> _invoices = [];
-  bool _isLoading = true;
-  String? _searchTerm;
-  InvoiceStatus? _filterStatus;
-  DateTime? _startDate;
-  DateTime? _endDate;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadInvoices();
-  }
-
-  Future<void> _loadInvoices() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final invoices = await _invoiceService.getInvoices(
-        searchTerm: _searchTerm,
-        status: _filterStatus,
-        startDate: _startDate,
-        endDate: _endDate,
-      );
-      setState(() {
-        _invoices = invoices;
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading invoices: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _showFilterDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Filter Invoices'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    decoration: const InputDecoration(
-                      labelText: 'Search',
-                      prefixIcon: Icon(Icons.search),
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        _searchTerm = value;
-                      });
-                    },
-                    controller: TextEditingController(text: _searchTerm),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<InvoiceStatus?>(
-                    value: _filterStatus,
-                    decoration: const InputDecoration(
-                      labelText: 'Status',
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('All'),
-                      ),
-                      ...InvoiceStatus.values.map((status) {
-                        return DropdownMenuItem(
-                          value: status,
-                          child: Text(status.name.toUpperCase()),
-                        );
-                      }),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _filterStatus = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Start Date'),
-                            const SizedBox(height: 8),
-                            InkWell(
-                              onTap: () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate: _startDate ?? DateTime.now(),
-                                  firstDate: DateTime(2000),
-                                  lastDate: DateTime(2100),
-                                );
-                                if (date != null) {
-                                  setState(() {
-                                    _startDate = date;
-                                  });
-                                }
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  _startDate?.toString().split(' ')[0] ??
-                                      'Select Date',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('End Date'),
-                            const SizedBox(height: 8),
-                            InkWell(
-                              onTap: () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate: _endDate ?? DateTime.now(),
-                                  firstDate: DateTime(2000),
-                                  lastDate: DateTime(2100),
-                                );
-                                if (date != null) {
-                                  setState(() {
-                                    _endDate = date;
-                                  });
-                                }
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  _endDate?.toString().split(' ')[0] ??
-                                      'Select Date',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _searchTerm = null;
-                      _filterStatus = null;
-                      _startDate = null;
-                      _endDate = null;
-                    });
-                  },
-                  child: const Text('Clear'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _loadInvoices();
-                  },
-                  child: const Text('Apply'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  String _getStatusColor(InvoiceStatus status) {
-    switch (status) {
-      case InvoiceStatus.draft:
-        return '#808080';
-      case InvoiceStatus.pending:
-        return '#FFA500';
-      case InvoiceStatus.approved:
-        return '#32CD32';
-      case InvoiceStatus.paid:
-        return '#008000';
-      case InvoiceStatus.cancelled:
-        return '#FF0000';
-    }
-  }
+  int _selectedView = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Invoices'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _showFilterDialog,
+        title: Text(
+          'Invoice Management',
+          style: TextStyle(color: AppColors.textDark),
+        ),
+        backgroundColor: Colors.white,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: SegmentedButton<int>(
+              selected: {_selectedView},
+              onSelectionChanged: (Set<int> newSelection) {
+                setState(() {
+                  _selectedView = newSelection.first;
+                });
+              },
+              style: ButtonStyle(
+                backgroundColor: MaterialStateProperty.resolveWith<Color>(
+                  (Set<MaterialState> states) {
+                    if (states.contains(MaterialState.selected)) {
+                      return AppColors.primaryPink;
+                    }
+                    return Colors.transparent;
+                  },
+                ),
+                foregroundColor: MaterialStateProperty.resolveWith<Color>(
+                  (Set<MaterialState> states) {
+                    if (states.contains(MaterialState.selected)) {
+                      return Colors.white;
+                    }
+                    return AppColors.textDark;
+                  },
+                ),
+              ),
+              segments: const [
+                ButtonSegment<int>(
+                  value: 0,
+                  label: Text('List'),
+                  icon: Icon(Icons.list_alt),
+                ),
+                ButtonSegment<int>(
+                  value: 1,
+                  label: Text('Pending'),
+                  icon: Icon(Icons.pending_actions),
+                ),
+                ButtonSegment<int>(
+                  value: 2,
+                  label: Text('Analytics'),
+                  icon: Icon(Icons.analytics),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: IndexedStack(
+        index: _selectedView,
+        children: [
+          _buildInvoiceListView(),
+          _buildPendingInvoicesView(),
+          _buildInvoiceAnalyticsView(),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // TODO: Show create invoice dialog
+        },
+        backgroundColor: AppColors.primaryPink,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildInvoiceListView() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Search and Filter
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Search Bar
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Search invoices...',
+                    prefixIcon: Icon(Icons.search, color: AppColors.textSecondary),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: AppColors.textSecondary.withOpacity(0.2),
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: AppColors.textSecondary.withOpacity(0.2),
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Filter Chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildFilterChip('All', true),
+                      _buildFilterChip('Paid', false),
+                      _buildFilterChip('Pending', false),
+                      _buildFilterChip('Overdue', false),
+                      _buildFilterChip('Cancelled', false),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Invoice List
+          DashboardCard(
+            title: 'Recent Invoices',
+            child: ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 5, // Replace with actual invoice list
+              itemBuilder: (context, index) {
+                return _buildInvoiceCard(
+                  invoiceNumber: 'INV-${1000 + index}',
+                  customerName: 'Customer ${index + 1}',
+                  amount: (1000 + index * 100).toDouble(),
+                  date: DateTime.now().subtract(Duration(days: index)),
+                  status: index % 3 == 0 ? 'Paid' : (index % 3 == 1 ? 'Pending' : 'Overdue'),
+                );
+              },
+            ),
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _invoices.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.receipt_long_outlined,
-                        size: 64,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No invoices found',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const InvoiceDetailsScreen(),
-                            ),
-                          ).then((_) => _loadInvoices());
-                        },
-                        child: const Text('Create New Invoice'),
-                      ),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadInvoices,
-                  child: ListView.builder(
-                    itemCount: _invoices.length,
-                    itemBuilder: (context, index) {
-                      final invoice = _invoices[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(16),
-                          title: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Invoice #${invoice.id}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Color(
-                                    int.parse(
-                                      _getStatusColor(invoice.status)
-                                          .replaceAll('#', '0xFF'),
-                                    ),
-                                  ).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  invoice.status.name.toUpperCase(),
-                                  style: TextStyle(
-                                    color: Color(
-                                      int.parse(
-                                        _getStatusColor(invoice.status)
-                                            .replaceAll('#', '0xFF'),
-                                      ),
-                                    ),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 8),
-                              Text('Customer: ${invoice.customerName}'),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Due: ${invoice.dueDate.toString().split(' ')[0]}',
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Total: RM${invoice.total.toStringAsFixed(2)}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primaryPink,
-                                    ),
-                                  ),
-                                  Row(
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.edit_outlined),
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  InvoiceDetailsScreen(
-                                                invoice: invoice,
-                                              ),
-                                            ),
-                                          ).then((_) => _loadInvoices());
-                                        },
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.more_vert),
-                                        onPressed: () {
-                                          showModalBottomSheet(
-                                            context: context,
-                                            builder: (context) {
-                                              return SafeArea(
-                                                child: Column(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    ListTile(
-                                                      leading: const Icon(
-                                                        Icons.delete_outline,
-                                                      ),
-                                                      title: const Text('Delete'),
-                                                      onTap: () async {
-                                                        Navigator.pop(context);
-                                                        try {
-                                                          await _invoiceService
-                                                              .deleteInvoice(
-                                                            invoice.id,
-                                                          );
-                                                          _loadInvoices();
-                                                        } catch (e) {
-                                                          ScaffoldMessenger.of(
-                                                            context,
-                                                          ).showSnackBar(
-                                                            SnackBar(
-                                                              content: Text(
-                                                                'Error deleting invoice: ${e.toString()}',
-                                                              ),
-                                                              backgroundColor:
-                                                                  Colors.red,
-                                                            ),
-                                                          );
-                                                        }
-                                                      },
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            },
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+    );
+  }
+
+  Widget _buildPendingInvoicesView() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Summary Cards
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryCard(
+                  'Pending Approval',
+                  '12',
+                  AppColors.warningOrange,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildSummaryCard(
+                  'Awaiting Payment',
+                  '8',
+                  AppColors.primaryPink,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Pending Invoices
+          DashboardCard(
+            title: 'Pending Approval',
+            child: ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 3,
+              itemBuilder: (context, index) {
+                return _buildPendingInvoiceCard(
+                  invoiceNumber: 'INV-${2000 + index}',
+                  customerName: 'Pending Customer ${index + 1}',
+                  amount: (1500 + index * 100).toDouble(),
+                  date: DateTime.now(),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInvoiceAnalyticsView() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Revenue Overview
+          DashboardCard(
+            title: 'Revenue Overview',
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildRevenueMetric('This Month', 'RM 25,450'),
+                    _buildRevenueMetric('Last Month', 'RM 22,890'),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  height: 200,
+                  color: AppColors.backgroundLight,
+                  // TODO: Add revenue chart
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Payment Status Distribution
+          DashboardCard(
+            title: 'Payment Status',
+            child: Column(
+              children: [
+                _buildStatusMetric('Paid', 75, AppColors.successGreen),
+                const SizedBox(height: 8),
+                _buildStatusMetric('Pending', 15, AppColors.warningOrange),
+                const SizedBox(height: 8),
+                _buildStatusMetric('Overdue', 10, AppColors.errorRed),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, bool isSelected) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: isSelected ? Colors.white : AppColors.textSecondary,
+          ),
+        ),
+        selected: isSelected,
+        onSelected: (bool selected) {
+          // TODO: Implement filter
+        },
+        backgroundColor: Colors.white,
+        selectedColor: AppColors.primaryPink,
+        checkmarkColor: Colors.white,
+        side: BorderSide(
+          color: isSelected
+              ? AppColors.primaryPink
+              : AppColors.textSecondary.withOpacity(0.3),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInvoiceCard({
+    required String invoiceNumber,
+    required String customerName,
+    required double amount,
+    required DateTime date,
+    required String status,
+  }) {
+    Color statusColor;
+    switch (status.toLowerCase()) {
+      case 'paid':
+        statusColor = AppColors.successGreen;
+        break;
+      case 'pending':
+        statusColor = AppColors.warningOrange;
+        break;
+      case 'overdue':
+        statusColor = AppColors.errorRed;
+        break;
+      default:
+        statusColor = AppColors.textSecondary;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: AppColors.textSecondary.withOpacity(0.1),
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                invoiceNumber,
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  status,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: statusColor,
                   ),
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const InvoiceDetailsScreen(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            customerName,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: AppColors.textSecondary,
             ),
-          ).then((_) => _loadInvoices());
-        },
-        child: const Icon(Icons.add),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'RM ${amount.toStringAsFixed(2)}',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryPink,
+                ),
+              ),
+              Text(
+                DateFormat('MMM d, y').format(date),
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildPendingInvoiceCard({
+    required String invoiceNumber,
+    required String customerName,
+    required double amount,
+    required DateTime date,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.warningOrange.withOpacity(0.05),
+        border: Border.all(
+          color: AppColors.warningOrange.withOpacity(0.2),
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                invoiceNumber,
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark,
+                ),
+              ),
+              Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: () {
+                      // TODO: Implement approve action
+                    },
+                    icon: const Icon(Icons.check_circle_outline, size: 18),
+                    label: const Text('Approve'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.successGreen,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      // TODO: Implement reject action
+                    },
+                    icon: const Icon(Icons.cancel_outlined, size: 18),
+                    label: const Text('Reject'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.errorRed,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            customerName,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'RM ${amount.toStringAsFixed(2)}',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryPink,
+                ),
+              ),
+              Text(
+                'Created: ${DateFormat('MMM d, y').format(date)}',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(String title, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRevenueMetric(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        Text(
+          value,
+          style: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatusMetric(String label, int percentage, Color color) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppColors.textDark,
+                ),
+              ),
+            ),
+            Text(
+              '$percentage%',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        LinearProgressIndicator(
+          value: percentage / 100,
+          backgroundColor: color.withOpacity(0.1),
+          valueColor: AlwaysStoppedAnimation<Color>(color),
+        ),
+      ],
     );
   }
 } 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
+import '../screens/work_analytics_screen.dart';
 import 'dashboard_card.dart';
 
 class ManagementHubCard extends StatelessWidget {
@@ -31,10 +32,17 @@ class ManagementHubCard extends StatelessWidget {
             onTap: () {},
           ),
           _buildHubItem(
-            icon: Icons.receipt_long,
-            title: 'Invoice Management',
-            subtitle: 'Review & approve invoices',
-            onTap: () {},
+            icon: Icons.analytics,
+            title: 'Work Analytics',
+            subtitle: 'Performance insights',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const WorkAnalyticsScreen(),
+                ),
+              );
+            },
           ),
           _buildHubItem(
             icon: Icons.view_list,
