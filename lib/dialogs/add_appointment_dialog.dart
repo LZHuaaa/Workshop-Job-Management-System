@@ -331,7 +331,7 @@ class _AddAppointmentDialogState extends State<AddAppointmentDialog> {
                             children: [
                               Icon(
                                 Icons.access_time,
-                                color: AppColors.primaryPink,
+                                color: AppColors.textDark,
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
@@ -380,7 +380,7 @@ class _AddAppointmentDialogState extends State<AddAppointmentDialog> {
                             children: [
                               Icon(
                                 Icons.access_time,
-                                color: AppColors.primaryPink,
+                                color: AppColors.textDark,
                                 size: 20,
                               ),
                               const SizedBox(width: 8),

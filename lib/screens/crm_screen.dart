@@ -7,6 +7,7 @@ import '../widgets/dashboard_card.dart';
 import '../models/customer.dart';
 import '../screens/customer_profile_screen.dart';
 import '../dialogs/add_customer_dialog.dart';
+import 'invoice_screen.dart';
 
 class CrmScreen extends StatefulWidget {
   const CrmScreen({super.key});
@@ -171,7 +172,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this); // Changed from 3 to 4 tabs
   }
 
   @override
@@ -374,6 +375,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                   Tab(text: 'All'),
                   Tab(text: 'Communications'),
                   Tab(text: 'Analytics'),
+                  Tab(text: 'Invoices'), // Added new tab
                 ],
               ),
             ),
@@ -386,6 +388,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                   _buildCustomersTab(),
                   _buildCommunicationsTab(),
                   _buildAnalyticsTab(),
+                  _buildInvoicesTab(), // Added new tab view
                 ],
               ),
             ),
@@ -627,6 +630,201 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildInvoicesTab() {
+    return Column(
+      children: [
+        // Invoice filters and search
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: Colors.white,
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.backgroundLight,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Search invoices...',
+                      hintStyle: GoogleFonts.poppins(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: AppColors.textSecondary,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              PopupMenuButton<String>(
+                icon: Icon(
+                  Icons.filter_list,
+                  color: AppColors.textSecondary,
+                ),
+                onSelected: (value) {
+                  // Handle filter selection
+                },
+                itemBuilder: (context) => [
+                  'All',
+                  'Pending',
+                  'Paid',
+                  'Overdue',
+                ].map((filter) {
+                  return PopupMenuItem(
+                    value: filter,
+                    child: Text(
+                      filter,
+                      style: GoogleFonts.poppins(),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+
+        // Invoice list
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: _allCustomers.length, // Replace with actual invoice list
+            itemBuilder: (context, index) {
+              final customer = _allCustomers[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  title: Row(
+                    children: [
+                      Text(
+                        'Invoice #${1000 + index}',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryPink.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Pending',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: AppColors.primaryPink,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 8),
+                      Text(
+                        customer.fullName,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      Text(
+                        'Due: ${DateFormat('MMM d, y').format(DateTime.now().add(const Duration(days: 30)))}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'RM${(500 + index * 100).toStringAsFixed(2)}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryPink,
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined),
+                                onPressed: () {
+                                  // Navigate to edit invoice
+                                },
+                                color: AppColors.textSecondary,
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.more_vert),
+                                onPressed: () {
+                                  // Show invoice actions
+                                  showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) => SafeArea(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ListTile(
+                                            leading: const Icon(Icons.print),
+                                            title: const Text('Print Invoice'),
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              // Handle print
+                                            },
+                                          ),
+                                          ListTile(
+                                            leading: const Icon(Icons.share),
+                                            title: const Text('Share'),
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              // Handle share
+                                            },
+                                          ),
+                                          ListTile(
+                                            leading: const Icon(Icons.delete_outline),
+                                            title: const Text('Delete'),
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              // Handle delete
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                                color: AppColors.textSecondary,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

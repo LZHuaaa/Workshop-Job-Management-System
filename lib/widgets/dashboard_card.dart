@@ -41,15 +41,22 @@ class DashboardCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  title,
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (action != null) action!,
+                if (action != null) 
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: action!,
+                  ),
               ],
             ),
             const SizedBox(height: 16),
@@ -77,31 +84,35 @@ class ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(
-        icon,
-        size: 16,
-        color: isPrimary ? Colors.white : AppColors.primaryPink,
-      ),
-      label: Text(
-        label,
-        style: GoogleFonts.poppins(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 200),
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(
+          icon,
+          size: 16,
           color: isPrimary ? Colors.white : AppColors.primaryPink,
         ),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isPrimary ? AppColors.primaryPink : Colors.white,
-        foregroundColor: isPrimary ? Colors.white : AppColors.primaryPink,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: isPrimary 
-            ? BorderSide.none 
-            : BorderSide(color: AppColors.primaryPink, width: 1),
+        label: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: isPrimary ? Colors.white : AppColors.primaryPink,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isPrimary ? AppColors.primaryPink : Colors.white,
+          foregroundColor: isPrimary ? Colors.white : AppColors.primaryPink,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: isPrimary 
+              ? BorderSide.none 
+              : BorderSide(color: AppColors.primaryPink, width: 1),
+          ),
         ),
       ),
     );

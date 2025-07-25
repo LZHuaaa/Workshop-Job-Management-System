@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import 'dashboard_screen.dart';
-import 'schedule_screen.dart';
-import 'jobs_screen.dart';
+import 'work_screen.dart';
 import 'inventory_screen.dart';
 import 'vehicle_details_screen.dart';
 import 'crm_screen.dart';
@@ -23,8 +22,7 @@ class _MainNavigationState extends State<MainNavigation>
 
   final List<Widget> _screens = [
     const DashboardScreen(),
-    const ScheduleScreen(),
-    const JobsScreen(),
+    const WorkScreen(),
     const InventoryScreen(),
     const VehicleDetailsScreen(),
     const CrmScreen(),
@@ -39,12 +37,7 @@ class _MainNavigationState extends State<MainNavigation>
     NavigationItem(
       icon: Icons.calendar_today_outlined,
       activeIcon: Icons.calendar_today,
-      label: 'Schedule',
-    ),
-    NavigationItem(
-      icon: Icons.build_outlined,
-      activeIcon: Icons.build,
-      label: 'Jobs',
+      label: 'Work',
     ),
     NavigationItem(
       icon: Icons.inventory_2_outlined,
@@ -98,6 +91,10 @@ class _MainNavigationState extends State<MainNavigation>
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final itemWidth = screenWidth / _navigationItems.length;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       body: PageView(
         controller: _pageController,
@@ -109,6 +106,7 @@ class _MainNavigationState extends State<MainNavigation>
         children: _screens,
       ),
       bottomNavigationBar: Container(
+        height: kBottomNavigationBarHeight + (bottomPadding > 0 ? bottomPadding : 8),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
@@ -120,68 +118,67 @@ class _MainNavigationState extends State<MainNavigation>
           ],
         ),
         child: SafeArea(
-          child: Container(
-            height: 80,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _navigationItems.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final item = entry.value;
-                  final isActive = index == _currentIndex;
+          minimum: EdgeInsets.zero,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: _navigationItems.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              final isActive = index == _currentIndex;
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: GestureDetector(
-                      onTap: () => _onTabTapped(index),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isActive
-                              ? AppColors.primaryPink.withOpacity(0.1)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 200),
-                              child: Icon(
-                                isActive ? item.activeIcon : item.icon,
-                                key: ValueKey(isActive),
-                                color: isActive
-                                    ? AppColors.primaryPink
-                                    : AppColors.textSecondary,
-                                size: 24,
-                              ),
+              return SizedBox(
+                width: itemWidth,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _onTabTapped(index),
+                    customBorder: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? AppColors.primaryPink.withOpacity(0.1)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: Icon(
+                              isActive ? item.activeIcon : item.icon,
+                              key: ValueKey(isActive),
+                              color: isActive
+                                  ? AppColors.primaryPink
+                                  : AppColors.textSecondary,
+                              size: 24,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              item.label,
-                              style: GoogleFonts.poppins(
-                                fontSize: 10,
-                                fontWeight: isActive
-                                    ? FontWeight.w600
-                                    : FontWeight.w400,
-                                color: isActive
-                                    ? AppColors.primaryPink
-                                    : AppColors.textSecondary,
-                              ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            item.label,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: isActive
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: isActive
+                                  ? AppColors.primaryPink
+                                  : AppColors.textSecondary,
                             ),
-                          ],
-                        ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-            ),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ),
       ),
