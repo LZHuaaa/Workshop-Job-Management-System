@@ -6,6 +6,11 @@ import '../widgets/dashboard_card.dart';
 import '../models/vehicle.dart';
 import '../screens/vehicle_profile_screen.dart';
 import '../dialogs/add_vehicle_dialog.dart';
+import '../dialogs/edit_vehicle_dialog.dart';
+import 'vehicle_search_filter.dart';
+import 'vehicle_analytics_screen.dart';
+import '../services/vehicle_data_service.dart';
+import '../services/maintenance_notification_service.dart';
 
 class VehicleDetailsScreen extends StatefulWidget {
   const VehicleDetailsScreen({super.key});
@@ -18,6 +23,12 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
+  final VehicleDataService _dataService = VehicleDataService();
+  final MaintenanceNotificationService _notificationService = MaintenanceNotificationService();
+
+  List<Vehicle> _allVehicles = [];
+  List<Vehicle> _filteredVehicles = [];
+  bool _hasActiveFilters = false;
 
   // Sample vehicle data
   List<Vehicle> _vehicles = [
@@ -93,11 +104,11 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
     ),
   ];
 
-  List<Vehicle> get _filteredVehicles {
-    if (_searchController.text.isEmpty) return _vehicles;
+  List<Vehicle> get _currentFilteredVehicles {
+    if (_searchController.text.isEmpty) return _filteredVehicles;
 
     final searchTerm = _searchController.text.toLowerCase();
-    return _vehicles
+    return _filteredVehicles
         .where((vehicle) =>
             vehicle.displayName.toLowerCase().contains(searchTerm) ||
             vehicle.licensePlate.toLowerCase().contains(searchTerm) ||
@@ -109,6 +120,8 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
   void _addVehicle(Vehicle vehicle) {
     setState(() {
       _vehicles.add(vehicle);
+      _allVehicles.add(vehicle);
+      _filteredVehicles.add(vehicle);
     });
   }
 
@@ -126,6 +139,23 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _allVehicles = List.from(_vehicles);
+    _filteredVehicles = List.from(_vehicles);
+    _initializeNotifications();
+  }
+
+  void _initializeNotifications() async {
+    try {
+      await _notificationService.initialize();
+      if (mounted) {
+        await _notificationService.scheduleNotificationsForAllVehicles(_vehicles);
+      }
+    } catch (e) {
+      // Handle initialization errors gracefully
+      if (mounted) {
+        print('Notification service initialization failed: $e');
+      }
+    }
   }
 
   @override
@@ -144,7 +174,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
           children: [
             // Header
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
@@ -169,28 +199,61 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                           color: AppColors.textDark,
                         ),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () => _showAddVehicleDialog(),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: Text(
-                          'Add Vehicle',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: _showAnalytics,
+                            icon: const Icon(Icons.analytics),
+                            tooltip: 'Analytics',
+                            style: IconButton.styleFrom(
+                              backgroundColor: AppColors.backgroundLight,
+                            ),
                           ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryPink,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                          const SizedBox(width: 6),
+                          PopupMenuButton<String>(
+                            onSelected: _handleMenuAction,
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                value: 'export_csv',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.file_download, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text('Export CSV', style: GoogleFonts.poppins()),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'export_json',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.code, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text('Export JSON', style: GoogleFonts.poppins()),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'generate_report',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.description, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text('Generate Report', style: GoogleFonts.poppins()),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.backgroundLight,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.more_vert),
+                            ),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
+                        ],
                       ),
                     ],
                   ),
@@ -219,6 +282,109 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                         ),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.all(16),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Filter & Sort Section
+                  GestureDetector(
+                    onTap: _showSearchFilter,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _hasActiveFilters
+                              ? AppColors.primaryPink.withOpacity(0.3)
+                              : AppColors.backgroundLight,
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: _hasActiveFilters
+                                  ? AppColors.primaryPink.withOpacity(0.1)
+                                  : AppColors.backgroundLight.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              _hasActiveFilters ? Icons.filter_alt : Icons.tune,
+                              size: 20,
+                              color: _hasActiveFilters
+                                  ? AppColors.primaryPink
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Filter & Sort',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textDark,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _hasActiveFilters
+                                      ? 'Showing ${_filteredVehicles.length} of ${_allVehicles.length} vehicles'
+                                      : 'Filter by make, year, service status',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: _hasActiveFilters
+                                        ? AppColors.primaryPink
+                                        : AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_hasActiveFilters) ...[
+                                GestureDetector(
+                                  onTap: _clearFilters,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.errorRed.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Icon(
+                                      Icons.clear,
+                                      size: 16,
+                                      color: AppColors.errorRed,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              Icon(
+                                Icons.chevron_right,
+                                size: 20,
+                                color: AppColors.textSecondary,
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -262,15 +428,22 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddVehicleDialog,
+        backgroundColor: AppColors.primaryPink,
+        foregroundColor: Colors.white,
+        elevation: 8,
+        child: const Icon(Icons.add, size: 28),
+      ),
     );
   }
 
   Widget _buildAllVehiclesTab() {
     return ListView.builder(
       padding: const EdgeInsets.all(20),
-      itemCount: _filteredVehicles.length,
+      itemCount: _currentFilteredVehicles.length,
       itemBuilder: (context, index) {
-        final vehicle = _filteredVehicles[index];
+        final vehicle = _currentFilteredVehicles[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: _buildVehicleCard(vehicle),
@@ -479,6 +652,70 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                   ),
                 ),
               ],
+              // Action Buttons Row
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(
+                      color: AppColors.backgroundLight,
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: () => _editVehicleFromCard(vehicle),
+                        icon: Icon(
+                          Icons.edit,
+                          size: 16,
+                          color: AppColors.primaryPink,
+                        ),
+                        label: Text(
+                          'Edit',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: AppColors.primaryPink,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 20,
+                      color: AppColors.backgroundLight,
+                    ),
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: () => _deleteVehicleFromCard(vehicle),
+                        icon: Icon(
+                          Icons.delete,
+                          size: 16,
+                          color: AppColors.errorRed,
+                        ),
+                        label: Text(
+                          'Delete',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: AppColors.errorRed,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -535,6 +772,269 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
       context: context,
       builder: (context) => AddVehicleDialog(
         onVehicleAdded: _addVehicle,
+      ),
+    );
+  }
+
+  void _showSearchFilter() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => VehicleSearchFilter(
+          vehicles: _allVehicles,
+          onFilterApplied: (filteredVehicles) {
+            setState(() {
+              _filteredVehicles = filteredVehicles;
+              _hasActiveFilters = filteredVehicles.length != _allVehicles.length;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showAnalytics() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => VehicleAnalyticsScreen(
+          vehicles: _allVehicles,
+        ),
+      ),
+    );
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _filteredVehicles = List.from(_allVehicles);
+      _hasActiveFilters = false;
+      _searchController.clear();
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Filters cleared',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: AppColors.successGreen,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _handleMenuAction(String action) async {
+    try {
+      switch (action) {
+        case 'export_csv':
+          await _exportToCSV();
+          break;
+        case 'export_json':
+          await _exportToJSON();
+          break;
+        case 'generate_report':
+          await _generateReport();
+          break;
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error: $e',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportToCSV() async {
+    final filePath = await _dataService.exportVehiclesToCSV(_allVehicles);
+    await _dataService.shareExportedFile(filePath, 'CSV');
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Vehicle data exported to CSV',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: AppColors.successGreen,
+        ),
+      );
+    }
+  }
+
+  Future<void> _exportToJSON() async {
+    final filePath = await _dataService.exportVehiclesToJSON(_allVehicles);
+    await _dataService.shareExportedFile(filePath, 'JSON');
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Vehicle data exported to JSON',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: AppColors.successGreen,
+        ),
+      );
+    }
+  }
+
+  Future<void> _generateReport() async {
+    final filePath = await _dataService.generateVehicleReport(_allVehicles);
+    await _dataService.shareExportedFile(filePath, 'Report');
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Vehicle report generated',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: AppColors.successGreen,
+        ),
+      );
+    }
+  }
+
+  void _editVehicleFromCard(Vehicle vehicle) {
+    showDialog(
+      context: context,
+      builder: (context) => EditVehicleDialog(
+        vehicle: vehicle,
+        onVehicleUpdated: (updatedVehicle) {
+          setState(() {
+            // Update the vehicle in the lists
+            final allIndex = _allVehicles.indexWhere((v) => v.id == updatedVehicle.id);
+            if (allIndex != -1) {
+              _allVehicles[allIndex] = updatedVehicle;
+            }
+
+            // Update the filtered vehicles list as well
+            final filteredIndex = _filteredVehicles.indexWhere((v) => v.id == updatedVehicle.id);
+            if (filteredIndex != -1) {
+              _filteredVehicles[filteredIndex] = updatedVehicle;
+            }
+          });
+        },
+      ),
+    );
+  }
+
+  void _deleteVehicleFromCard(Vehicle vehicle) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white, // Explicit white background
+        surfaceTintColor: Colors.white, // Ensure white background
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: AppColors.errorRed),
+            const SizedBox(width: 8),
+            Text(
+              'Delete Vehicle',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                color: AppColors.errorRed,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete this vehicle?',
+              style: GoogleFonts.poppins(fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.backgroundLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    vehicle.fullDisplayName,
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  Text(
+                    'License: ${vehicle.licensePlate}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    'Owner: ${vehicle.customerName}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'This action cannot be undone.',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: AppColors.errorRed,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Implement actual delete functionality
+              setState(() {
+                _allVehicles.removeWhere((v) => v.id == vehicle.id);
+                _filteredVehicles.removeWhere((v) => v.id == vehicle.id);
+              });
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Vehicle "${vehicle.displayName}" deleted successfully',
+                    style: GoogleFonts.poppins(),
+                  ),
+                  backgroundColor: AppColors.successGreen,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.errorRed,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }

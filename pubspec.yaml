@@ -40,6 +40,19 @@ dependencies:
   google_fonts: ^6.2.1
   google_sign_in: ^6.2.1
   flutter_facebook_auth: ^6.1.1
+  # Camera and QR/Barcode scanning
+  camera: ^0.10.5+9
+  mobile_scanner: ^3.5.7
+  # Image handling
+  image_picker: ^1.0.7
+  path_provider: ^2.1.2
+  # Local notifications for maintenance alerts
+  flutter_local_notifications: ^17.0.0
+  # File handling for export/import
+  csv: ^6.0.0
+  share_plus: ^7.2.2
+  # Permission handling
+  permission_handler: ^11.3.0
 
 dev_dependencies:
   flutter_test:

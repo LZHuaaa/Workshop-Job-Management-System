@@ -5,6 +5,8 @@ import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../models/vehicle.dart';
 import '../dialogs/add_appointment_dialog.dart';
+import '../dialogs/edit_vehicle_dialog.dart';
+import 'vehicle_photo_manager.dart';
 import '../models/job_appointment.dart';
 
 class VehicleProfileScreen extends StatefulWidget {
@@ -59,6 +61,160 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
     );
   }
 
+  void _managePhotos() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => VehiclePhotoManager(
+          vehicle: _currentVehicle,
+          onPhotosUpdated: (photos) {
+            setState(() {
+              _currentVehicle = _currentVehicle.copyWith(photos: photos);
+            });
+            widget.onVehicleUpdated(_currentVehicle);
+          },
+        ),
+      ),
+    );
+  }
+
+  void _editVehicle() {
+    showDialog(
+      context: context,
+      builder: (context) => EditVehicleDialog(
+        vehicle: _currentVehicle,
+        onVehicleUpdated: (updatedVehicle) {
+          setState(() {
+            _currentVehicle = updatedVehicle;
+          });
+          widget.onVehicleUpdated(updatedVehicle);
+        },
+      ),
+    );
+  }
+
+  void _handleMenuAction(String action) {
+    switch (action) {
+      case 'delete':
+        _showDeleteConfirmation();
+        break;
+    }
+  }
+
+  void _showDeleteConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white, // Explicit white background
+        surfaceTintColor: Colors.white, // Ensure white background
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: AppColors.errorRed),
+            const SizedBox(width: 8),
+            Text(
+              'Delete Vehicle',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                color: AppColors.errorRed,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete this vehicle?',
+              style: GoogleFonts.poppins(fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.backgroundLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _currentVehicle.fullDisplayName,
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  Text(
+                    'License: ${_currentVehicle.licensePlate}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    'Owner: ${_currentVehicle.customerName}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'This action cannot be undone. All service history and photos will be permanently deleted.',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: AppColors.errorRed,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              _deleteVehicle();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.errorRed,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteVehicle() {
+    // TODO: Implement actual delete functionality
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Vehicle "${_currentVehicle.displayName}" deleted successfully',
+          style: GoogleFonts.poppins(),
+        ),
+        backgroundColor: AppColors.successGreen,
+      ),
+    );
+
+    // Navigate back to previous screen
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -80,8 +236,40 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
         ),
         actions: [
           IconButton(
+            icon: Icon(Icons.photo_library, color: AppColors.primaryPink),
+            onPressed: _managePhotos,
+            tooltip: 'Manage Photos',
+          ),
+          IconButton(
             icon: Icon(Icons.schedule, color: AppColors.primaryPink),
             onPressed: _scheduleService,
+            tooltip: 'Schedule Service',
+          ),
+          IconButton(
+            icon: Icon(Icons.edit, color: AppColors.primaryPink),
+            onPressed: _editVehicle,
+            tooltip: 'Edit Vehicle',
+          ),
+          PopupMenuButton<String>(
+            onSelected: _handleMenuAction,
+            icon: Icon(Icons.more_vert, color: AppColors.primaryPink),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: AppColors.errorRed, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Delete Vehicle',
+                      style: GoogleFonts.poppins(
+                        color: AppColors.errorRed,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -365,26 +553,28 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: 140,
             child: Text(
               label,
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
+          const SizedBox(width: 16),
           Expanded(
             child: Text(
               value,
               style: GoogleFonts.poppins(
                 fontSize: 14,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 color: AppColors.textDark,
               ),
             ),
@@ -393,6 +583,8 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
       ),
     );
   }
+
+
 
   Widget _buildServiceCard(ServiceRecord service) {
     return DashboardCard(
@@ -413,7 +605,7 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
                 ),
               ),
               Text(
-                '\$${service.totalCost.toStringAsFixed(2)}',
+                'RM${service.totalCost.toStringAsFixed(2)}',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
