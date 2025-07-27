@@ -38,13 +38,13 @@ class _AddCommunicationDialogState extends State<AddCommunicationDialog> {
   ];
   final List<String> _directions = ['inbound', 'outbound'];
   final List<String> _staffMembers = [
-    'Ahmad bin Hassan',
-    'Siti Nurhaliza',
+    'Ahmad',
+    'Siti',
     'Lim Wei Ming',
-    'Raj Kumar',
-    'Muhammad Faiz bin Omar',
-    'Tan Mei Ling',
-    'Priya d/o Raman',
+    'Raj',
+    'Faiz',
+    'Mei Ling',
+    'Priya',
   ];
 
   @override
@@ -167,59 +167,59 @@ class _AddCommunicationDialogState extends State<AddCommunicationDialog> {
   Widget build(BuildContext context) {
     return CustomDialog(
       title: 'Log Communication',
-      width: MediaQuery.of(context).size.width * 0.92,
-      height: MediaQuery.of(context).size.height * 0.75,
-      content: LayoutBuilder(
-        builder: (context, constraints) {
-          return Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Communication Type and Direction
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Communication Type',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textDark,
-                            ),
+      width: MediaQuery.of(context).size.width * 0.9,
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Type and Direction in compact row
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Type',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textDark,
                           ),
-                          const SizedBox(height: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: AppColors.textLight),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: DropdownButtonFormField<String>(
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppColors.textLight),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
                               value: _selectedType,
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 12),
-                              ),
+                              isExpanded: true,
                               items: _communicationTypes.map((type) {
                                 return DropdownMenuItem(
                                   value: type,
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
                                         _getTypeIcon(type),
-                                        size: 18,
+                                        size: 14,
                                         color: AppColors.primaryPink,
                                       ),
-                                      const SizedBox(width: 8),
+                                      const SizedBox(width: 4),
                                       Text(
                                         type.toUpperCase(),
                                         style:
-                                            GoogleFonts.poppins(fontSize: 14),
+                                            GoogleFonts.poppins(fontSize: 11),
                                       ),
                                     ],
                                   ),
@@ -232,52 +232,52 @@ class _AddCommunicationDialogState extends State<AddCommunicationDialog> {
                               },
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Direction',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textDark,
-                            ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Direction',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textDark,
                           ),
-                          const SizedBox(height: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: AppColors.textLight),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: DropdownButtonFormField<String>(
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppColors.textLight),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
                               value: _selectedDirection,
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 12),
-                              ),
+                              isExpanded: true,
                               items: _directions.map((direction) {
                                 return DropdownMenuItem(
                                   value: direction,
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
                                         direction == 'inbound'
                                             ? Icons.call_received
                                             : Icons.call_made,
-                                        size: 18,
+                                        size: 14,
                                         color: _getDirectionColor(direction),
                                       ),
-                                      const SizedBox(width: 8),
+                                      const SizedBox(width: 4),
                                       Text(
                                         direction.toUpperCase(),
                                         style:
-                                            GoogleFonts.poppins(fontSize: 14),
+                                            GoogleFonts.poppins(fontSize: 11),
                                       ),
                                     ],
                                   ),
@@ -290,98 +290,100 @@ class _AddCommunicationDialogState extends State<AddCommunicationDialog> {
                               },
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
 
-                const SizedBox(height: 20),
+              const SizedBox(height: 12),
 
-                // Date and Staff Member
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Date & Time',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textDark,
-                            ),
+              // Date and Staff in compact row
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Date',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textDark,
                           ),
-                          const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: _selectDate,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: AppColors.textLight),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.calendar_today,
-                                    size: 18,
-                                    color: AppColors.primaryPink,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    DateFormat('MMM d, y - h:mm a')
-                                        .format(_selectedDate),
-                                    style: GoogleFonts.poppins(fontSize: 14),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Staff Member',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textDark,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
+                        ),
+                        const SizedBox(height: 4),
+                        GestureDetector(
+                          onTap: _selectDate,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 8),
                             decoration: BoxDecoration(
                               border: Border.all(color: AppColors.textLight),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            child: DropdownButtonFormField<String>(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today,
+                                  size: 14,
+                                  color: AppColors.primaryPink,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    DateFormat('MMM d').format(_selectedDate),
+                                    style: GoogleFonts.poppins(fontSize: 11),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Staff',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppColors.textLight),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
                               value: _selectedStaffMember,
+                              isExpanded: true,
                               hint: Text(
-                                'Select staff member',
+                                'Select',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 14,
+                                  fontSize: 11,
                                   color: AppColors.textSecondary,
                                 ),
-                              ),
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 12),
                               ),
                               items: _staffMembers.map((staff) {
                                 return DropdownMenuItem(
                                   value: staff,
                                   child: Text(
                                     staff,
-                                    style: GoogleFonts.poppins(fontSize: 14),
+                                    style: GoogleFonts.poppins(fontSize: 11),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 );
                               }).toList(),
@@ -392,46 +394,102 @@ class _AddCommunicationDialogState extends State<AddCommunicationDialog> {
                               },
                             ),
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // Subject
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Subject',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  TextFormField(
+                    controller: _subjectController,
+                    style: GoogleFonts.poppins(fontSize: 12),
+                    decoration: InputDecoration(
+                      hintText: 'Brief description...',
+                      hintStyle: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: AppColors.textLight),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
                       ),
                     ),
-                  ],
-                ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a subject';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
 
-                const SizedBox(height: 20),
+              const SizedBox(height: 12),
 
-                // Subject
-                CustomTextField(
-                  label: 'Subject',
-                  hint: 'Brief description of the communication...',
-                  controller: _subjectController,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a subject';
-                    }
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 16),
-
-                // Content
-                CustomTextField(
-                  label: 'Details',
-                  hint: 'Detailed notes about the communication...',
-                  controller: _contentController,
-                  maxLines: 4,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter communication details';
-                    }
-                    return null;
-                  },
-                ),
-              ],
-            ),
-          );
-        },
+              // Details
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Details',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  TextFormField(
+                    controller: _contentController,
+                    maxLines: 3,
+                    style: GoogleFonts.poppins(fontSize: 12),
+                    decoration: InputDecoration(
+                      hintText: 'Communication details...',
+                      hintStyle: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: AppColors.textLight),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter details';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
       actions: [
         SecondaryButton(

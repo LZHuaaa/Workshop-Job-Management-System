@@ -759,12 +759,16 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                           children: [
                             Row(
                               children: [
-                                Text(
-                                  customer.fullName,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textDark,
+                                Flexible(
+                                  child: Text(
+                                    customer.fullName,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textDark,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
                                   ),
                                 ),
                                 if (customer.isVip) ...[
@@ -794,6 +798,8 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
                               ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           ],
                         ),

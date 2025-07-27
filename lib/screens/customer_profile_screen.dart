@@ -5,8 +5,10 @@ import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../models/customer.dart';
 import '../models/vehicle.dart';
+import '../models/service_record.dart' as service;
 import '../dialogs/add_communication_dialog.dart';
 import '../dialogs/edit_customer_dialog.dart';
+import '../dialogs/add_service_dialog.dart';
 
 class CustomerProfileScreen extends StatefulWidget {
   final Customer customer;
@@ -50,6 +52,23 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
             _currentCustomer = updatedCustomer;
           });
           widget.onCustomerUpdated(updatedCustomer);
+        },
+      ),
+    );
+  }
+
+  void _showAddServiceDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AddServiceDialog(
+        customer: _currentCustomer,
+        onServiceAdded: (newService) {
+          setState(() {
+            _currentCustomer = _currentCustomer.copyWith(
+              serviceHistory: [..._currentCustomer.serviceHistory, newService],
+            );
+          });
+          widget.onCustomerUpdated(_currentCustomer);
         },
       ),
     );
@@ -404,47 +423,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              // Quick Action Buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildQuickActionButton(
-                      'Call',
-                      Icons.phone,
-                      AppColors.primaryPink,
-                      () => _quickCommunication('call'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildQuickActionButton(
-                      'Email',
-                      Icons.email,
-                      AppColors.infoBlue,
-                      () => _quickCommunication('email'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildQuickActionButton(
-                      'Text',
-                      Icons.sms,
-                      AppColors.successGreen,
-                      () => _quickCommunication('text'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildQuickActionButton(
-                      'Meeting',
-                      Icons.person,
-                      AppColors.warningOrange,
-                      () => _quickCommunication('in-person'),
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
@@ -501,9 +479,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
 
   Widget _buildServiceHistoryTab() {
     // Get service history from customer's vehicles
-    final serviceHistory = <ServiceRecord>[];
+    final serviceHistory = _currentCustomer.serviceHistory;
 
-    // In a real implementation, you would fetch service records for this customer's vehicles
+    // Display customer's actual service history
     // For now, we'll show an empty state with proper styling
 
     return Padding(
@@ -523,18 +501,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
               ),
               const Spacer(),
               ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Navigate to add service record
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Add Service Record functionality coming soon',
-                        style: GoogleFonts.poppins(fontSize: 14),
-                      ),
-                      backgroundColor: AppColors.primaryPink,
-                    ),
-                  );
-                },
+                onPressed: () => _showAddServiceDialog(),
                 icon: const Icon(Icons.add, size: 18),
                 label: Text(
                   'Add Service',
@@ -617,18 +584,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: () {
-              // TODO: Navigate to add service record
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Add Service Record functionality coming soon',
-                    style: GoogleFonts.poppins(fontSize: 14),
-                  ),
-                  backgroundColor: AppColors.primaryPink,
-                ),
-              );
-            },
+            onPressed: () => _showAddServiceDialog(),
             icon: const Icon(Icons.add, size: 20),
             label: Text(
               'Add First Service Record',
@@ -652,7 +608,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
     );
   }
 
-  Widget _buildServiceCard(ServiceRecord service) {
+  Widget _buildServiceCard(service.ServiceRecord serviceRecord) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -679,7 +635,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  service.serviceType,
+                  serviceRecord.serviceType,
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
@@ -689,7 +645,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
               ),
               const Spacer(),
               Text(
-                DateFormat('MMM dd, yyyy').format(service.date),
+                DateFormat('MMM dd, yyyy').format(serviceRecord.serviceDate),
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   color: AppColors.textSecondary,
@@ -699,7 +655,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
           ),
           const SizedBox(height: 12),
           Text(
-            service.description,
+            serviceRecord.description,
             style: GoogleFonts.poppins(
               fontSize: 14,
               color: AppColors.textDark,
@@ -708,12 +664,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildServiceDetail('Mileage', '${service.mileage} km'),
+              _buildServiceDetail('Mileage', '${serviceRecord.mileage} km'),
               const SizedBox(width: 20),
               _buildServiceDetail(
-                  'Cost', 'RM ${service.totalCost.toStringAsFixed(2)}'),
+                  'Cost', 'RM ${serviceRecord.cost.toStringAsFixed(2)}'),
               const Spacer(),
-              _buildServiceDetail('Mechanic', service.mechanicName),
+              _buildServiceDetail('Mechanic', serviceRecord.mechanicName),
             ],
           ),
         ],
@@ -978,49 +934,5 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
       );
     });
     widget.onCustomerUpdated(_currentCustomer);
-  }
-
-  void _quickCommunication(String type) {
-    showDialog(
-      context: context,
-      builder: (context) => AddCommunicationDialog(
-        customer: _currentCustomer,
-        onCommunicationAdded: _addCommunication,
-      ),
-    );
-  }
-
-  Widget _buildQuickActionButton(
-    String label,
-    IconData icon,
-    Color color,
-    VoidCallback onPressed,
-  ) {
-    return SizedBox(
-      height: 44, // Fixed height for consistency
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 16),
-        label: Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          minimumSize: const Size(0, 44), // Ensure minimum size
-        ),
-      ),
-    );
   }
 }
