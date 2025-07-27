@@ -1,12 +1,4 @@
-import 'package:flutter/foundation.dart';
-
-enum InvoiceStatus {
-  draft,
-  pending,
-  approved,
-  paid,
-  cancelled
-}
+enum InvoiceStatus { draft, pending, approved, paid, cancelled }
 
 class InvoiceItem {
   final String id;
@@ -110,4 +102,4 @@ class Invoice {
       notes: json['notes'] as String?,
     );
   }
-} 
+}

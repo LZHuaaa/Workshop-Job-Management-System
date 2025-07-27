@@ -7,6 +7,7 @@ import '../widgets/dashboard_card.dart';
 import '../models/customer.dart';
 import '../screens/customer_profile_screen.dart';
 import '../dialogs/add_customer_dialog.dart';
+import '../services/crm_analytics_service.dart';
 
 class CrmScreen extends StatefulWidget {
   const CrmScreen({super.key});
@@ -195,7 +196,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -300,7 +301,8 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                             side: BorderSide(
                               color: isSelected
                                   ? AppColors.primaryPink
-                                  : AppColors.textSecondary.withOpacity(0.3),
+                                  : AppColors.textSecondary
+                                      .withValues(alpha: 0.3),
                             ),
                           ),
                         );
@@ -348,47 +350,6 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(
-      String title, String value, Color color, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            color: color,
-            size: 20,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              color: AppColors.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
       ),
     );
   }
@@ -463,124 +424,172 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildAnalyticsTab() {
+    final analytics = CrmAnalyticsService.calculateAnalytics(_allCustomers);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
+          // Key Performance Indicators
+          _buildKpiRow(analytics),
+          const SizedBox(height: 20),
+
+          // Customer Lifecycle Analysis
+          _buildCustomerLifecycleCard(analytics),
+          const SizedBox(height: 20),
+
+          // Communication Analytics
+          _buildCommunicationAnalyticsCard(analytics),
+          const SizedBox(height: 20),
+
           // Customer Growth Chart
-          DashboardCard(
-            title: 'Customer Growth',
-            child: SizedBox(
-              height: 200,
-              child: LineChart(
-                LineChartData(
-                  gridData: FlGridData(show: false),
-                  titlesData: FlTitlesData(show: false),
-                  borderData: FlBorderData(show: false),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: [
-                        FlSpot(0, 10),
-                        FlSpot(1, 15),
-                        FlSpot(2, 25),
-                        FlSpot(3, 30),
-                        FlSpot(4, 45),
-                        FlSpot(5, 60),
-                      ],
-                      isCurved: true,
-                      color: AppColors.primaryPink,
-                      barWidth: 3,
-                      dotData: FlDotData(show: false),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: AppColors.primaryPink.withOpacity(0.1),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          _buildCustomerGrowthCard(analytics),
           const SizedBox(height: 20),
 
           // Customer Segmentation
-          DashboardCard(
-            title: 'Customer Segmentation',
-            child: SizedBox(
-              height: 200,
-              child: PieChart(
-                PieChartData(
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 40,
-                  sections: [
-                    PieChartSectionData(
-                      color: AppColors.primaryPink,
-                      value:
-                          _allCustomers.where((c) => c.isVip).length.toDouble(),
-                      title: 'VIP',
-                      radius: 50,
-                      titleStyle: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                    PieChartSectionData(
-                      color: AppColors.accentPink,
-                      value: _allCustomers
-                          .where((c) => !c.isVip && c.visitCount > 0)
-                          .length
-                          .toDouble(),
-                      title: 'Regular',
-                      radius: 50,
-                      titleStyle: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                    PieChartSectionData(
-                      color: AppColors.lightPink,
-                      value: _allCustomers
-                          .where((c) => c.visitCount == 0)
-                          .length
-                          .toDouble(),
-                      title: 'New',
-                      radius: 50,
-                      titleStyle: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          _buildCustomerSegmentationCard(analytics),
           const SizedBox(height: 20),
 
-          // Key Metrics
+          // Top Customers
+          _buildTopCustomersCard(analytics),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKpiRow(CrmAnalytics analytics) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _buildMetricCard(
+              'Total Customers',
+              analytics.totalCustomers.toString(),
+              Icons.people,
+              AppColors.primaryPink,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildMetricCard(
+              'Total Revenue',
+              'RM${analytics.totalRevenue.toStringAsFixed(0)}',
+              Icons.monetization_on,
+              AppColors.successGreen,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildMetricCard(
+              'Avg. Spend',
+              'RM${analytics.averageSpend.toStringAsFixed(2)}',
+              Icons.trending_up,
+              AppColors.infoBlue,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildMetricCard(
+              'Retention Rate',
+              '${analytics.retentionRate.toStringAsFixed(1)}%',
+              Icons.repeat,
+              AppColors.warningOrange,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomerLifecycleCard(CrmAnalytics analytics) {
+    return DashboardCard(
+      title: 'Customer Lifecycle Analysis',
+      child: Column(
+        children: [
           Row(
             children: [
               Expanded(
-                child: _buildMetricCard(
-                  'Avg. Spend',
-                  'RM${(_allCustomers.fold(0.0, (sum, c) => sum + c.totalSpent) / _allCustomers.length).toStringAsFixed(2)}',
-                  Icons.monetization_on,
-                  AppColors.primaryPink,
+                child: _buildLifecycleMetric(
+                  'Active',
+                  analytics.activeCustomers,
+                  analytics.totalCustomers,
+                  AppColors.successGreen,
+                  'Last 90 days',
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _buildMetricCard(
-                  'Retention Rate',
-                  '${((_allCustomers.where((c) => c.visitCount > 1).length / _allCustomers.length) * 100).toStringAsFixed(1)}%',
-                  Icons.repeat,
-                  AppColors.successGreen,
+                child: _buildLifecycleMetric(
+                  'Dormant',
+                  analytics.dormantCustomers,
+                  analytics.totalCustomers,
+                  AppColors.warningOrange,
+                  '90-365 days',
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildLifecycleMetric(
+                  'Lost',
+                  analytics.lostCustomers,
+                  analytics.totalCustomers,
+                  AppColors.errorRed,
+                  '365+ days',
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLifecycleMetric(
+      String label, int count, int total, Color color, String subtitle) {
+    final percentage = total > 0 ? (count / total * 100) : 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            count.toString(),
+            style: GoogleFonts.poppins(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textDark,
+            ),
+          ),
+          Text(
+            '${percentage.toStringAsFixed(1)}%',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              color: AppColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -596,7 +605,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -611,7 +620,8 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                 children: [
                   CircleAvatar(
                     radius: 25,
-                    backgroundColor: AppColors.primaryPink.withOpacity(0.1),
+                    backgroundColor:
+                        AppColors.primaryPink.withValues(alpha: 0.1),
                     child: Text(
                       customer.firstName[0] + customer.lastName[0],
                       style: GoogleFonts.poppins(
@@ -796,7 +806,8 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                           ),
                           Text(
                             customer.lastVisit != null
-                                ? DateFormat('MMM d, y').format(customer.lastVisit!)
+                                ? DateFormat('MMM d, y')
+                                    .format(customer.lastVisit!)
                                 : 'No payments',
                             style: GoogleFonts.poppins(
                               fontSize: 14,
@@ -816,6 +827,146 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildCommunicationAnalyticsCard(CrmAnalytics analytics) {
+    return DashboardCard(
+      title: 'Communication Analytics',
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildCommMetric(
+                  'Total Communications',
+                  analytics.totalCommunications.toString(),
+                  Icons.chat,
+                  AppColors.primaryPink,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildCommMetric(
+                  'Engagement Rate',
+                  '${analytics.communicationEngagementRate.toStringAsFixed(1)}%',
+                  Icons.trending_up,
+                  AppColors.successGreen,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (analytics.communicationsByType.isNotEmpty) ...[
+            Text(
+              'Communication Types',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: analytics.communicationsByType.entries.map((entry) {
+                return _buildCommTypeChip(entry.key, entry.value);
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommMetric(
+      String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommTypeChip(String type, int count) {
+    final color = _getCommTypeColor(type);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_getCommTypeIcon(type), size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            '${type.toUpperCase()}: $count',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getCommTypeColor(String type) {
+    switch (type.toLowerCase()) {
+      case 'call':
+        return AppColors.primaryPink;
+      case 'email':
+        return AppColors.infoBlue;
+      case 'text':
+        return AppColors.successGreen;
+      case 'in-person':
+        return AppColors.warningOrange;
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
+  IconData _getCommTypeIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'call':
+        return Icons.phone;
+      case 'email':
+        return Icons.email;
+      case 'text':
+        return Icons.sms;
+      case 'in-person':
+        return Icons.person;
+      default:
+        return Icons.chat;
+    }
+  }
+
   void _showCustomerDetails(Customer customer) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -823,6 +974,278 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
           customer: customer,
           onCustomerUpdated: _updateCustomer,
         ),
+      ),
+    );
+  }
+
+  Widget _buildCustomerGrowthCard(CrmAnalytics analytics) {
+    return DashboardCard(
+      title: 'Customer Growth Trend',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Subtitle with time period info
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text(
+              'Last 12 months customer acquisition',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+          // Chart
+          SizedBox(
+            height: 240,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16, top: 16, bottom: 16),
+              child: LineChart(
+                LineChartData(
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                horizontalInterval: 1,
+                getDrawingHorizontalLine: (value) {
+                  return FlLine(
+                    color: AppColors.textSecondary.withValues(alpha: 0.1),
+                    strokeWidth: 1,
+                  );
+                },
+              ),
+              titlesData: FlTitlesData(
+                show: true,
+                rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 30,
+                    interval: 2,
+                    getTitlesWidget: (double value, TitleMeta meta) {
+                      if (value.toInt() >= 0 &&
+                          value.toInt() < analytics.growthData.length) {
+                        final monthData = analytics.growthData[value.toInt()];
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            DateFormat('MMM').format(monthData.month),
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      }
+                      return const Text('');
+                    },
+                  ),
+                ),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 40,
+                    interval: analytics.growthData.isNotEmpty
+                        ? (analytics.growthData
+                                    .map((e) => e.customerCount)
+                                    .reduce((a, b) => a > b ? a : b) /
+                                4)
+                            .ceilToDouble()
+                        : 1,
+                    getTitlesWidget: (double value, TitleMeta meta) {
+                      return Text(
+                        value.toInt().toString(),
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              borderData: FlBorderData(
+                show: true,
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppColors.textSecondary.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                  left: BorderSide(
+                    color: AppColors.textSecondary.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+              ),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: analytics.growthData.asMap().entries.map((entry) {
+                    return FlSpot(entry.key.toDouble(),
+                        entry.value.customerCount.toDouble());
+                  }).toList(),
+                  isCurved: true,
+                  color: AppColors.primaryPink,
+                  barWidth: 3,
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, barData, index) {
+                      return FlDotCirclePainter(
+                        radius: 3,
+                        color: AppColors.primaryPink,
+                        strokeWidth: 2,
+                        strokeColor: Colors.white,
+                      );
+                    },
+                  ),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    color: AppColors.primaryPink.withValues(alpha: 0.1),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomerSegmentationCard(CrmAnalytics analytics) {
+    return DashboardCard(
+      title: 'Customer Segmentation',
+      child: SizedBox(
+        height: 200,
+        child: PieChart(
+          PieChartData(
+            sectionsSpace: 2,
+            centerSpaceRadius: 40,
+            sections: [
+              PieChartSectionData(
+                color: AppColors.primaryPink,
+                value: analytics.vipCustomers.toDouble(),
+                title: 'VIP',
+                radius: 50,
+                titleStyle: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              PieChartSectionData(
+                color: AppColors.accentPink,
+                value: analytics.regularCustomers.toDouble(),
+                title: 'Regular',
+                radius: 50,
+                titleStyle: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              PieChartSectionData(
+                color: AppColors.lightPink,
+                value: analytics.newCustomers.toDouble(),
+                title: 'New',
+                radius: 50,
+                titleStyle: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopCustomersCard(CrmAnalytics analytics) {
+    return DashboardCard(
+      title: 'Top Customers by Spend',
+      child: Column(
+        children: analytics.topCustomers.isEmpty
+            ? [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                    'No customer data available',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ]
+            : analytics.topCustomers.map((customer) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.backgroundLight,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.primaryPink.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor:
+                            AppColors.primaryPink.withValues(alpha: 0.1),
+                        child: Text(
+                          customer.firstName[0] + customer.lastName[0],
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryPink,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              customer.fullName,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textDark,
+                              ),
+                            ),
+                            Text(
+                              '${customer.visitCount} visits',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        'RM${customer.totalSpent.toStringAsFixed(2)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryPink,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
       ),
     );
   }
@@ -885,40 +1308,58 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
   Widget _buildMetricCard(
       String title, String value, IconData icon, Color color) {
     return Container(
+      height: 120, // Fixed height for consistency
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            color: color,
-            size: 24,
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 20,
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             value,
             style: GoogleFonts.poppins(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
               color: AppColors.textDark,
             ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
+          const SizedBox(height: 4),
           Text(
             title,
             style: GoogleFonts.poppins(
-              fontSize: 12,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
               color: AppColors.textSecondary,
             ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

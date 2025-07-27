@@ -27,7 +27,8 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: SegmentedButton<int>(
               selected: {_selectedView},
               onSelectionChanged: (Set<int> newSelection) {
@@ -36,17 +37,17 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
                 });
               },
               style: ButtonStyle(
-                backgroundColor: MaterialStateProperty.resolveWith<Color>(
-                  (Set<MaterialState> states) {
-                    if (states.contains(MaterialState.selected)) {
+                backgroundColor: WidgetStateProperty.resolveWith<Color>(
+                  (Set<WidgetState> states) {
+                    if (states.contains(WidgetState.selected)) {
                       return AppColors.primaryPink;
                     }
                     return Colors.transparent;
                   },
                 ),
-                foregroundColor: MaterialStateProperty.resolveWith<Color>(
-                  (Set<MaterialState> states) {
-                    if (states.contains(MaterialState.selected)) {
+                foregroundColor: WidgetStateProperty.resolveWith<Color>(
+                  (Set<WidgetState> states) {
+                    if (states.contains(WidgetState.selected)) {
                       return Colors.white;
                     }
                     return AppColors.textDark;
@@ -105,7 +106,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
@@ -117,17 +118,18 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
                 TextField(
                   decoration: InputDecoration(
                     hintText: 'Search invoices...',
-                    prefixIcon: Icon(Icons.search, color: AppColors.textSecondary),
+                    prefixIcon:
+                        Icon(Icons.search, color: AppColors.textSecondary),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(
-                        color: AppColors.textSecondary.withOpacity(0.2),
+                        color: AppColors.textSecondary.withValues(alpha: 0.2),
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(
-                        color: AppColors.textSecondary.withOpacity(0.2),
+                        color: AppColors.textSecondary.withValues(alpha: 0.2),
                       ),
                     ),
                   ),
@@ -167,7 +169,9 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
                   customerName: 'Customer ${index + 1}',
                   amount: (1000 + index * 100).toDouble(),
                   date: DateTime.now().subtract(Duration(days: index)),
-                  status: index % 3 == 0 ? 'Paid' : (index % 3 == 1 ? 'Pending' : 'Overdue'),
+                  status: index % 3 == 0
+                      ? 'Paid'
+                      : (index % 3 == 1 ? 'Pending' : 'Overdue'),
                 );
               },
             ),
@@ -295,7 +299,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
         side: BorderSide(
           color: isSelected
               ? AppColors.primaryPink
-              : AppColors.textSecondary.withOpacity(0.3),
+              : AppColors.textSecondary.withValues(alpha: 0.3),
         ),
       ),
     );
@@ -328,7 +332,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border.all(
-          color: AppColors.textSecondary.withOpacity(0.1),
+          color: AppColors.textSecondary.withValues(alpha: 0.1),
         ),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -580,4 +584,4 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
       ],
     );
   }
-} 
+}
