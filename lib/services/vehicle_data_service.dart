@@ -331,7 +331,7 @@ class VehicleDataService {
     buffer.writeln('DETAILED VEHICLE LIST');
     buffer.writeln('-' * 25);
     for (final vehicle in vehicles) {
-      buffer.writeln('${vehicle.displayName}');
+      buffer.writeln(vehicle.displayName);
       buffer.writeln('  License Plate: ${vehicle.licensePlate}');
       buffer.writeln('  VIN: ${vehicle.vin}');
       buffer.writeln('  Customer: ${vehicle.customerName}');

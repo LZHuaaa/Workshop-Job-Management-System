@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/invoice.dart';
-import '../theme/app_colors.dart';
 
 class InvoiceDetailsScreen extends StatefulWidget {
   final Invoice? invoice; // null for create new invoice

@@ -23,7 +23,7 @@ class VehiclePhotoManager extends StatefulWidget {
 class _VehiclePhotoManagerState extends State<VehiclePhotoManager> {
   final ImagePicker _picker = ImagePicker();
   List<String> _photos = [];
-  bool _isLoading = false;
+  final bool _isLoading = false;
 
   @override
   void initState() {

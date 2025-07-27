@@ -7,7 +7,6 @@ import '../models/vehicle.dart';
 import '../dialogs/add_appointment_dialog.dart';
 import '../dialogs/edit_vehicle_dialog.dart';
 import 'vehicle_photo_manager.dart';
-import '../models/job_appointment.dart';
 
 class VehicleProfileScreen extends StatefulWidget {
   final Vehicle vehicle;

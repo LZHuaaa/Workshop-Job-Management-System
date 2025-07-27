@@ -36,7 +36,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   ];
 
   // Sample inventory data
-  List<InventoryItem> _allItems = [
+  final List<InventoryItem> _allItems = [
     InventoryItem(
       id: '1',
       name: 'Engine Oil Filter',

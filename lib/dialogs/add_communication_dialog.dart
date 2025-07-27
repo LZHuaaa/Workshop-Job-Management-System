@@ -167,263 +167,271 @@ class _AddCommunicationDialogState extends State<AddCommunicationDialog> {
   Widget build(BuildContext context) {
     return CustomDialog(
       title: 'Log Communication',
-      width: MediaQuery.of(context).size.width * 0.95,
-      content: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Communication Type and Direction
-            Row(
+      width: MediaQuery.of(context).size.width * 0.92,
+      height: MediaQuery.of(context).size.height * 0.75,
+      content: LayoutBuilder(
+        builder: (context, constraints) {
+          return Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Communication Type',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.textLight),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedType,
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
+                // Communication Type and Direction
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Communication Type',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textDark,
+                            ),
                           ),
-                          items: _communicationTypes.map((type) {
-                            return DropdownMenuItem(
-                              value: type,
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.textLight),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedType,
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                              ),
+                              items: _communicationTypes.map((type) {
+                                return DropdownMenuItem(
+                                  value: type,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _getTypeIcon(type),
+                                        size: 18,
+                                        color: AppColors.primaryPink,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        type.toUpperCase(),
+                                        style:
+                                            GoogleFonts.poppins(fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedType = value!;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Direction',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.textLight),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedDirection,
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                              ),
+                              items: _directions.map((direction) {
+                                return DropdownMenuItem(
+                                  value: direction,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        direction == 'inbound'
+                                            ? Icons.call_received
+                                            : Icons.call_made,
+                                        size: 18,
+                                        color: _getDirectionColor(direction),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        direction.toUpperCase(),
+                                        style:
+                                            GoogleFonts.poppins(fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedDirection = value!;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                // Date and Staff Member
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Date & Time',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: _selectDate,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: AppColors.textLight),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               child: Row(
                                 children: [
                                   Icon(
-                                    _getTypeIcon(type),
+                                    Icons.calendar_today,
                                     size: 18,
                                     color: AppColors.primaryPink,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    type.toUpperCase(),
+                                    DateFormat('MMM d, y - h:mm a')
+                                        .format(_selectedDate),
                                     style: GoogleFonts.poppins(fontSize: 14),
                                   ),
                                 ],
                               ),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedType = value!;
-                            });
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Direction',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.textLight),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedDirection,
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                          ),
-                          items: _directions.map((direction) {
-                            return DropdownMenuItem(
-                              value: direction,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    direction == 'inbound'
-                                        ? Icons.call_received
-                                        : Icons.call_made,
-                                    size: 18,
-                                    color: _getDirectionColor(direction),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    direction.toUpperCase(),
-                                    style: GoogleFonts.poppins(fontSize: 14),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedDirection = value!;
-                            });
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // Date and Staff Member
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Date & Time',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: _selectDate,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppColors.textLight),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.calendar_today,
-                                size: 18,
-                                color: AppColors.primaryPink,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                DateFormat('MMM d, y - h:mm a')
-                                    .format(_selectedDate),
-                                style: GoogleFonts.poppins(fontSize: 14),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Staff Member',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.textLight),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedStaffMember,
-                          hint: Text(
-                            'Select staff member',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: AppColors.textSecondary,
                             ),
                           ),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                          ),
-                          items: _staffMembers.map((staff) {
-                            return DropdownMenuItem(
-                              value: staff,
-                              child: Text(
-                                staff,
-                                style: GoogleFonts.poppins(fontSize: 14),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedStaffMember = value;
-                            });
-                          },
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Staff Member',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.textLight),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedStaffMember,
+                              hint: Text(
+                                'Select staff member',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                              ),
+                              items: _staffMembers.map((staff) {
+                                return DropdownMenuItem(
+                                  value: staff,
+                                  child: Text(
+                                    staff,
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedStaffMember = value;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                // Subject
+                CustomTextField(
+                  label: 'Subject',
+                  hint: 'Brief description of the communication...',
+                  controller: _subjectController,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a subject';
+                    }
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // Content
+                CustomTextField(
+                  label: 'Details',
+                  hint: 'Detailed notes about the communication...',
+                  controller: _contentController,
+                  maxLines: 4,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter communication details';
+                    }
+                    return null;
+                  },
                 ),
               ],
             ),
-
-            const SizedBox(height: 20),
-
-            // Subject
-            CustomTextField(
-              label: 'Subject',
-              hint: 'Brief description of the communication...',
-              controller: _subjectController,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter a subject';
-                }
-                return null;
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Content
-            CustomTextField(
-              label: 'Details',
-              hint: 'Detailed notes about the communication...',
-              controller: _contentController,
-              maxLines: 4,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter communication details';
-                }
-                return null;
-              },
-            ),
-          ],
-        ),
+          );
+        },
       ),
       actions: [
         SecondaryButton(

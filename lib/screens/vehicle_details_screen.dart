@@ -31,7 +31,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
   bool _hasActiveFilters = false;
 
   // Sample vehicle data
-  List<Vehicle> _vehicles = [
+  final List<Vehicle> _vehicles = [
     Vehicle(
       id: '1',
       make: 'Proton',

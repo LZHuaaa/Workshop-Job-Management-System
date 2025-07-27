@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../theme/app_colors.dart';
-import '../models/invoice.dart';
 import '../widgets/dashboard_card.dart';
 
 class InvoiceScreen extends StatefulWidget {

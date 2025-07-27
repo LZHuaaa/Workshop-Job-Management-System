@@ -1,6 +1,5 @@
 // This is a basic Flutter widget test for the Greenstem Workshop Manager app.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:assignment/main.dart';

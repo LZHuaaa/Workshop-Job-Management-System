@@ -5,8 +5,10 @@ import 'package:fl_chart/fl_chart.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../models/customer.dart';
+import '../models/service_record.dart';
 import '../screens/customer_profile_screen.dart';
 import '../dialogs/add_customer_dialog.dart';
+import '../dialogs/edit_customer_dialog.dart';
 import '../services/crm_analytics_service.dart';
 
 class CrmScreen extends StatefulWidget {
@@ -29,7 +31,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
   ];
 
   // Sample customer data
-  List<Customer> _allCustomers = [
+  final List<Customer> _allCustomers = [
     Customer(
       id: '1',
       firstName: 'Ahmad',
@@ -60,6 +62,44 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
           content: 'Called to remind about upcoming oil change',
           direction: 'outbound',
           staffMember: 'Siti',
+        ),
+      ],
+      serviceHistory: [
+        ServiceRecord(
+          id: 's1',
+          customerId: '1',
+          vehicleId: 'v1',
+          serviceDate: DateTime.now().subtract(const Duration(days: 30)),
+          serviceType: 'Oil Change',
+          description:
+              'Regular maintenance - Engine oil and filter replacement',
+          servicesPerformed: ['Oil Change', 'Oil Filter', 'Basic Inspection'],
+          cost: 85.50,
+          mechanicName: 'Lim Wei Ming',
+          status: ServiceStatus.completed,
+          nextServiceDue: DateTime.now().add(const Duration(days: 90)),
+          mileage: 45000,
+          partsReplaced: ['Oil Filter'],
+          notes: 'Customer prefers synthetic oil',
+        ),
+        ServiceRecord(
+          id: 's2',
+          customerId: '1',
+          vehicleId: 'v1',
+          serviceDate: DateTime.now().subtract(const Duration(days: 120)),
+          serviceType: 'Brake Service',
+          description: 'Front brake pads replacement and brake fluid flush',
+          servicesPerformed: [
+            'Brake Pad Replacement',
+            'Brake Fluid Flush',
+            'Brake Inspection'
+          ],
+          cost: 280.75,
+          mechanicName: 'Ahmad bin Hassan',
+          status: ServiceStatus.completed,
+          mileage: 43500,
+          partsReplaced: ['Front Brake Pads', 'Brake Fluid'],
+          notes: 'Brake pads were at 20% thickness',
         ),
       ],
       notes: 'Prefers synthetic oil, always on time for appointments',
@@ -93,6 +133,28 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
           content: 'Transmission service completed successfully',
           direction: 'outbound',
           staffMember: 'Raj',
+        ),
+      ],
+      serviceHistory: [
+        ServiceRecord(
+          id: 's3',
+          customerId: '2',
+          vehicleId: 'v2',
+          serviceDate: DateTime.now().subtract(const Duration(days: 95)),
+          serviceType: 'Transmission Service',
+          description:
+              'Automatic transmission fluid change and filter replacement',
+          servicesPerformed: [
+            'ATF Change',
+            'Transmission Filter',
+            'Transmission Inspection'
+          ],
+          cost: 195.25,
+          mechanicName: 'Raj Kumar',
+          status: ServiceStatus.completed,
+          mileage: 62000,
+          partsReplaced: ['Transmission Filter', 'ATF'],
+          notes: 'Transmission was due for service',
         ),
       ],
     ),
@@ -458,47 +520,104 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildKpiRow(CrmAnalytics analytics) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: _buildMetricCard(
-              'Total Customers',
-              analytics.totalCustomers.toString(),
-              Icons.people,
-              AppColors.primaryPink,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Use different layouts based on available width
+        if (constraints.maxWidth < 600) {
+          // Stack vertically on smaller screens
+          return Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildMetricCard(
+                      'Customers',
+                      '${analytics.totalCustomers}',
+                      Icons.people,
+                      AppColors.primaryPink,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildMetricCard(
+                      'Revenue',
+                      'RM${(analytics.totalRevenue / 1000).toStringAsFixed(0)}k',
+                      Icons.monetization_on,
+                      AppColors.successGreen,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildMetricCard(
+                      'Avg. Spend',
+                      'RM${analytics.averageSpend.toStringAsFixed(0)}',
+                      Icons.trending_up,
+                      AppColors.infoBlue,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildMetricCard(
+                      'Retention',
+                      '${analytics.retentionRate.toStringAsFixed(0)}%',
+                      Icons.repeat,
+                      AppColors.warningOrange,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        } else {
+          // Single row for larger screens
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _buildMetricCard(
+                    'Total Customers',
+                    analytics.totalCustomers.toString(),
+                    Icons.people,
+                    AppColors.primaryPink,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildMetricCard(
+                    'Total Revenue',
+                    'RM${analytics.totalRevenue.toStringAsFixed(0)}',
+                    Icons.monetization_on,
+                    AppColors.successGreen,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildMetricCard(
+                    'Avg. Spend',
+                    'RM${analytics.averageSpend.toStringAsFixed(2)}',
+                    Icons.trending_up,
+                    AppColors.infoBlue,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildMetricCard(
+                    'Retention Rate',
+                    '${analytics.retentionRate.toStringAsFixed(1)}%',
+                    Icons.repeat,
+                    AppColors.warningOrange,
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildMetricCard(
-              'Total Revenue',
-              'RM${analytics.totalRevenue.toStringAsFixed(0)}',
-              Icons.monetization_on,
-              AppColors.successGreen,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildMetricCard(
-              'Avg. Spend',
-              'RM${analytics.averageSpend.toStringAsFixed(2)}',
-              Icons.trending_up,
-              AppColors.infoBlue,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildMetricCard(
-              'Retention Rate',
-              '${analytics.retentionRate.toStringAsFixed(1)}%',
-              Icons.repeat,
-              AppColors.warningOrange,
-            ),
-          ),
-        ],
-      ),
+          );
+        }
+      },
     );
   }
 
@@ -611,217 +730,245 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 25,
-                    backgroundColor:
-                        AppColors.primaryPink.withValues(alpha: 0.1),
-                    child: Text(
-                      customer.firstName[0] + customer.lastName[0],
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primaryPink,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              customer.fullName,
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textDark,
-                              ),
-                            ),
-                            if (customer.isVip) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.accentPink,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'VIP',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        Text(
-                          customer.email,
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 25,
+                        backgroundColor:
+                            AppColors.primaryPink.withValues(alpha: 0.1),
+                        child: Text(
+                          customer.firstName[0] + customer.lastName[0],
                           style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryPink,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'RM${customer.totalSpent.toStringAsFixed(2)}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryPink,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  customer.fullName,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textDark,
+                                  ),
+                                ),
+                                if (customer.isVip) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accentPink,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      'VIP',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            Text(
+                              customer.email,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                      Padding(
+                        padding: const EdgeInsets.only(
+                            right: 40), // Space for edit button
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              'RM${customer.totalSpent.toStringAsFixed(2)}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primaryPink,
+                              ),
+                            ),
+                            Text(
+                              '${customer.visitCount} visits',
+                              style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.phone,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 8),
                       Text(
-                        '${customer.visitCount} visits',
+                        customer.phone,
                         style: GoogleFonts.poppins(
-                          fontSize: 10,
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        customer.lastVisit != null
+                            ? 'Last visit: ${DateFormat('MMM d').format(customer.lastVisit!)}'
+                            : 'No visits yet',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
                           color: AppColors.textSecondary,
                         ),
                       ),
                     ],
                   ),
+                  if (customer.vehicleIds.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.softPink,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.directions_car,
+                            size: 16,
+                            color: AppColors.primaryPink,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${customer.vehicleIds.length} vehicle${customer.vehicleIds.length != 1 ? 's' : ''}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: AppColors.primaryPink,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (customer.totalSpent > 0) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.backgroundLight,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Total Spent',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              Text(
+                                'RM ${customer.totalSpent.toStringAsFixed(2)}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primaryPink,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                'Last Payment',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              Text(
+                                customer.lastVisit != null
+                                    ? DateFormat('MMM d, y')
+                                        .format(customer.lastVisit!)
+                                    : 'No payments',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: AppColors.textDark,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Icon(
-                    Icons.phone,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    customer.phone,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Icon(
-                    Icons.calendar_today,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    customer.lastVisit != null
-                        ? 'Last visit: ${DateFormat('MMM d').format(customer.lastVisit!)}'
-                        : 'No visits yet',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-              if (customer.vehicleIds.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Container(
+            ),
+            // Edit button
+            Positioned(
+              top: 8,
+              right: 8,
+              child: GestureDetector(
+                onTap: () {
+                  _showEditCustomerDialog(customer);
+                },
+                child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.softPink,
+                    color: AppColors.primaryPink.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.directions_car,
-                        size: 16,
-                        color: AppColors.primaryPink,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${customer.vehicleIds.length} vehicle${customer.vehicleIds.length != 1 ? 's' : ''}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: AppColors.primaryPink,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+                  child: Icon(
+                    Icons.edit,
+                    size: 16,
+                    color: AppColors.primaryPink,
                   ),
                 ),
-              ],
-
-              // Add a summary of recent invoices
-              if (customer.totalSpent > 0) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.backgroundLight,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Total Spent',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          Text(
-                            'RM ${customer.totalSpent.toStringAsFixed(2)}',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryPink,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            'Last Payment',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          Text(
-                            customer.lastVisit != null
-                                ? DateFormat('MMM d, y')
-                                    .format(customer.lastVisit!)
-                                : 'No payments',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: AppColors.textDark,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1003,116 +1150,118 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
               padding: const EdgeInsets.only(right: 16, top: 16, bottom: 16),
               child: LineChart(
                 LineChartData(
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: false,
-                horizontalInterval: 1,
-                getDrawingHorizontalLine: (value) {
-                  return FlLine(
-                    color: AppColors.textSecondary.withValues(alpha: 0.1),
-                    strokeWidth: 1,
-                  );
-                },
-              ),
-              titlesData: FlTitlesData(
-                show: true,
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 30,
-                    interval: 2,
-                    getTitlesWidget: (double value, TitleMeta meta) {
-                      if (value.toInt() >= 0 &&
-                          value.toInt() < analytics.growthData.length) {
-                        final monthData = analytics.growthData[value.toInt()];
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            DateFormat('MMM').format(monthData.month),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    horizontalInterval: 1,
+                    getDrawingHorizontalLine: (value) {
+                      return FlLine(
+                        color: AppColors.textSecondary.withValues(alpha: 0.1),
+                        strokeWidth: 1,
+                      );
+                    },
+                  ),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 30,
+                        interval: 2,
+                        getTitlesWidget: (double value, TitleMeta meta) {
+                          if (value.toInt() >= 0 &&
+                              value.toInt() < analytics.growthData.length) {
+                            final monthData =
+                                analytics.growthData[value.toInt()];
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                DateFormat('MMM').format(monthData.month),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 10,
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            );
+                          }
+                          return const Text('');
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                        interval: analytics.growthData.isNotEmpty
+                            ? (analytics.growthData
+                                        .map((e) => e.customerCount)
+                                        .reduce((a, b) => a > b ? a : b) /
+                                    4)
+                                .ceilToDouble()
+                            : 1,
+                        getTitlesWidget: (double value, TitleMeta meta) {
+                          return Text(
+                            value.toInt().toString(),
                             style: GoogleFonts.poppins(
                               fontSize: 10,
                               color: AppColors.textSecondary,
                               fontWeight: FontWeight.w500,
                             ),
-                          ),
-                        );
-                      }
-                      return const Text('');
-                    },
+                          );
+                        },
+                      ),
+                    ),
                   ),
-                ),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 40,
-                    interval: analytics.growthData.isNotEmpty
-                        ? (analytics.growthData
-                                    .map((e) => e.customerCount)
-                                    .reduce((a, b) => a > b ? a : b) /
-                                4)
-                            .ceilToDouble()
-                        : 1,
-                    getTitlesWidget: (double value, TitleMeta meta) {
-                      return Text(
-                        value.toInt().toString(),
-                        style: GoogleFonts.poppins(
-                          fontSize: 10,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      );
-                    },
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: AppColors.textSecondary.withValues(alpha: 0.2),
+                        width: 1,
+                      ),
+                      left: BorderSide(
+                        color: AppColors.textSecondary.withValues(alpha: 0.2),
+                        width: 1,
+                      ),
+                    ),
                   ),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: analytics.growthData.asMap().entries.map((entry) {
+                        return FlSpot(entry.key.toDouble(),
+                            entry.value.customerCount.toDouble());
+                      }).toList(),
+                      isCurved: true,
+                      color: AppColors.primaryPink,
+                      barWidth: 3,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) {
+                          return FlDotCirclePainter(
+                            radius: 3,
+                            color: AppColors.primaryPink,
+                            strokeWidth: 2,
+                            strokeColor: Colors.white,
+                          );
+                        },
+                      ),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: AppColors.primaryPink.withValues(alpha: 0.1),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              borderData: FlBorderData(
-                show: true,
-                border: Border(
-                  bottom: BorderSide(
-                    color: AppColors.textSecondary.withValues(alpha: 0.2),
-                    width: 1,
-                  ),
-                  left: BorderSide(
-                    color: AppColors.textSecondary.withValues(alpha: 0.2),
-                    width: 1,
-                  ),
-                ),
-              ),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: analytics.growthData.asMap().entries.map((entry) {
-                    return FlSpot(entry.key.toDouble(),
-                        entry.value.customerCount.toDouble());
-                  }).toList(),
-                  isCurved: true,
-                  color: AppColors.primaryPink,
-                  barWidth: 3,
-                  dotData: FlDotData(
-                    show: true,
-                    getDotPainter: (spot, percent, barData, index) {
-                      return FlDotCirclePainter(
-                        radius: 3,
-                        color: AppColors.primaryPink,
-                        strokeWidth: 2,
-                        strokeColor: Colors.white,
-                      );
-                    },
-                  ),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    color: AppColors.primaryPink.withValues(alpha: 0.1),
-                  ),
-                ),
-              ],
             ),
           ),
-        ),
         ],
       ),
     );
@@ -1259,6 +1408,16 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
     );
   }
 
+  void _showEditCustomerDialog(Customer customer) {
+    showDialog(
+      context: context,
+      builder: (context) => EditCustomerDialog(
+        customer: customer,
+        onCustomerUpdated: _updateCustomer,
+      ),
+    );
+  }
+
   Widget _buildCommunicationItem(CommunicationLog comm) {
     final customer =
         _allCustomers.firstWhere((c) => c.communicationHistory.contains(comm));
@@ -1308,8 +1467,8 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
   Widget _buildMetricCard(
       String title, String value, IconData icon, Color color) {
     return Container(
-      height: 120, // Fixed height for consistency
-      padding: const EdgeInsets.all(16),
+      height: 110, // Reduced height to prevent overflow
+      padding: const EdgeInsets.all(12), // Reduced padding
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1324,42 +1483,47 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min, // Prevent overflow
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(6), // Reduced padding
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(
               icon,
               color: color,
-              size: 20,
+              size: 18, // Slightly smaller icon
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textDark,
+          const SizedBox(height: 8), // Reduced spacing
+          Flexible(
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 16, // Smaller font
+                fontWeight: FontWeight.w700,
+                color: AppColors.textDark,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textSecondary,
+          const SizedBox(height: 2), // Reduced spacing
+          Flexible(
+            child: Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 10, // Smaller font
+                fontWeight: FontWeight.w500,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

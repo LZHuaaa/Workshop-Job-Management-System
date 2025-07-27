@@ -1,3 +1,5 @@
+import 'service_record.dart';
+
 class Customer {
   final String id;
   final String firstName;
@@ -12,6 +14,7 @@ class Customer {
   final DateTime? lastVisit;
   final List<String> vehicleIds;
   final List<CommunicationLog> communicationHistory;
+  final List<ServiceRecord> serviceHistory;
   final CustomerPreferences preferences;
   final double totalSpent;
   final int visitCount;
@@ -31,6 +34,7 @@ class Customer {
     this.lastVisit,
     this.vehicleIds = const [],
     this.communicationHistory = const [],
+    this.serviceHistory = const [],
     required this.preferences,
     this.totalSpent = 0.0,
     this.visitCount = 0,
@@ -64,6 +68,7 @@ class Customer {
     DateTime? lastVisit,
     List<String>? vehicleIds,
     List<CommunicationLog>? communicationHistory,
+    List<ServiceRecord>? serviceHistory,
     CustomerPreferences? preferences,
     double? totalSpent,
     int? visitCount,
@@ -83,6 +88,7 @@ class Customer {
       lastVisit: lastVisit ?? this.lastVisit,
       vehicleIds: vehicleIds ?? this.vehicleIds,
       communicationHistory: communicationHistory ?? this.communicationHistory,
+      serviceHistory: serviceHistory ?? this.serviceHistory,
       preferences: preferences ?? this.preferences,
       totalSpent: totalSpent ?? this.totalSpent,
       visitCount: visitCount ?? this.visitCount,

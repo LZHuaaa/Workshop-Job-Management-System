@@ -27,7 +27,7 @@ class _JobsScreenState extends State<JobsScreen> {
   ];
 
   // Sample job data
-  List<JobAppointment> _allJobs = [
+  final List<JobAppointment> _allJobs = [
     JobAppointment(
       id: '1',
       vehicleInfo: 'Proton Saga - WA 1234 A',

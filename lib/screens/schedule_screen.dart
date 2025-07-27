@@ -22,7 +22,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
   CalendarFormat _calendarFormat = CalendarFormat.month;
 
   // Sample data
-  Map<DateTime, List<JobAppointment>> _appointments = {
+  final Map<DateTime, List<JobAppointment>> _appointments = {
     DateTime.now(): [
       JobAppointment(
         id: '1',
@@ -596,7 +596,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
       child: Row(
         children: [
           // Time Column
-          Container(
+          SizedBox(
             width: 80,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

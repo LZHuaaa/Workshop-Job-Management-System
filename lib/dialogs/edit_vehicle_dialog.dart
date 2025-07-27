@@ -33,12 +33,12 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
   late TextEditingController _notesController;
   bool _isLoading = false;
 
-  List<String> _makes = [
+  final List<String> _makes = [
     'Toyota', 'Honda', 'Ford', 'Chevrolet', 'Nissan', 'BMW', 'Mercedes-Benz',
     'Audi', 'Volkswagen', 'Hyundai', 'Kia', 'Mazda', 'Subaru', 'Lexus', 'Acura', 'Proton'
   ];
 
-  List<String> _colors = [
+  final List<String> _colors = [
     'White', 'Black', 'Silver', 'Gray', 'Red', 'Blue', 'Green', 'Yellow',
     'Orange', 'Purple', 'Brown', 'Gold', 'Beige', 'Maroon', 'Navy'
   ];

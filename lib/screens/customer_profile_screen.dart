@@ -6,6 +6,7 @@ import '../widgets/dashboard_card.dart';
 import '../models/customer.dart';
 import '../models/vehicle.dart';
 import '../dialogs/add_communication_dialog.dart';
+import '../dialogs/edit_customer_dialog.dart';
 
 class CustomerProfileScreen extends StatefulWidget {
   final Customer customer;
@@ -39,6 +40,21 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
     super.dispose();
   }
 
+  void _showEditCustomerDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => EditCustomerDialog(
+        customer: _currentCustomer,
+        onCustomerUpdated: (updatedCustomer) {
+          setState(() {
+            _currentCustomer = updatedCustomer;
+          });
+          widget.onCustomerUpdated(updatedCustomer);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -61,14 +77,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
         actions: [
           IconButton(
             icon: Icon(Icons.edit, color: AppColors.primaryPink),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Edit functionality coming soon!'),
-                  backgroundColor: AppColors.primaryPink,
-                ),
-              );
-            },
+            onPressed: () => _showEditCustomerDialog(),
           ),
         ],
       ),
