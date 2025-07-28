@@ -246,6 +246,10 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
 
     widget.onServiceAdded(newService);
 
+    setState(() {
+      _isLoading = false;
+    });
+
     if (mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(

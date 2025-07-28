@@ -3,6 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../widgets/custom_dialog.dart';
 import '../models/customer.dart';
+import '../models/vehicle.dart';
+import '../services/customer_service.dart';
+import '../services/vehicle_service.dart';
 
 class AddCustomerDialog extends StatefulWidget {
   final Function(Customer) onCustomerAdded;
@@ -28,6 +31,8 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
   final _zipCodeController = TextEditingController();
   final _notesController = TextEditingController();
 
+  final CustomerService _customerService = CustomerService();
+
   String _preferredContactMethod = 'phone';
   String? _preferredMechanic;
   String? _preferredServiceTime;
@@ -37,11 +42,13 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
 
   final List<String> _contactMethods = ['phone', 'email', 'text'];
   final List<String> _mechanics = [
-    'Mike Johnson',
-    'Sarah Wilson',
-    'Tom Davis',
-    'Lisa Chen',
-    'Robert Brown',
+    'Lim Wei Ming',
+    'Ahmad bin Hassan',
+    'Raj Kumar',
+    'Muhammad Faiz bin Omar',
+    'Siti Nurhaliza',
+    'Tan Cheng Lock',
+    'Priya Sharma',
   ];
   final List<String> _serviceTimes = ['morning', 'afternoon', 'evening'];
 
@@ -66,43 +73,68 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
       _isLoading = true;
     });
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 1));
-
-    final newCustomer = Customer(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      firstName: _firstNameController.text,
-      lastName: _lastNameController.text,
-      email: _emailController.text,
-      phone: _phoneController.text,
-      address: _addressController.text.isEmpty ? null : _addressController.text,
-      city: _cityController.text.isEmpty ? null : _cityController.text,
-      state: _stateController.text.isEmpty ? null : _stateController.text,
-      zipCode: _zipCodeController.text.isEmpty ? null : _zipCodeController.text,
-      createdAt: DateTime.now(),
-      preferences: CustomerPreferences(
-        preferredContactMethod: _preferredContactMethod,
-        receivePromotions: _receivePromotions,
-        receiveReminders: _receiveReminders,
-        preferredMechanic: _preferredMechanic,
-        preferredServiceTime: _preferredServiceTime,
-      ),
-      notes: _notesController.text.isEmpty ? null : _notesController.text,
-    );
-
-    widget.onCustomerAdded(newCustomer);
-
-    if (mounted) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Customer added successfully!',
-            style: GoogleFonts.poppins(),
-          ),
-          backgroundColor: AppColors.successGreen,
+    try {
+      final newCustomer = Customer(
+        id: '', // Firebase will generate the ID
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        email: _emailController.text.trim().toLowerCase(),
+        phone: _phoneController.text.trim(),
+        address: _addressController.text.trim().isEmpty
+            ? null
+            : _addressController.text.trim(),
+        city: _cityController.text.trim().isEmpty
+            ? null
+            : _cityController.text.trim(),
+        state: _stateController.text.trim().isEmpty
+            ? null
+            : _stateController.text.trim(),
+        zipCode: _zipCodeController.text.trim().isEmpty
+            ? null
+            : _zipCodeController.text.trim(),
+        createdAt: DateTime.now(),
+        preferences: CustomerPreferences(
+          preferredContactMethod: _preferredContactMethod,
+          receivePromotions: _receivePromotions,
+          receiveReminders: _receiveReminders,
+          preferredMechanic: _preferredMechanic,
+          preferredServiceTime: _preferredServiceTime,
         ),
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
       );
+
+      // Create customer in Firebase
+      final customerId = await _customerService.createCustomer(newCustomer);
+
+      // Call the callback with the created customer
+      final createdCustomer = newCustomer.copyWith(id: customerId);
+      widget.onCustomerAdded(createdCustomer);
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to add customer: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
     }
   }
 
@@ -182,12 +214,16 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
                 Expanded(
                   child: CustomTextField(
                     label: 'Phone Number',
-                    hint: '(555) 123-4567',
+                    hint: '012-345-6789',
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter phone number';
+                      }
+                      // Validate Malaysian phone number format
+                      if (!RegExp(r'^01[0-9]-\d{3,4}-\d{4}$').hasMatch(value)) {
+                        return 'Please enter valid Malaysian phone (e.g., 012-345-6789)';
                       }
                       return null;
                     },
@@ -209,7 +245,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
 
             CustomTextField(
               label: 'Street Address',
-              hint: '123 Main Street',
+              hint: 'No. 15, Jalan Bukit Bintang',
               controller: _addressController,
             ),
             const SizedBox(height: 16),
@@ -220,7 +256,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
                   flex: 2,
                   child: CustomTextField(
                     label: 'City',
-                    hint: 'Springfield',
+                    hint: 'Kuala Lumpur',
                     controller: _cityController,
                   ),
                 ),
@@ -228,17 +264,26 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
                 Expanded(
                   child: CustomTextField(
                     label: 'State',
-                    hint: 'IL',
+                    hint: 'Selangor',
                     controller: _stateController,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: CustomTextField(
-                    label: 'ZIP Code',
-                    hint: '62701',
+                    label: 'Postcode',
+                    hint: '50200',
                     controller: _zipCodeController,
                     keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value != null && value.isNotEmpty) {
+                        // Validate Malaysian postcode format (5 digits)
+                        if (!RegExp(r'^\d{5}$').hasMatch(value)) {
+                          return 'Please enter valid postcode (5 digits)';
+                        }
+                      }
+                      return null;
+                    },
                   ),
                 ),
               ],

@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 import '../models/vehicle.dart';
+import '../models/service_record.dart';
 
 class VehicleDataService {
   static final VehicleDataService _instance = VehicleDataService._internal();
@@ -14,7 +15,7 @@ class VehicleDataService {
   // Export vehicles to CSV format
   Future<String> exportVehiclesToCSV(List<Vehicle> vehicles) async {
     final List<List<dynamic>> csvData = [];
-    
+
     // Add headers
     csvData.add([
       'ID',
@@ -53,7 +54,7 @@ class VehicleDataService {
         vehicle.customerPhone,
         vehicle.customerEmail,
         DateFormat('yyyy-MM-dd HH:mm:ss').format(vehicle.createdAt),
-        vehicle.lastServiceDate != null 
+        vehicle.lastServiceDate != null
             ? DateFormat('yyyy-MM-dd HH:mm:ss').format(vehicle.lastServiceDate!)
             : '',
         vehicle.serviceHistory.length,
@@ -65,22 +66,22 @@ class VehicleDataService {
 
     // Convert to CSV string
     final csvString = const ListToCsvConverter().convert(csvData);
-    
+
     // Save to file
     final directory = await getApplicationDocumentsDirectory();
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
     final fileName = 'vehicles_export_$timestamp.csv';
     final file = File('${directory.path}/$fileName');
-    
+
     await file.writeAsString(csvString);
-    
+
     return file.path;
   }
 
   // Export vehicles to JSON format
   Future<String> exportVehiclesToJSON(List<Vehicle> vehicles) async {
     final List<Map<String, dynamic>> jsonData = [];
-    
+
     for (final vehicle in vehicles) {
       jsonData.add({
         'id': vehicle.id,
@@ -97,36 +98,43 @@ class VehicleDataService {
         'customerEmail': vehicle.customerEmail,
         'createdAt': vehicle.createdAt.toIso8601String(),
         'lastServiceDate': vehicle.lastServiceDate?.toIso8601String(),
-        'serviceHistory': vehicle.serviceHistory.map((service) => {
-          'id': service.id,
-          'date': service.date.toIso8601String(),
-          'mileage': service.mileage,
-          'serviceType': service.serviceType,
-          'description': service.description,
-          'partsUsed': service.partsUsed,
-          'laborHours': service.laborHours,
-          'totalCost': service.totalCost,
-          'mechanicName': service.mechanicName,
-        }).toList(),
+        'serviceHistory': vehicle.serviceHistory
+            .map((service) => {
+                  'id': service.id,
+                  'customerId': service.customerId,
+                  'vehicleId': service.vehicleId,
+                  'serviceDate': service.serviceDate.toIso8601String(),
+                  'mileage': service.mileage,
+                  'serviceType': service.serviceType,
+                  'description': service.description,
+                  'servicesPerformed': service.servicesPerformed,
+                  'partsReplaced': service.partsReplaced,
+                  'cost': service.cost,
+                  'mechanicName': service.mechanicName,
+                  'status': service.status.name,
+                  'nextServiceDue': service.nextServiceDue?.toIso8601String(),
+                  'notes': service.notes,
+                })
+            .toList(),
         'photos': vehicle.photos,
         'notes': vehicle.notes,
       });
     }
-    
+
     final jsonString = const JsonEncoder.withIndent('  ').convert({
       'exportDate': DateTime.now().toIso8601String(),
       'totalVehicles': vehicles.length,
       'vehicles': jsonData,
     });
-    
+
     // Save to file
     final directory = await getApplicationDocumentsDirectory();
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
     final fileName = 'vehicles_export_$timestamp.json';
     final file = File('${directory.path}/$fileName');
-    
+
     await file.writeAsString(jsonString);
-    
+
     return file.path;
   }
 
@@ -153,7 +161,7 @@ class VehicleDataService {
 
     final csvString = await file.readAsString();
     final csvData = const CsvToListConverter().convert(csvString);
-    
+
     if (csvData.isEmpty) {
       throw Exception('CSV file is empty');
     }
@@ -208,7 +216,7 @@ class VehicleDataService {
 
     final jsonString = await file.readAsString();
     final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
-    
+
     if (!jsonData.containsKey('vehicles')) {
       throw Exception('Invalid JSON format - missing vehicles array');
     }
@@ -219,22 +227,41 @@ class VehicleDataService {
     for (final vehicleData in vehiclesData) {
       try {
         final data = vehicleData as Map<String, dynamic>;
-        
+
         // Parse service history
         final List<ServiceRecord> serviceHistory = [];
-        if (data.containsKey('serviceHistory') && data['serviceHistory'] is List) {
+        if (data.containsKey('serviceHistory') &&
+            data['serviceHistory'] is List) {
           for (final serviceData in data['serviceHistory'] as List<dynamic>) {
             final service = serviceData as Map<String, dynamic>;
             serviceHistory.add(ServiceRecord(
               id: service['id'].toString(),
-              date: DateTime.parse(service['date'].toString()),
-              mileage: service['mileage'] as int,
+              customerId: service['customerId']?.toString() ?? '',
+              vehicleId: service['vehicleId']?.toString() ?? '',
+              serviceDate: DateTime.parse(service['serviceDate']?.toString() ??
+                  service['date']?.toString() ??
+                  DateTime.now().toIso8601String()),
+              mileage: service['mileage'] as int? ?? 0,
               serviceType: service['serviceType'].toString(),
               description: service['description'].toString(),
-              partsUsed: List<String>.from(service['partsUsed'] as List),
-              laborHours: (service['laborHours'] as num).toDouble(),
-              totalCost: (service['totalCost'] as num).toDouble(),
+              servicesPerformed: List<String>.from(
+                  service['servicesPerformed'] as List? ?? []),
+              partsReplaced: List<String>.from(
+                  service['partsReplaced'] as List? ??
+                      service['partsUsed'] as List? ??
+                      []),
+              cost: (service['cost'] as num?)?.toDouble() ??
+                  (service['totalCost'] as num?)?.toDouble() ??
+                  0.0,
               mechanicName: service['mechanicName'].toString(),
+              status: ServiceStatus.values.firstWhere(
+                (e) => e.name == service['status'],
+                orElse: () => ServiceStatus.completed,
+              ),
+              nextServiceDue: service['nextServiceDue'] != null
+                  ? DateTime.parse(service['nextServiceDue'].toString())
+                  : null,
+              notes: service['notes']?.toString() ?? '',
             ));
           }
         }
@@ -253,7 +280,7 @@ class VehicleDataService {
           customerPhone: data['customerPhone'].toString(),
           customerEmail: data['customerEmail'].toString(),
           createdAt: DateTime.parse(data['createdAt'].toString()),
-          lastServiceDate: data['lastServiceDate'] != null 
+          lastServiceDate: data['lastServiceDate'] != null
               ? DateTime.parse(data['lastServiceDate'].toString())
               : null,
           serviceHistory: serviceHistory,
@@ -277,43 +304,45 @@ class VehicleDataService {
     final buffer = StringBuffer();
     final now = DateTime.now();
     final formatter = DateFormat('MMMM dd, yyyy');
-    
+
     // Report header
     buffer.writeln('VEHICLE FLEET REPORT');
     buffer.writeln('Generated on: ${formatter.format(now)}');
     buffer.writeln('=' * 50);
     buffer.writeln();
-    
+
     // Summary statistics
     buffer.writeln('FLEET SUMMARY');
     buffer.writeln('-' * 20);
     buffer.writeln('Total Vehicles: ${vehicles.length}');
-    
+
     final serviceDueCount = vehicles.where((v) => v.needsService).length;
     buffer.writeln('Vehicles Needing Service: $serviceDueCount');
-    
-    final averageAge = vehicles.isNotEmpty 
-        ? vehicles.fold(0, (sum, v) => sum + (now.year - v.year)) / vehicles.length
+
+    final averageAge = vehicles.isNotEmpty
+        ? vehicles.fold(0, (sum, v) => sum + (now.year - v.year)) /
+            vehicles.length
         : 0;
     buffer.writeln('Average Fleet Age: ${averageAge.toStringAsFixed(1)} years');
-    
+
     final totalMileage = vehicles.fold(0, (sum, v) => sum + v.mileage);
-    buffer.writeln('Total Fleet Mileage: ${NumberFormat('#,###').format(totalMileage)} miles');
+    buffer.writeln(
+        'Total Fleet Mileage: ${NumberFormat('#,###').format(totalMileage)} miles');
     buffer.writeln();
-    
+
     // Vehicle breakdown by make
     final makeCount = <String, int>{};
     for (final vehicle in vehicles) {
       makeCount[vehicle.make] = (makeCount[vehicle.make] ?? 0) + 1;
     }
-    
+
     buffer.writeln('VEHICLES BY MAKE');
     buffer.writeln('-' * 20);
     for (final entry in makeCount.entries) {
       buffer.writeln('${entry.key}: ${entry.value}');
     }
     buffer.writeln();
-    
+
     // Service due vehicles
     if (serviceDueCount > 0) {
       buffer.writeln('VEHICLES REQUIRING SERVICE');
@@ -322,11 +351,12 @@ class VehicleDataService {
         final daysSinceService = vehicle.lastServiceDate != null
             ? now.difference(vehicle.lastServiceDate!).inDays
             : 365;
-        buffer.writeln('${vehicle.displayName} (${vehicle.licensePlate}) - $daysSinceService days overdue');
+        buffer.writeln(
+            '${vehicle.displayName} (${vehicle.licensePlate}) - $daysSinceService days overdue');
       }
       buffer.writeln();
     }
-    
+
     // Detailed vehicle list
     buffer.writeln('DETAILED VEHICLE LIST');
     buffer.writeln('-' * 25);
@@ -335,20 +365,23 @@ class VehicleDataService {
       buffer.writeln('  License Plate: ${vehicle.licensePlate}');
       buffer.writeln('  VIN: ${vehicle.vin}');
       buffer.writeln('  Customer: ${vehicle.customerName}');
-      buffer.writeln('  Mileage: ${NumberFormat('#,###').format(vehicle.mileage)} miles');
-      buffer.writeln('  Last Service: ${vehicle.lastServiceDate != null ? formatter.format(vehicle.lastServiceDate!) : 'Never'}');
-      buffer.writeln('  Service Status: ${vehicle.needsService ? 'DUE' : 'Up to Date'}');
+      buffer.writeln(
+          '  Mileage: ${NumberFormat('#,###').format(vehicle.mileage)} miles');
+      buffer.writeln(
+          '  Last Service: ${vehicle.lastServiceDate != null ? formatter.format(vehicle.lastServiceDate!) : 'Never'}');
+      buffer.writeln(
+          '  Service Status: ${vehicle.needsService ? 'DUE' : 'Up to Date'}');
       buffer.writeln();
     }
-    
+
     // Save report to file
     final directory = await getApplicationDocumentsDirectory();
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(now);
     final fileName = 'vehicle_report_$timestamp.txt';
     final file = File('${directory.path}/$fileName');
-    
+
     await file.writeAsString(buffer.toString());
-    
+
     return file.path;
   }
 
@@ -362,9 +395,12 @@ class VehicleDataService {
   Future<List<FileSystemEntity>> getExportFiles() async {
     final directory = await getApplicationDocumentsDirectory();
     final dir = Directory(directory.path);
-    
-    return dir.listSync()
-        .where((file) => file.path.contains('vehicles_export_') || file.path.contains('vehicle_report_'))
+
+    return dir
+        .listSync()
+        .where((file) =>
+            file.path.contains('vehicles_export_') ||
+            file.path.contains('vehicle_report_'))
         .toList();
   }
 
@@ -381,7 +417,7 @@ class VehicleDataService {
     if (dateString == null || dateString.isEmpty) {
       return null;
     }
-    
+
     try {
       return DateTime.parse(dateString);
     } catch (e) {

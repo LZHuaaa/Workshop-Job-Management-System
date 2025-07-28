@@ -40,6 +40,7 @@ dependencies:
   google_fonts: ^6.2.1
   google_sign_in: ^6.2.1
   flutter_facebook_auth: ^6.1.1
+  shared_preferences: ^2.2.2
   # Camera and QR/Barcode scanning
   camera: ^0.10.5+9
   mobile_scanner: ^3.5.7

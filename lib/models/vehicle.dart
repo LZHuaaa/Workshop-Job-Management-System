@@ -1,3 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'service_record.dart';
+
 class Vehicle {
   final String id;
   final String make;
@@ -13,6 +16,7 @@ class Vehicle {
   final String customerEmail;
   final DateTime createdAt;
   final DateTime? lastServiceDate;
+  final List<String> serviceHistoryIds;
   final List<ServiceRecord> serviceHistory;
   final List<String> photos;
   final String? notes;
@@ -32,6 +36,7 @@ class Vehicle {
     required this.customerEmail,
     required this.createdAt,
     this.lastServiceDate,
+    this.serviceHistoryIds = const [],
     this.serviceHistory = const [],
     this.photos = const [],
     this.notes,
@@ -51,6 +56,79 @@ class Vehicle {
     return DateTime.now().difference(lastServiceDate!).inDays;
   }
 
+  // Firestore serialization methods
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'make': make,
+      'model': model,
+      'year': year,
+      'licensePlate': licensePlate,
+      'vin': vin,
+      'color': color,
+      'mileage': mileage,
+      'customerId': customerId,
+      'customerName': customerName,
+      'customerPhone': customerPhone,
+      'customerEmail': customerEmail,
+      'createdAt': createdAt.toIso8601String(),
+      'lastServiceDate': lastServiceDate?.toIso8601String(),
+      'serviceHistory':
+          serviceHistory.map((service) => service.toMap()).toList(),
+      'photos': photos,
+      'notes': notes,
+    };
+  }
+
+  factory Vehicle.fromMap(Map<String, dynamic> map) {
+    return Vehicle(
+      id: map['id'] ?? '',
+      make: map['make'] ?? '',
+      model: map['model'] ?? '',
+      year: map['year'] ?? 0,
+      licensePlate: map['licensePlate'] ?? '',
+      vin: map['vin'] ?? '',
+      color: map['color'] ?? '',
+      mileage: map['mileage'] ?? 0,
+      customerId: map['customerId'] ?? '',
+      customerName: map['customerName'] ?? '',
+      customerPhone: map['customerPhone'] ?? '',
+      customerEmail: map['customerEmail'] ?? '',
+      createdAt: _parseDateTime(map['createdAt']),
+      lastServiceDate: map['lastServiceDate'] != null
+          ? _parseDateTime(map['lastServiceDate'])
+          : null,
+      serviceHistory: (map['serviceHistory'] as List?)
+              ?.map((service) => ServiceRecord.fromMap(service))
+              .toList() ??
+          [],
+      photos: List<String>.from(map['photos'] ?? []),
+      notes: map['notes'],
+    );
+  }
+
+  // Helper method to parse DateTime from various formats
+  static DateTime _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) {
+      return DateTime.now();
+    }
+
+    if (dateValue is Timestamp) {
+      return dateValue.toDate();
+    }
+
+    if (dateValue is String) {
+      return DateTime.parse(dateValue);
+    }
+
+    if (dateValue is DateTime) {
+      return dateValue;
+    }
+
+    // Fallback to current time if we can't parse
+    return DateTime.now();
+  }
+
   Vehicle copyWith({
     String? id,
     String? make,
@@ -66,6 +144,7 @@ class Vehicle {
     String? customerEmail,
     DateTime? createdAt,
     DateTime? lastServiceDate,
+    List<String>? serviceHistoryIds,
     List<ServiceRecord>? serviceHistory,
     List<String>? photos,
     String? notes,
@@ -85,60 +164,9 @@ class Vehicle {
       customerEmail: customerEmail ?? this.customerEmail,
       createdAt: createdAt ?? this.createdAt,
       lastServiceDate: lastServiceDate ?? this.lastServiceDate,
+      serviceHistoryIds: serviceHistoryIds ?? this.serviceHistoryIds,
       serviceHistory: serviceHistory ?? this.serviceHistory,
       photos: photos ?? this.photos,
-      notes: notes ?? this.notes,
-    );
-  }
-}
-
-class ServiceRecord {
-  final String id;
-  final DateTime date;
-  final int mileage;
-  final String serviceType;
-  final String description;
-  final List<String> partsUsed;
-  final double laborHours;
-  final double totalCost;
-  final String mechanicName;
-  final String? notes;
-
-  ServiceRecord({
-    required this.id,
-    required this.date,
-    required this.mileage,
-    required this.serviceType,
-    required this.description,
-    required this.partsUsed,
-    required this.laborHours,
-    required this.totalCost,
-    required this.mechanicName,
-    this.notes,
-  });
-
-  ServiceRecord copyWith({
-    String? id,
-    DateTime? date,
-    int? mileage,
-    String? serviceType,
-    String? description,
-    List<String>? partsUsed,
-    double? laborHours,
-    double? totalCost,
-    String? mechanicName,
-    String? notes,
-  }) {
-    return ServiceRecord(
-      id: id ?? this.id,
-      date: date ?? this.date,
-      mileage: mileage ?? this.mileage,
-      serviceType: serviceType ?? this.serviceType,
-      description: description ?? this.description,
-      partsUsed: partsUsed ?? this.partsUsed,
-      laborHours: laborHours ?? this.laborHours,
-      totalCost: totalCost ?? this.totalCost,
-      mechanicName: mechanicName ?? this.mechanicName,
       notes: notes ?? this.notes,
     );
   }

@@ -84,6 +84,10 @@ class _AddItemDialogState extends State<AddItemDialog> {
 
     widget.onItemAdded(newItem);
 
+    setState(() {
+      _isLoading = false;
+    });
+
     if (mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -118,7 +122,6 @@ class _AddItemDialogState extends State<AddItemDialog> {
               },
             ),
             const SizedBox(height: 16),
-
             Row(
               children: [
                 Expanded(
@@ -161,7 +164,6 @@ class _AddItemDialogState extends State<AddItemDialog> {
               ],
             ),
             const SizedBox(height: 16),
-
             Row(
               children: [
                 Expanded(
@@ -214,7 +216,8 @@ class _AddItemDialogState extends State<AddItemDialog> {
                         return 'Invalid number';
                       }
                       final maxStock = int.parse(value);
-                      final minStock = int.tryParse(_minStockController.text) ?? 0;
+                      final minStock =
+                          int.tryParse(_minStockController.text) ?? 0;
                       if (maxStock <= minStock) {
                         return 'Must be > min';
                       }
@@ -225,7 +228,6 @@ class _AddItemDialogState extends State<AddItemDialog> {
               ],
             ),
             const SizedBox(height: 16),
-
             Row(
               children: [
                 Expanded(
@@ -262,7 +264,6 @@ class _AddItemDialogState extends State<AddItemDialog> {
               ],
             ),
             const SizedBox(height: 16),
-
             CustomTextField(
               label: 'Description',
               hint: 'Item description and specifications...',

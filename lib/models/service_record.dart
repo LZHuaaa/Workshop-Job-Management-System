@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ServiceRecord {
   final String id;
   final String customerId;
@@ -30,6 +32,72 @@ class ServiceRecord {
     this.partsReplaced = const [],
     this.notes = '',
   });
+
+  // Firestore serialization methods
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'customerId': customerId,
+      'vehicleId': vehicleId,
+      'serviceDate': serviceDate.toIso8601String(),
+      'serviceType': serviceType,
+      'description': description,
+      'servicesPerformed': servicesPerformed,
+      'cost': cost,
+      'mechanicName': mechanicName,
+      'status': status.name,
+      'nextServiceDue': nextServiceDue?.toIso8601String(),
+      'mileage': mileage,
+      'partsReplaced': partsReplaced,
+      'notes': notes,
+    };
+  }
+
+  factory ServiceRecord.fromMap(Map<String, dynamic> map) {
+    return ServiceRecord(
+      id: map['id'] ?? '',
+      customerId: map['customerId'] ?? '',
+      vehicleId: map['vehicleId'] ?? '',
+      serviceDate: _parseDateTime(map['serviceDate']),
+      serviceType: map['serviceType'] ?? '',
+      description: map['description'] ?? '',
+      servicesPerformed: List<String>.from(map['servicesPerformed'] ?? []),
+      cost: (map['cost'] ?? 0.0).toDouble(),
+      mechanicName: map['mechanicName'] ?? '',
+      status: ServiceStatus.values.firstWhere(
+        (e) => e.name == map['status'],
+        orElse: () => ServiceStatus.completed,
+      ),
+      nextServiceDue: map['nextServiceDue'] != null
+          ? _parseDateTime(map['nextServiceDue'])
+          : null,
+      mileage: map['mileage'] ?? 0,
+      partsReplaced: List<String>.from(map['partsReplaced'] ?? []),
+      notes: map['notes'] ?? '',
+    );
+  }
+
+  // Helper method to parse DateTime from various formats
+  static DateTime _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) {
+      return DateTime.now();
+    }
+
+    if (dateValue is Timestamp) {
+      return dateValue.toDate();
+    }
+
+    if (dateValue is String) {
+      return DateTime.parse(dateValue);
+    }
+
+    if (dateValue is DateTime) {
+      return dateValue;
+    }
+
+    // Fallback to current time if we can't parse
+    return DateTime.now();
+  }
 
   ServiceRecord copyWith({
     String? id,

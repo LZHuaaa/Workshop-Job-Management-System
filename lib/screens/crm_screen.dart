@@ -10,6 +10,7 @@ import '../screens/customer_profile_screen.dart';
 import '../dialogs/add_customer_dialog.dart';
 import '../dialogs/edit_customer_dialog.dart';
 import '../services/crm_analytics_service.dart';
+import '../services/customer_service.dart';
 
 class CrmScreen extends StatefulWidget {
   const CrmScreen({super.key});
@@ -23,160 +24,16 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   String _selectedFilter = 'All';
 
+  final CustomerService _customerService = CustomerService();
+  List<Customer> _allCustomers = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
   final List<String> _filterOptions = [
     'All',
     'VIP',
     'Recent',
     'Inactive',
-  ];
-
-  // Sample customer data
-  final List<Customer> _allCustomers = [
-    Customer(
-      id: '1',
-      firstName: 'Ahmad',
-      lastName: 'bin Abdullah',
-      email: 'ahmad.abdullah@email.com',
-      phone: '012-345-6789',
-      address: 'No. 15, Jalan Bukit Bintang',
-      city: 'Kuala Lumpur',
-      state: 'Selangor',
-      zipCode: '50200',
-      createdAt: DateTime.now().subtract(const Duration(days: 365)),
-      lastVisit: DateTime.now().subtract(const Duration(days: 30)),
-      vehicleIds: ['v1'],
-      totalSpent: 1250.75,
-      visitCount: 8,
-      preferences: CustomerPreferences(
-        preferredContactMethod: 'phone',
-        receivePromotions: true,
-        receiveReminders: true,
-        preferredMechanic: 'Lim Wei Ming',
-      ),
-      communicationHistory: [
-        CommunicationLog(
-          id: 'c1',
-          date: DateTime.now().subtract(const Duration(days: 5)),
-          type: 'call',
-          subject: 'Service Reminder',
-          content: 'Called to remind about upcoming oil change',
-          direction: 'outbound',
-          staffMember: 'Siti',
-        ),
-      ],
-      serviceHistory: [
-        ServiceRecord(
-          id: 's1',
-          customerId: '1',
-          vehicleId: 'v1',
-          serviceDate: DateTime.now().subtract(const Duration(days: 30)),
-          serviceType: 'Oil Change',
-          description:
-              'Regular maintenance - Engine oil and filter replacement',
-          servicesPerformed: ['Oil Change', 'Oil Filter', 'Basic Inspection'],
-          cost: 85.50,
-          mechanicName: 'Lim Wei Ming',
-          status: ServiceStatus.completed,
-          nextServiceDue: DateTime.now().add(const Duration(days: 90)),
-          mileage: 45000,
-          partsReplaced: ['Oil Filter'],
-          notes: 'Customer prefers synthetic oil',
-        ),
-        ServiceRecord(
-          id: 's2',
-          customerId: '1',
-          vehicleId: 'v1',
-          serviceDate: DateTime.now().subtract(const Duration(days: 120)),
-          serviceType: 'Brake Service',
-          description: 'Front brake pads replacement and brake fluid flush',
-          servicesPerformed: [
-            'Brake Pad Replacement',
-            'Brake Fluid Flush',
-            'Brake Inspection'
-          ],
-          cost: 280.75,
-          mechanicName: 'Ahmad bin Hassan',
-          status: ServiceStatus.completed,
-          mileage: 43500,
-          partsReplaced: ['Front Brake Pads', 'Brake Fluid'],
-          notes: 'Brake pads were at 20% thickness',
-        ),
-      ],
-      notes: 'Prefers synthetic oil, always on time for appointments',
-    ),
-    Customer(
-      id: '2',
-      firstName: 'Tan',
-      lastName: 'Mei Ling',
-      email: 'tan.meiling@email.com',
-      phone: '013-987-6543',
-      address: 'No. 88, Jalan Gurney',
-      city: 'George Town',
-      state: 'Penang',
-      zipCode: '10250',
-      createdAt: DateTime.now().subtract(const Duration(days: 200)),
-      lastVisit: DateTime.now().subtract(const Duration(days: 95)),
-      vehicleIds: ['v2'],
-      totalSpent: 589.50,
-      visitCount: 3,
-      preferences: CustomerPreferences(
-        preferredContactMethod: 'email',
-        receivePromotions: false,
-        receiveReminders: true,
-      ),
-      communicationHistory: [
-        CommunicationLog(
-          id: 'c2',
-          date: DateTime.now().subtract(const Duration(days: 95)),
-          type: 'email',
-          subject: 'Service Completed',
-          content: 'Transmission service completed successfully',
-          direction: 'outbound',
-          staffMember: 'Raj',
-        ),
-      ],
-      serviceHistory: [
-        ServiceRecord(
-          id: 's3',
-          customerId: '2',
-          vehicleId: 'v2',
-          serviceDate: DateTime.now().subtract(const Duration(days: 95)),
-          serviceType: 'Transmission Service',
-          description:
-              'Automatic transmission fluid change and filter replacement',
-          servicesPerformed: [
-            'ATF Change',
-            'Transmission Filter',
-            'Transmission Inspection'
-          ],
-          cost: 195.25,
-          mechanicName: 'Raj Kumar',
-          status: ServiceStatus.completed,
-          mileage: 62000,
-          partsReplaced: ['Transmission Filter', 'ATF'],
-          notes: 'Transmission was due for service',
-        ),
-      ],
-    ),
-    Customer(
-      id: '3',
-      firstName: 'Priya',
-      lastName: 'd/o Raman',
-      email: 'priya.raman@email.com',
-      phone: '014-456-7890',
-      createdAt: DateTime.now().subtract(const Duration(days: 500)),
-      lastVisit: DateTime.now().subtract(const Duration(days: 180)),
-      vehicleIds: ['v3'],
-      totalSpent: 2150.25,
-      visitCount: 15,
-      preferences: CustomerPreferences(
-        preferredContactMethod: 'phone',
-        receivePromotions: true,
-        receiveReminders: true,
-        preferredMechanic: 'Muhammad Faiz bin Omar',
-      ),
-      notes: 'VIP customer, owns multiple vehicles',
-    ),
   ];
 
   List<Customer> get _filteredCustomers {
@@ -215,26 +72,245 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
     return filtered;
   }
 
-  void _addCustomer(Customer customer) {
+  Future<void> _addCustomer(Customer customer) async {
+    try {
     setState(() {
-      _allCustomers.add(customer);
-    });
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      // Customer is already created in the dialog, just reload the list
+      await _loadCustomers(); // Reload customers from Firebase
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Customer added successfully!',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to add customer: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
   }
 
-  void _updateCustomer(Customer updatedCustomer) {
+  Future<void> _updateCustomer(Customer updatedCustomer) async {
+    try {
     setState(() {
-      final index = _allCustomers
-          .indexWhere((customer) => customer.id == updatedCustomer.id);
-      if (index != -1) {
-        _allCustomers[index] = updatedCustomer;
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      await _customerService.updateCustomer(updatedCustomer);
+      await _loadCustomers(); // Reload customers from Firebase
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Customer updated successfully!',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
       }
-    });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update customer: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteCustomer(Customer customer) async {
+    // Show confirmation dialog
+    final bool? shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Delete Customer',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Are you sure you want to delete ${customer.fullName}? This action cannot be undone.',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.poppins(color: AppColors.errorRed),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true) {
+      try {
+        setState(() {
+          _isLoading = true;
+          _errorMessage = null;
+        });
+
+        await _customerService.deleteCustomer(customer.id);
+        await _loadCustomers(); // Reload customers from Firebase
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Customer deleted successfully!',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: AppColors.successGreen,
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to delete customer: ${e.toString()}',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: AppColors.errorRed,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _loadCustomers() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      final customers = await _customerService.getAllCustomers();
+
+      setState(() {
+        _allCustomers = customers;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _performSearch() async {
+    if (_searchController.text.isEmpty) {
+      await _loadCustomers();
+      return;
+    }
+
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      final searchResults =
+          await _customerService.searchCustomers(_searchController.text);
+
+      setState(() {
+        _allCustomers = searchResults;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _initializeRealtimeData();
+    
+    // Add listener to search controller with debounce
+    _searchController.addListener(() {
+      if (_searchController.text.isEmpty) {
+        _initializeRealtimeData();
+      }
+    });
+  }
+
+  void _initializeRealtimeData() {
+    // Use real-time listeners for live data updates
+    _customerService.getCustomersStream().listen(
+      (customers) {
+        if (mounted) {
+          setState(() {
+            _allCustomers = customers;
+            _isLoading = false;
+            _errorMessage = null;
+          });
+        }
+      },
+      onError: (error) {
+        if (mounted) {
+          setState(() {
+            _errorMessage = error.toString();
+            _isLoading = false;
+          });
+        }
+      },
+    );
   }
 
   @override
@@ -320,9 +396,22 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                           Icons.search,
                           color: AppColors.textSecondary,
                         ),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(
+                                  Icons.clear,
+                                  color: AppColors.textSecondary,
+                                ),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  _loadCustomers();
+                                },
+                              )
+                            : null,
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.all(16),
                       ),
+                      onSubmitted: (_) => _performSearch(),
                     ),
                   ),
 
@@ -417,7 +506,108 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildCustomersTab() {
-    return ListView.builder(
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: AppColors.errorRed,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Error loading customers',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage!,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadCustomers,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryPink,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                'Retry',
+                style: GoogleFonts.poppins(),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_filteredCustomers.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.people_outline,
+              size: 64,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No customers found',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _searchController.text.isNotEmpty
+                  ? 'Try adjusting your search criteria'
+                  : 'Add your first customer to get started',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => _showAddCustomerDialog(),
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(
+                'Add Customer',
+                style: GoogleFonts.poppins(),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryPink,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadCustomers,
+      child: ListView.builder(
       padding: const EdgeInsets.all(20),
       itemCount: _filteredCustomers.length,
       itemBuilder: (context, index) {
@@ -427,6 +617,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
           child: _buildCustomerCard(customer),
         );
       },
+      ),
     );
   }
 
@@ -806,7 +997,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                       ),
                       Padding(
                         padding: const EdgeInsets.only(
-                            right: 40), // Space for edit button
+                            right: 80), // Space for action buttons
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
@@ -952,11 +1143,14 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                 ],
               ),
             ),
-            // Edit button
+            // Action buttons
             Positioned(
               top: 8,
               right: 8,
-              child: GestureDetector(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
                 onTap: () {
                   _showEditCustomerDialog(customer);
                 },
@@ -972,6 +1166,26 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                     color: AppColors.primaryPink,
                   ),
                 ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      _deleteCustomer(customer);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorRed.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.delete,
+                        size: 16,
+                        color: AppColors.errorRed,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

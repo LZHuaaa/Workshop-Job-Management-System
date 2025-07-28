@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum OrderRequestStatus {
   pending,
   approved,
@@ -125,12 +127,34 @@ class OrderRequest {
         (e) => e.name == json['status'],
         orElse: () => OrderRequestStatus.pending,
       ),
-      requestDate: DateTime.parse(json['requestDate']),
+      requestDate: _parseDateTime(json['requestDate']),
       responseDate: json['responseDate'] != null
-          ? DateTime.parse(json['responseDate'])
+          ? _parseDateTime(json['responseDate'])
           : null,
       responseNote: json['responseNote'],
       requestedBy: json['requestedBy'],
     );
   }
-} 
+
+  // Helper method to parse DateTime from various formats
+  static DateTime _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) {
+      return DateTime.now();
+    }
+
+    if (dateValue is Timestamp) {
+      return dateValue.toDate();
+    }
+
+    if (dateValue is String) {
+      return DateTime.parse(dateValue);
+    }
+
+    if (dateValue is DateTime) {
+      return dateValue;
+    }
+
+    // Fallback to current time if we can't parse
+    return DateTime.now();
+  }
+}

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
+import '../services/admin_data_service.dart';
+import '../widgets/hidden_admin_panel.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String userName;
@@ -83,15 +85,43 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               child: Stack(
                 alignment: Alignment.bottomRight,
                 children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: AppColors.primaryPink.withOpacity(0.1),
-                    child: Text(
-                      widget.userName.isNotEmpty ? widget.userName[0] : '',
-                      style: GoogleFonts.poppins(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primaryPink,
+                  GestureDetector(
+                    onTap: () {
+                      // Secret admin access - 7 taps on profile picture
+                      if (AdminDataService.checkAdminUnlock()) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const HiddenAdminPanel(),
+                          ),
+                        );
+                      } else {
+                        // Show subtle feedback for remaining taps
+                        final remaining = AdminDataService.remainingTaps;
+                        if (remaining <= 3) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                '$remaining more taps...',
+                                style: GoogleFonts.poppins(fontSize: 12),
+                              ),
+                              duration: const Duration(milliseconds: 500),
+                              backgroundColor:
+                                  AppColors.primaryPink.withOpacity(0.8),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    child: CircleAvatar(
+                      radius: 40,
+                      backgroundColor: AppColors.primaryPink.withOpacity(0.1),
+                      child: Text(
+                        widget.userName.isNotEmpty ? widget.userName[0] : '',
+                        style: GoogleFonts.poppins(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryPink,
+                        ),
                       ),
                     ),
                   ),
@@ -103,7 +133,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         // TODO: Implement photo edit logic
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Edit photo clicked', style: GoogleFonts.poppins()),
+                            content: Text('Edit photo clicked',
+                                style: GoogleFonts.poppins()),
                             backgroundColor: AppColors.primaryPink,
                           ),
                         );
@@ -120,7 +151,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           ],
                         ),
                         padding: const EdgeInsets.all(4),
-                        child: Icon(Icons.edit, color: AppColors.primaryPink, size: 20),
+                        child: Icon(Icons.edit,
+                            color: AppColors.primaryPink, size: 20),
                       ),
                     ),
                   ),
@@ -141,13 +173,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 onPressed: widget.onLogout,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.errorRed,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
                 icon: const Icon(Icons.logout, color: Colors.white),
-                label: Text('Logout', style: GoogleFonts.poppins(color: Colors.white)),
+                label: Text('Logout',
+                    style: GoogleFonts.poppins(color: Colors.white)),
               ),
             ),
           ],
@@ -209,7 +243,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
         ),
         IconButton(
-          icon: Icon(_showPassword ? Icons.visibility : Icons.visibility_off, color: AppColors.primaryPink, size: 20),
+          icon: Icon(_showPassword ? Icons.visibility : Icons.visibility_off,
+              color: AppColors.primaryPink, size: 20),
           onPressed: () {
             setState(() {
               _showPassword = !_showPassword;
@@ -250,7 +285,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     decoration: InputDecoration(
                       labelText: 'Old Password',
                       suffixIcon: IconButton(
-                        icon: Icon(showOld ? Icons.visibility : Icons.visibility_off),
+                        icon: Icon(
+                            showOld ? Icons.visibility : Icons.visibility_off),
                         onPressed: () {
                           setState(() {
                             showOld = !showOld;
@@ -266,7 +302,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     decoration: InputDecoration(
                       labelText: 'New Password',
                       suffixIcon: IconButton(
-                        icon: Icon(showNew ? Icons.visibility : Icons.visibility_off),
+                        icon: Icon(
+                            showNew ? Icons.visibility : Icons.visibility_off),
                         onPressed: () {
                           setState(() {
                             showNew = !showNew;
@@ -282,7 +319,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     decoration: InputDecoration(
                       labelText: 'Confirm New Password',
                       suffixIcon: IconButton(
-                        icon: Icon(showConfirm ? Icons.visibility : Icons.visibility_off),
+                        icon: Icon(showConfirm
+                            ? Icons.visibility
+                            : Icons.visibility_off),
                         onPressed: () {
                           setState(() {
                             showConfirm = !showConfirm;
@@ -308,7 +347,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryPink,
                   ),
-                  child: Text('Save', style: GoogleFonts.poppins(color: Colors.white)),
+                  child: Text('Save',
+                      style: GoogleFonts.poppins(color: Colors.white)),
                 ),
               ],
             );
@@ -317,4 +357,4 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       },
     );
   }
-} 
+}

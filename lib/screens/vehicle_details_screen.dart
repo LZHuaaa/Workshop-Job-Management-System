@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../models/vehicle.dart';
+import '../models/service_record.dart';
 import '../screens/vehicle_profile_screen.dart';
 import '../dialogs/add_vehicle_dialog.dart';
 import '../dialogs/edit_vehicle_dialog.dart';
@@ -24,7 +25,8 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   final VehicleDataService _dataService = VehicleDataService();
-  final MaintenanceNotificationService _notificationService = MaintenanceNotificationService();
+  final MaintenanceNotificationService _notificationService =
+      MaintenanceNotificationService();
 
   List<Vehicle> _allVehicles = [];
   List<Vehicle> _filteredVehicles = [];
@@ -50,24 +52,26 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
       serviceHistory: [
         ServiceRecord(
           id: 's1',
-          date: DateTime.now().subtract(const Duration(days: 30)),
+          customerId: 'c1',
+          vehicleId: '1',
+          serviceDate: DateTime.now().subtract(const Duration(days: 30)),
           mileage: 44500,
           serviceType: 'Oil Change',
           description: 'Regular oil change and filter replacement',
-          partsUsed: ['Oil Filter', 'Engine Oil'],
-          laborHours: 1.0,
-          totalCost: 89.99,
+          partsReplaced: ['Oil Filter', 'Engine Oil'],
+          cost: 89.99,
           mechanicName: 'Lim Wei Ming',
         ),
         ServiceRecord(
           id: 's2',
-          date: DateTime.now().subtract(const Duration(days: 120)),
+          customerId: 'c1',
+          vehicleId: '1',
+          serviceDate: DateTime.now().subtract(const Duration(days: 120)),
           mileage: 42000,
           serviceType: 'Brake Service',
           description: 'Front brake pad replacement',
-          partsUsed: ['Brake Pads', 'Brake Fluid'],
-          laborHours: 2.5,
-          totalCost: 245.50,
+          partsReplaced: ['Brake Pads', 'Brake Fluid'],
+          cost: 245.50,
           mechanicName: 'Siti Nurhaliza binti Hassan',
         ),
       ],
@@ -91,13 +95,14 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
       serviceHistory: [
         ServiceRecord(
           id: 's3',
-          date: DateTime.now().subtract(const Duration(days: 95)),
+          customerId: 'c2',
+          vehicleId: '2',
+          serviceDate: DateTime.now().subtract(const Duration(days: 95)),
           mileage: 60000,
           serviceType: 'Transmission Service',
           description: 'Transmission fluid change and inspection',
-          partsUsed: ['Transmission Fluid', 'Filter'],
-          laborHours: 1.5,
-          totalCost: 189.99,
+          partsReplaced: ['Transmission Fluid', 'Filter'],
+          cost: 189.99,
           mechanicName: 'Raj Kumar a/l Suresh',
         ),
       ],
@@ -148,7 +153,8 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
     try {
       await _notificationService.initialize();
       if (mounted) {
-        await _notificationService.scheduleNotificationsForAllVehicles(_vehicles);
+        await _notificationService
+            .scheduleNotificationsForAllVehicles(_vehicles);
       }
     } catch (e) {
       // Handle initialization errors gracefully
@@ -219,7 +225,8 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                                   children: [
                                     const Icon(Icons.file_download, size: 18),
                                     const SizedBox(width: 8),
-                                    Text('Export CSV', style: GoogleFonts.poppins()),
+                                    Text('Export CSV',
+                                        style: GoogleFonts.poppins()),
                                   ],
                                 ),
                               ),
@@ -229,7 +236,8 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                                   children: [
                                     const Icon(Icons.code, size: 18),
                                     const SizedBox(width: 8),
-                                    Text('Export JSON', style: GoogleFonts.poppins()),
+                                    Text('Export JSON',
+                                        style: GoogleFonts.poppins()),
                                   ],
                                 ),
                               ),
@@ -239,7 +247,8 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                                   children: [
                                     const Icon(Icons.description, size: 18),
                                     const SizedBox(width: 8),
-                                    Text('Generate Report', style: GoogleFonts.poppins()),
+                                    Text('Generate Report',
+                                        style: GoogleFonts.poppins()),
                                   ],
                                 ),
                               ),
@@ -365,7 +374,8 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                                   child: Container(
                                     padding: const EdgeInsets.all(6),
                                     decoration: BoxDecoration(
-                                      color: AppColors.errorRed.withOpacity(0.1),
+                                      color:
+                                          AppColors.errorRed.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Icon(
@@ -784,7 +794,8 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
           onFilterApplied: (filteredVehicles) {
             setState(() {
               _filteredVehicles = filteredVehicles;
-              _hasActiveFilters = filteredVehicles.length != _allVehicles.length;
+              _hasActiveFilters =
+                  filteredVehicles.length != _allVehicles.length;
             });
           },
         ),
@@ -910,13 +921,15 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
         onVehicleUpdated: (updatedVehicle) {
           setState(() {
             // Update the vehicle in the lists
-            final allIndex = _allVehicles.indexWhere((v) => v.id == updatedVehicle.id);
+            final allIndex =
+                _allVehicles.indexWhere((v) => v.id == updatedVehicle.id);
             if (allIndex != -1) {
               _allVehicles[allIndex] = updatedVehicle;
             }
 
             // Update the filtered vehicles list as well
-            final filteredIndex = _filteredVehicles.indexWhere((v) => v.id == updatedVehicle.id);
+            final filteredIndex =
+                _filteredVehicles.indexWhere((v) => v.id == updatedVehicle.id);
             if (filteredIndex != -1) {
               _filteredVehicles[filteredIndex] = updatedVehicle;
             }

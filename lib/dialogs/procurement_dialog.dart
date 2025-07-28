@@ -92,6 +92,10 @@ class _ProcurementDialogState extends State<ProcurementDialog> {
 
     widget.onOrdersCreated(orders);
 
+    setState(() {
+      _isLoading = false;
+    });
+
     if (mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -274,7 +278,6 @@ class _ProcurementDialogState extends State<ProcurementDialog> {
               ),
             ],
           ),
-          
           if (isSelected) ...[
             const SizedBox(height: 12),
             Row(

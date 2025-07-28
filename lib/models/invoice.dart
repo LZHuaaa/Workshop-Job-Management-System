@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum InvoiceStatus { draft, pending, approved, paid, cancelled }
 
 class InvoiceItem {
@@ -91,8 +93,8 @@ class Invoice {
       customerName: json['customerName'] as String,
       vehicleId: json['vehicleId'] as String,
       jobId: json['jobId'] as String,
-      issueDate: DateTime.parse(json['issueDate'] as String),
-      dueDate: DateTime.parse(json['dueDate'] as String),
+      issueDate: _parseDateTime(json['issueDate']),
+      dueDate: _parseDateTime(json['dueDate']),
       items: (json['items'] as List)
           .map((item) => InvoiceItem.fromJson(item as Map<String, dynamic>))
           .toList(),
@@ -101,5 +103,27 @@ class Invoice {
       ),
       notes: json['notes'] as String?,
     );
+  }
+
+  // Helper method to parse DateTime from various formats
+  static DateTime _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) {
+      return DateTime.now();
+    }
+
+    if (dateValue is Timestamp) {
+      return dateValue.toDate();
+    }
+
+    if (dateValue is String) {
+      return DateTime.parse(dateValue);
+    }
+
+    if (dateValue is DateTime) {
+      return dateValue;
+    }
+
+    // Fallback to current time if we can't parse
+    return DateTime.now();
   }
 }
