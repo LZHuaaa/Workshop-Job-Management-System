@@ -234,24 +234,24 @@ class _EditCustomerDialogState extends State<EditCustomerDialog> {
 
                 const SizedBox(height: 16),
 
-                // City, State, Zip
+                // City
+                CustomTextField(
+                  label: 'City',
+                  hint: 'Enter city',
+                  controller: _cityController,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter city';
+                    }
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // State and Zip Code
                 Row(
                   children: [
-                    Expanded(
-                      flex: 2,
-                      child: CustomTextField(
-                        label: 'City',
-                        hint: 'Enter city',
-                        controller: _cityController,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter city';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
                     Expanded(
                       flex: 2,
                       child: CustomTextField(
@@ -266,7 +266,7 @@ class _EditCustomerDialogState extends State<EditCustomerDialog> {
                         },
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 16),
                     Expanded(
                       child: CustomTextField(
                         label: 'Zip Code',
