@@ -114,6 +114,104 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
     );
   }
 
+  void _showEditItemDialog() {
+    final nameController = TextEditingController(text: _currentItem.name);
+    final categoryController = TextEditingController(text: _currentItem.category);
+    final minStockController = TextEditingController(text: _currentItem.minStock.toString());
+    final maxStockController = TextEditingController(text: _currentItem.maxStock.toString());
+    final unitPriceController = TextEditingController(text: _currentItem.unitPrice.toString());
+    final supplierController = TextEditingController(text: _currentItem.supplier);
+    final locationController = TextEditingController(text: _currentItem.location);
+    final descriptionController = TextEditingController(text: _currentItem.description);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Edit Item', style: GoogleFonts.poppins()),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(labelText: 'Name'),
+                ),
+                TextField(
+                  controller: categoryController,
+                  decoration: InputDecoration(labelText: 'Category'),
+                ),
+                TextField(
+                  controller: minStockController,
+                  decoration: InputDecoration(labelText: 'Min Stock'),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: maxStockController,
+                  decoration: InputDecoration(labelText: 'Max Stock'),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: unitPriceController,
+                  decoration: InputDecoration(labelText: 'Unit Price'),
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                ),
+                TextField(
+                  controller: supplierController,
+                  decoration: InputDecoration(labelText: 'Supplier'),
+                ),
+                TextField(
+                  controller: locationController,
+                  decoration: InputDecoration(labelText: 'Location'),
+                ),
+                TextField(
+                  controller: descriptionController,
+                  decoration: InputDecoration(labelText: 'Description'),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Cancel', style: GoogleFonts.poppins()),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final updatedItem = _currentItem.copyWith(
+                  name: nameController.text,
+                  category: categoryController.text,
+                  minStock: int.tryParse(minStockController.text) ?? _currentItem.minStock,
+                  maxStock: int.tryParse(maxStockController.text) ?? _currentItem.maxStock,
+                  unitPrice: double.tryParse(unitPriceController.text) ?? _currentItem.unitPrice,
+                  supplier: supplierController.text,
+                  location: locationController.text,
+                  description: descriptionController.text,
+                );
+                setState(() {
+                  _currentItem = updatedItem;
+                });
+                widget.onItemUpdated(updatedItem);
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Item updated successfully', style: GoogleFonts.poppins()),
+                    backgroundColor: AppColors.successGreen,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryPink,
+              ),
+              child: Text('Save', style: GoogleFonts.poppins(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -137,13 +235,7 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
           IconButton(
             icon: Icon(Icons.edit, color: AppColors.primaryPink),
             onPressed: () {
-              // TODO: Implement edit functionality
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Edit functionality coming soon!'),
-                  backgroundColor: AppColors.primaryPink,
-                ),
-              );
+              _showEditItemDialog();
             },
           ),
         ],
