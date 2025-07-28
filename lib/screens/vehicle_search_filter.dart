@@ -186,52 +186,37 @@ class _VehicleSearchFilterState extends State<VehicleSearchFilter> {
           ),
           child: Column(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildDropdown(
-                      'Make',
-                      _selectedMake,
-                      _availableMakes,
-                      (value) => setState(() {
-                        _selectedMake = value;
-                        _applyFilters();
-                      }),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildDropdown(
-                      'Model',
-                      _selectedModel,
-                      _availableModels,
-                      (value) => setState(() {
-                        _selectedModel = value;
-                        _applyFilters();
-                      }),
-                    ),
-                  ),
-                ],
+              // Make and Model dropdowns in separate rows to prevent overflow
+              _buildDropdown(
+                'Make',
+                _selectedMake,
+                _availableMakes,
+                (value) => setState(() {
+                  _selectedMake = value;
+                  _applyFilters();
+                }),
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildYearDropdown(),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildDropdown(
-                      'Color',
-                      _selectedColor,
-                      _availableColors,
-                      (value) => setState(() {
-                        _selectedColor = value;
-                        _applyFilters();
-                      }),
-                    ),
-                  ),
-                ],
+              _buildDropdown(
+                'Model',
+                _selectedModel,
+                _availableModels,
+                (value) => setState(() {
+                  _selectedModel = value;
+                  _applyFilters();
+                }),
+              ),
+              const SizedBox(height: 16),
+              _buildYearDropdown(),
+              const SizedBox(height: 16),
+              _buildDropdown(
+                'Color',
+                _selectedColor,
+                _availableColors,
+                (value) => setState(() {
+                  _selectedColor = value;
+                  _applyFilters();
+                }),
               ),
             ],
           ),

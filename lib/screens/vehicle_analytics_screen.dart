@@ -17,63 +17,124 @@ class VehicleAnalyticsScreen extends StatefulWidget {
   State<VehicleAnalyticsScreen> createState() => _VehicleAnalyticsScreenState();
 }
 
-class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen>
-    with TickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      appBar: AppBar(
-        title: Text(
-          'Vehicle Analytics',
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textDark,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.textDark),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppColors.primaryPink,
-          unselectedLabelColor: AppColors.textSecondary,
-          indicatorColor: AppColors.primaryPink,
-          labelStyle: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-          tabs: const [
-            Tab(text: 'Overview'),
-            Tab(text: 'Service Trends'),
-            Tab(text: 'Fleet Status'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
+    return _buildAnalyticsContent();
+  }
+
+  Widget _buildAnalyticsContent() {
+    final totalVehicles = widget.vehicles.length;
+    final serviceDueCount = widget.vehicles.where((v) => v.needsService).length;
+    final averageAge = _calculateAverageAge();
+    final mostCommonMake = _getMostCommonMake();
+    final averageMileage = _calculateAverageMileage();
+    final totalFleetValue = _calculateEstimatedFleetValue();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
         children: [
-          _buildOverviewTab(),
-          _buildServiceTrendsTab(),
-          _buildFleetStatusTab(),
+          // Key Metrics Cards
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryCard(
+                  'Total Vehicles',
+                  totalVehicles.toString(),
+                  Icons.directions_car,
+                  AppColors.primaryPink,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildSummaryCard(
+                  'Service Due',
+                  serviceDueCount.toString(),
+                  Icons.warning,
+                  AppColors.warningOrange,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryCard(
+                  'Avg Age',
+                  '${averageAge.toStringAsFixed(1)} years',
+                  Icons.access_time,
+                  AppColors.successGreen,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildSummaryCard(
+                  'Fleet Value',
+                  'RM ${(totalFleetValue / 1000).toStringAsFixed(0)}k',
+                  Icons.attach_money,
+                  AppColors.primaryBlue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Fleet Brand Analysis (More meaningful than just distribution)
+          DashboardCard(
+            title: 'Fleet Brand Analysis',
+            subtitle: 'Vehicle count by manufacturer - helps with parts procurement',
+            child: SizedBox(
+              height: 200,
+              child: _buildMakeDistributionChart(),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Vehicle Age Analysis
+          DashboardCard(
+            title: 'Fleet Age Analysis',
+            subtitle: 'Age distribution helps predict maintenance needs',
+            child: SizedBox(
+              height: 200,
+              child: _buildAgeDistributionChart(),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Maintenance Priority Dashboard
+          DashboardCard(
+            title: 'Maintenance Priority Dashboard',
+            subtitle: 'Vehicles requiring immediate attention vs. up-to-date',
+            child: SizedBox(
+              height: 200,
+              child: _buildServiceStatusChart(),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Monthly Vehicle Registration Trend
+          DashboardCard(
+            title: 'Vehicle Registration Trend',
+            subtitle: 'When vehicles were added to your fleet',
+            child: SizedBox(
+              height: 200,
+              child: _buildRegistrationTrendChart(),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Mileage Analysis
+          DashboardCard(
+            title: 'Fleet Mileage Analysis',
+            subtitle: 'Mileage distribution helps plan service intervals',
+            child: SizedBox(
+              height: 200,
+              child: _buildMileageDistributionChart(),
+            ),
+          ),
         ],
       ),
     );
@@ -84,6 +145,10 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen>
     final serviceDueCount = widget.vehicles.where((v) => v.needsService).length;
     final averageAge = _calculateAverageAge();
     final mostCommonMake = _getMostCommonMake();
+    final averageMileage = _calculateAverageMileage();
+    final newestVehicle = _getNewestVehicle();
+    final oldestVehicle = _getOldestVehicle();
+    final totalFleetValue = _calculateEstimatedFleetValue();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -133,8 +198,54 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen>
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          // New Analytics Row 3
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryCard(
+                  'Avg Mileage',
+                  '${(averageMileage / 1000).toStringAsFixed(0)}k km',
+                  Icons.speed,
+                  AppColors.primaryBlue,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildSummaryCard(
+                  'Fleet Value',
+                  'RM ${(totalFleetValue / 1000).toStringAsFixed(0)}k',
+                  Icons.attach_money,
+                  AppColors.successGreen,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // New Analytics Row 4
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryCard(
+                  'Newest',
+                  newestVehicle,
+                  Icons.new_releases,
+                  AppColors.primaryPink,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildSummaryCard(
+                  'Oldest',
+                  oldestVehicle,
+                  Icons.history,
+                  AppColors.warningOrange,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 24),
-          
+
           // Vehicle Distribution by Make
           DashboardCard(
             title: 'Vehicle Distribution by Make',
@@ -176,6 +287,22 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen>
             child: SizedBox(
               height: 200,
               child: _buildServiceTypesChart(),
+            ),
+          ),
+          const SizedBox(height: 24),
+          DashboardCard(
+            title: 'Service Status Distribution',
+            child: SizedBox(
+              height: 200,
+              child: _buildServiceStatusChart(),
+            ),
+          ),
+          const SizedBox(height: 24),
+          DashboardCard(
+            title: 'Maintenance Cost by Make',
+            child: SizedBox(
+              height: 250,
+              child: _buildMaintenanceCostChart(),
             ),
           ),
           const SizedBox(height: 24),
@@ -408,6 +535,103 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen>
     // Placeholder for service types distribution
     return const Center(
       child: Text('Service Types Chart\n(Requires service history data)'),
+    );
+  }
+
+  Widget _buildServiceStatusChart() {
+    final statusData = _getServiceStatusDistribution();
+
+    return PieChart(
+      PieChartData(
+        sections: statusData.entries.map((entry) {
+          final index = statusData.keys.toList().indexOf(entry.key);
+          final colors = [
+            AppColors.successGreen,
+            AppColors.warningOrange,
+            AppColors.errorRed,
+          ];
+
+          return PieChartSectionData(
+            color: colors[index % colors.length],
+            value: entry.value.toDouble(),
+            title: '${entry.value}',
+            radius: 60,
+            titleStyle: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          );
+        }).toList(),
+        sectionsSpace: 2,
+        centerSpaceRadius: 40,
+      ),
+    );
+  }
+
+  Widget _buildMaintenanceCostChart() {
+    final costData = _getMaintenanceCostByMake();
+
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: costData.values.isNotEmpty
+            ? costData.values.reduce((a, b) => a > b ? a : b) + 1000
+            : 5000,
+        barTouchData: BarTouchData(enabled: false),
+        titlesData: FlTitlesData(
+          show: true,
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                final makes = costData.keys.toList();
+                if (value.toInt() < makes.length) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      makes[value.toInt()],
+                      style: GoogleFonts.poppins(fontSize: 10),
+                    ),
+                  );
+                }
+                return const Text('');
+              },
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                return Text(
+                  'RM${(value / 1000).toStringAsFixed(0)}k',
+                  style: GoogleFonts.poppins(fontSize: 10),
+                );
+              },
+            ),
+          ),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: false),
+        barGroups: costData.entries.map((entry) {
+          final index = costData.keys.toList().indexOf(entry.key);
+          return BarChartGroupData(
+            x: index,
+            barRods: [
+              BarChartRodData(
+                toY: entry.value,
+                color: AppColors.primaryPink,
+                width: 20,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(4),
+                  topRight: Radius.circular(4),
+                ),
+              ),
+            ],
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -724,5 +948,183 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen>
     }
     
     return mileageRanges;
+  }
+
+  // New enhanced analytics methods
+  double _calculateAverageMileage() {
+    if (widget.vehicles.isEmpty) return 0;
+    final totalMileage = widget.vehicles.fold(0, (sum, vehicle) => sum + vehicle.mileage);
+    return totalMileage / widget.vehicles.length;
+  }
+
+  String _getNewestVehicle() {
+    if (widget.vehicles.isEmpty) return 'N/A';
+    final newest = widget.vehicles.reduce((a, b) => a.year > b.year ? a : b);
+    return '${newest.year} ${newest.make}';
+  }
+
+  String _getOldestVehicle() {
+    if (widget.vehicles.isEmpty) return 'N/A';
+    final oldest = widget.vehicles.reduce((a, b) => a.year < b.year ? a : b);
+    return '${oldest.year} ${oldest.make}';
+  }
+
+  double _calculateEstimatedFleetValue() {
+    if (widget.vehicles.isEmpty) return 0;
+    // Simple estimation based on age and mileage
+    // This is a basic formula - in real app you'd use actual market values
+    double totalValue = 0;
+    final currentYear = DateTime.now().year;
+
+    for (final vehicle in widget.vehicles) {
+      final age = currentYear - vehicle.year;
+      double baseValue = 50000; // Base value in RM
+
+      // Depreciation based on age (10% per year)
+      double ageDepreciation = baseValue * (age * 0.1);
+
+      // Depreciation based on mileage (RM 0.20 per km)
+      double mileageDepreciation = vehicle.mileage * 0.2;
+
+      double estimatedValue = baseValue - ageDepreciation - mileageDepreciation;
+      if (estimatedValue < 5000) estimatedValue = 5000; // Minimum value
+
+      totalValue += estimatedValue;
+    }
+
+    return totalValue;
+  }
+
+  Map<String, int> _getServiceStatusDistribution() {
+    final statusCount = <String, int>{
+      'Up to Date': 0,
+      'Due Soon': 0,
+      'Overdue': 0,
+    };
+
+    for (final vehicle in widget.vehicles) {
+      if (vehicle.needsService) {
+        statusCount['Overdue'] = statusCount['Overdue']! + 1;
+      } else {
+        // Simple logic - in real app you'd check actual service dates
+        final random = vehicle.mileage % 3;
+        if (random == 0) {
+          statusCount['Due Soon'] = statusCount['Due Soon']! + 1;
+        } else {
+          statusCount['Up to Date'] = statusCount['Up to Date']! + 1;
+        }
+      }
+    }
+
+    return statusCount;
+  }
+
+  Widget _buildRegistrationTrendChart() {
+    final registrationData = _getRegistrationTrendData();
+
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: registrationData.values.isNotEmpty
+            ? registrationData.values.reduce((a, b) => a > b ? a : b).toDouble() + 1
+            : 5,
+        barTouchData: BarTouchData(enabled: false),
+        titlesData: FlTitlesData(
+          show: true,
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                final months = registrationData.keys.toList();
+                if (value.toInt() < months.length) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      months[value.toInt()],
+                      style: GoogleFonts.poppins(fontSize: 10),
+                    ),
+                  );
+                }
+                return const Text('');
+              },
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                return Text(
+                  value.toInt().toString(),
+                  style: GoogleFonts.poppins(fontSize: 10),
+                );
+              },
+            ),
+          ),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: false),
+        barGroups: registrationData.entries.map((entry) {
+          final index = registrationData.keys.toList().indexOf(entry.key);
+          return BarChartGroupData(
+            x: index,
+            barRods: [
+              BarChartRodData(
+                toY: entry.value.toDouble(),
+                color: AppColors.primaryPink,
+                width: 20,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(4),
+                  topRight: Radius.circular(4),
+                ),
+              ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Map<String, int> _getRegistrationTrendData() {
+    final monthCounts = <String, int>{};
+    final now = DateTime.now();
+
+    // Get last 6 months
+    for (int i = 5; i >= 0; i--) {
+      final month = DateTime(now.year, now.month - i, 1);
+      final monthKey = '${month.month.toString().padLeft(2, '0')}/${month.year.toString().substring(2)}';
+      monthCounts[monthKey] = 0;
+    }
+
+    for (final vehicle in widget.vehicles) {
+      final createdMonth = vehicle.createdAt;
+      final monthKey = '${createdMonth.month.toString().padLeft(2, '0')}/${createdMonth.year.toString().substring(2)}';
+      if (monthCounts.containsKey(monthKey)) {
+        monthCounts[monthKey] = monthCounts[monthKey]! + 1;
+      }
+    }
+
+    return monthCounts;
+  }
+
+  Map<String, double> _getMaintenanceCostByMake() {
+    final makeCosts = <String, List<double>>{};
+
+    for (final vehicle in widget.vehicles) {
+      if (!makeCosts.containsKey(vehicle.make)) {
+        makeCosts[vehicle.make] = [];
+      }
+      // Estimated maintenance cost based on age and mileage
+      final age = DateTime.now().year - vehicle.year;
+      final estimatedCost = (age * 500) + (vehicle.mileage * 0.05);
+      makeCosts[vehicle.make]!.add(estimatedCost);
+    }
+
+    final averageCosts = <String, double>{};
+    makeCosts.forEach((make, costs) {
+      averageCosts[make] = costs.reduce((a, b) => a + b) / costs.length;
+    });
+
+    return averageCosts;
   }
 }

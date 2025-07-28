@@ -126,42 +126,40 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
       _isLoading = true;
     });
 
-    // Simulate API call
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        final updatedVehicle = widget.vehicle.copyWith(
-          make: _makeController.text,
-          model: _modelController.text,
-          year: int.parse(_yearController.text),
-          color: _colorController.text,
-          licensePlate: _licensePlateController.text,
-          vin: _vinController.text,
-          mileage: int.parse(_mileageController.text),
-          customerName: _customerNameController.text,
-          customerPhone: _customerPhoneController.text,
-          customerEmail: _customerEmailController.text,
-          notes: _notesController.text.isEmpty ? null : _notesController.text,
-        );
+    try {
+      final updatedVehicle = widget.vehicle.copyWith(
+        make: _makeController.text,
+        model: _modelController.text,
+        year: int.parse(_yearController.text),
+        color: _colorController.text,
+        licensePlate: _licensePlateController.text,
+        vin: _vinController.text,
+        mileage: int.parse(_mileageController.text),
+        customerName: _customerNameController.text,
+        customerPhone: _customerPhoneController.text,
+        customerEmail: _customerEmailController.text,
+        notes: _notesController.text.isEmpty ? null : _notesController.text,
+      );
 
-        widget.onVehicleUpdated(updatedVehicle);
+      // Call the callback function - the parent will handle Firebase update
+      widget.onVehicleUpdated(updatedVehicle);
 
-        setState(() {
-          _isLoading = false;
-        });
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
 
-        Navigator.of(context).pop();
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Vehicle updated successfully',
-              style: GoogleFonts.poppins(),
-            ),
-            backgroundColor: AppColors.successGreen,
-          ),
-        );
-      }
-    });
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating vehicle: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _scanVIN() {

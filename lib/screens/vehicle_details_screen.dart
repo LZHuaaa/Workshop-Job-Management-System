@@ -10,6 +10,7 @@ import '../dialogs/add_vehicle_dialog.dart';
 import '../dialogs/edit_vehicle_dialog.dart';
 import 'vehicle_search_filter.dart';
 import 'vehicle_analytics_screen.dart';
+import '../services/vehicle_service.dart';
 import '../services/vehicle_data_service.dart';
 import '../services/maintenance_notification_service.dart';
 
@@ -24,90 +25,19 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
-  final VehicleDataService _dataService = VehicleDataService();
+  final VehicleService _vehicleService = VehicleService();
+  final VehicleDataService _dataService = VehicleDataService(); // For export functionality
   final MaintenanceNotificationService _notificationService =
       MaintenanceNotificationService();
 
   List<Vehicle> _allVehicles = [];
   List<Vehicle> _filteredVehicles = [];
   bool _hasActiveFilters = false;
+  bool _isLoading = true;
+  String? _errorMessage;
+  bool _isUpdating = false;
 
-  // Sample vehicle data
-  final List<Vehicle> _vehicles = [
-    Vehicle(
-      id: '1',
-      make: 'Proton',
-      model: 'Saga',
-      year: 2020,
-      licensePlate: 'WA 1234 A',
-      vin: '1HGBH41JXMN109186',
-      color: 'Silver',
-      mileage: 45000,
-      customerId: 'c1',
-      customerName: 'Ahmad bin Abdullah',
-      customerPhone: '012-345-6789',
-      customerEmail: 'ahmad.abdullah@email.com',
-      createdAt: DateTime.now().subtract(const Duration(days: 365)),
-      lastServiceDate: DateTime.now().subtract(const Duration(days: 30)),
-      serviceHistory: [
-        ServiceRecord(
-          id: 's1',
-          customerId: 'c1',
-          vehicleId: '1',
-          serviceDate: DateTime.now().subtract(const Duration(days: 30)),
-          mileage: 44500,
-          serviceType: 'Oil Change',
-          description: 'Regular oil change and filter replacement',
-          partsReplaced: ['Oil Filter', 'Engine Oil'],
-          cost: 89.99,
-          mechanicName: 'Lim Wei Ming',
-        ),
-        ServiceRecord(
-          id: 's2',
-          customerId: 'c1',
-          vehicleId: '1',
-          serviceDate: DateTime.now().subtract(const Duration(days: 120)),
-          mileage: 42000,
-          serviceType: 'Brake Service',
-          description: 'Front brake pad replacement',
-          partsReplaced: ['Brake Pads', 'Brake Fluid'],
-          cost: 245.50,
-          mechanicName: 'Siti Nurhaliza binti Hassan',
-        ),
-      ],
-      notes: 'Customer prefers synthetic oil',
-    ),
-    Vehicle(
-      id: '2',
-      make: 'Perodua',
-      model: 'Myvi',
-      year: 2019,
-      licensePlate: 'KL 5678 B',
-      vin: '4T1BF1FK5KU123456',
-      color: 'White',
-      mileage: 62000,
-      customerId: 'c2',
-      customerName: 'Tan Mei Ling',
-      customerPhone: '013-987-6543',
-      customerEmail: 'tan.meiling@email.com',
-      createdAt: DateTime.now().subtract(const Duration(days: 200)),
-      lastServiceDate: DateTime.now().subtract(const Duration(days: 95)),
-      serviceHistory: [
-        ServiceRecord(
-          id: 's3',
-          customerId: 'c2',
-          vehicleId: '2',
-          serviceDate: DateTime.now().subtract(const Duration(days: 95)),
-          mileage: 60000,
-          serviceType: 'Transmission Service',
-          description: 'Transmission fluid change and inspection',
-          partsReplaced: ['Transmission Fluid', 'Filter'],
-          cost: 189.99,
-          mechanicName: 'Raj Kumar a/l Suresh',
-        ),
-      ],
-    ),
-  ];
+
 
   List<Vehicle> get _currentFilteredVehicles {
     if (_searchController.text.isEmpty) return _filteredVehicles;
@@ -122,31 +52,232 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
         .toList();
   }
 
-  void _addVehicle(Vehicle vehicle) {
-    setState(() {
-      _vehicles.add(vehicle);
-      _allVehicles.add(vehicle);
-      _filteredVehicles.add(vehicle);
-    });
-  }
 
-  void _updateVehicle(Vehicle updatedVehicle) {
-    setState(() {
-      final index =
-          _vehicles.indexWhere((vehicle) => vehicle.id == updatedVehicle.id);
-      if (index != -1) {
-        _vehicles[index] = updatedVehicle;
-      }
-    });
-  }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _allVehicles = List.from(_vehicles);
-    _filteredVehicles = List.from(_vehicles);
+    _tabController = TabController(length: 3, vsync: this);
+    _loadVehicles();
     _initializeNotifications();
+
+    // Add real-time search listener
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    // Trigger rebuild when search text changes
+    if (mounted) {
+      setState(() {
+        // The _currentFilteredVehicles getter will automatically filter based on search text
+      });
+    }
+  }
+
+  // Load vehicles from Firebase
+  Future<void> _loadVehicles() async {
+    try {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      final vehicles = await _vehicleService.getAllVehicles();
+
+      if (!mounted) return;
+
+      setState(() {
+        _allVehicles = vehicles;
+        _filteredVehicles = vehicles;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Failed to load vehicles: ${e.toString()}';
+        });
+      }
+    }
+  }
+
+  // Add vehicle to Firebase
+  Future<void> _addVehicle(Vehicle vehicle) async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      await _vehicleService.createVehicle(vehicle);
+      await _loadVehicles(); // Reload vehicles from Firebase
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Vehicle added successfully!',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to add vehicle: ${e.toString()}';
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to add vehicle: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Update vehicle in Firebase
+  Future<void> _updateVehicle(Vehicle vehicle) async {
+    if (_isUpdating || !mounted) return;
+
+    try {
+      _isUpdating = true;
+
+      print('Updating vehicle: ${vehicle.id} - ${vehicle.displayName}');
+      print('Vehicle data: ${vehicle.toMap()}');
+
+      await _vehicleService.updateVehicle(vehicle);
+      print('Vehicle updated successfully in Firebase');
+
+      if (mounted) {
+        // Update the local list manually instead of reloading everything
+        final index = _allVehicles.indexWhere((v) => v.id == vehicle.id);
+        if (index != -1) {
+          setState(() {
+            _allVehicles[index] = vehicle;
+            _filteredVehicles = List.from(_allVehicles);
+            _isLoading = false;
+          });
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Vehicle updated successfully!',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error updating vehicle: $e');
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Failed to update vehicle: ${e.toString()}';
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update vehicle: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      _isUpdating = false;
+    }
+  }
+
+  // Delete vehicle from Firebase
+  Future<void> _deleteVehicle(Vehicle vehicle) async {
+    // Show confirmation dialog
+    final bool? shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        title: Text(
+          'Delete Vehicle',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Are you sure you want to delete ${vehicle.displayName}? This action cannot be undone.',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.poppins(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true) {
+      try {
+        setState(() {
+          _isLoading = true;
+          _errorMessage = null;
+        });
+
+        await _vehicleService.deleteVehicle(vehicle.id);
+        await _loadVehicles(); // Reload vehicles from Firebase
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Vehicle deleted successfully!',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Failed to delete vehicle: ${e.toString()}';
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to delete vehicle: ${e.toString()}',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   void _initializeNotifications() async {
@@ -154,7 +285,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
       await _notificationService.initialize();
       if (mounted) {
         await _notificationService
-            .scheduleNotificationsForAllVehicles(_vehicles);
+            .scheduleNotificationsForAllVehicles(_allVehicles);
       }
     } catch (e) {
       // Handle initialization errors gracefully
@@ -166,6 +297,8 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
 
   @override
   void dispose() {
+    _isUpdating = false; // Cancel any ongoing operations
+    _searchController.removeListener(_onSearchChanged);
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -207,15 +340,30 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                       ),
                       Row(
                         children: [
-                          IconButton(
-                            onPressed: _showAnalytics,
-                            icon: const Icon(Icons.analytics),
-                            tooltip: 'Analytics',
-                            style: IconButton.styleFrom(
-                              backgroundColor: AppColors.backgroundLight,
+                          // Add Vehicle Button
+                          ElevatedButton.icon(
+                            onPressed: _showAddVehicleDialog,
+                            icon: const Icon(Icons.add, size: 18),
+                            label: Text(
+                              'Add Vehicle',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryPink,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           PopupMenuButton<String>(
                             onSelected: _handleMenuAction,
                             itemBuilder: (context) => [
@@ -277,7 +425,6 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                     ),
                     child: TextField(
                       controller: _searchController,
-                      onChanged: (value) => setState(() {}),
                       decoration: InputDecoration(
                         hintText:
                             'Search vehicles, customers, or license plates...',
@@ -421,29 +568,62 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                 tabs: const [
                   Tab(text: 'All Vehicles'),
                   Tab(text: 'Service Due'),
+                  Tab(text: 'Analytics'),
                 ],
               ),
             ),
 
             // Content
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildAllVehiclesTab(),
-                  _buildServiceDueTab(),
-                ],
-              ),
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(),
+                    )
+                  : _errorMessage != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                size: 64,
+                                color: Colors.red,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Error loading vehicles',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _errorMessage!,
+                                style: GoogleFonts.poppins(
+                                  color: Colors.red,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _loadVehicles,
+                                child: Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _buildAllVehiclesTab(),
+                            _buildServiceDueTab(),
+                            _buildAnalyticsTab(),
+                          ],
+                        ),
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddVehicleDialog,
-        backgroundColor: AppColors.primaryPink,
-        foregroundColor: Colors.white,
-        elevation: 8,
-        child: const Icon(Icons.add, size: 28),
       ),
     );
   }
@@ -662,10 +842,10 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                   ),
                 ),
               ],
-              // Action Buttons Row
+              // Action Buttons Row - Matching Customer Page Style
               const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 decoration: BoxDecoration(
                   border: Border(
                     top: BorderSide(
@@ -675,51 +855,36 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                   ),
                 ),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Expanded(
-                      child: TextButton.icon(
-                        onPressed: () => _editVehicleFromCard(vehicle),
-                        icon: Icon(
+                    GestureDetector(
+                      onTap: () => _editVehicleFromCard(vehicle),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryPink.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
                           Icons.edit,
                           size: 16,
                           color: AppColors.primaryPink,
                         ),
-                        label: Text(
-                          'Edit',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: AppColors.primaryPink,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                        ),
                       ),
                     ),
-                    Container(
-                      width: 1,
-                      height: 20,
-                      color: AppColors.backgroundLight,
-                    ),
-                    Expanded(
-                      child: TextButton.icon(
-                        onPressed: () => _deleteVehicleFromCard(vehicle),
-                        icon: Icon(
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => _deleteVehicleFromCard(vehicle),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.errorRed.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
                           Icons.delete,
                           size: 16,
                           color: AppColors.errorRed,
-                        ),
-                        label: Text(
-                          'Delete',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: AppColors.errorRed,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
                         ),
                       ),
                     ),
@@ -777,6 +942,194 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
     );
   }
 
+  Widget _buildAnalyticsTab() {
+    return VehicleAnalyticsScreen(vehicles: _allVehicles);
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textDark,
+            ),
+          ),
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildMakeDistribution() {
+    if (_allVehicles.isEmpty) {
+      return [
+        Text(
+          'No vehicles to analyze',
+          style: GoogleFonts.poppins(color: AppColors.textSecondary),
+        ),
+      ];
+    }
+
+    final makeCount = <String, int>{};
+    for (final vehicle in _allVehicles) {
+      makeCount[vehicle.make] = (makeCount[vehicle.make] ?? 0) + 1;
+    }
+
+    final sortedMakes = makeCount.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return sortedMakes.take(5).map((entry) {
+      final percentage = (entry.value / _allVehicles.length * 100).toStringAsFixed(1);
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: Text(
+                entry.key,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Container(
+                height: 8,
+                decoration: BoxDecoration(
+                  color: AppColors.backgroundLight,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: entry.value / _allVehicles.length,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryPink,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '${entry.value} ($percentage%)',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  List<Widget> _buildRecentVehicles() {
+    if (_allVehicles.isEmpty) {
+      return [
+        Text(
+          'No recent vehicles',
+          style: GoogleFonts.poppins(color: AppColors.textSecondary),
+        ),
+      ];
+    }
+
+    final recentVehicles = _allVehicles.take(5).toList();
+
+    return recentVehicles.map((vehicle) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.primaryPink.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.directions_car,
+                color: AppColors.primaryPink,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    vehicle.displayName,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    vehicle.customerName,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              DateFormat('MMM dd').format(vehicle.createdAt),
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
   void _showAddVehicleDialog() {
     showDialog(
       context: context,
@@ -798,16 +1151,6 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                   filteredVehicles.length != _allVehicles.length;
             });
           },
-        ),
-      ),
-    );
-  }
-
-  void _showAnalytics() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => VehicleAnalyticsScreen(
-          vehicles: _allVehicles,
         ),
       ),
     );
@@ -918,137 +1261,15 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
       context: context,
       builder: (context) => EditVehicleDialog(
         vehicle: vehicle,
-        onVehicleUpdated: (updatedVehicle) {
-          setState(() {
-            // Update the vehicle in the lists
-            final allIndex =
-                _allVehicles.indexWhere((v) => v.id == updatedVehicle.id);
-            if (allIndex != -1) {
-              _allVehicles[allIndex] = updatedVehicle;
-            }
-
-            // Update the filtered vehicles list as well
-            final filteredIndex =
-                _filteredVehicles.indexWhere((v) => v.id == updatedVehicle.id);
-            if (filteredIndex != -1) {
-              _filteredVehicles[filteredIndex] = updatedVehicle;
-            }
-          });
+        onVehicleUpdated: (updatedVehicle) async {
+          Navigator.of(context).pop(); // Close dialog first
+          await _updateVehicle(updatedVehicle); // Then update
         },
       ),
     );
   }
 
   void _deleteVehicleFromCard(Vehicle vehicle) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white, // Explicit white background
-        surfaceTintColor: Colors.white, // Ensure white background
-        title: Row(
-          children: [
-            Icon(Icons.warning, color: AppColors.errorRed),
-            const SizedBox(width: 8),
-            Text(
-              'Delete Vehicle',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                color: AppColors.errorRed,
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Are you sure you want to delete this vehicle?',
-              style: GoogleFonts.poppins(fontSize: 16),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.backgroundLight,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    vehicle.fullDisplayName,
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textDark,
-                    ),
-                  ),
-                  Text(
-                    'License: ${vehicle.licensePlate}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  Text(
-                    'Owner: ${vehicle.customerName}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'This action cannot be undone.',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: AppColors.errorRed,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.poppins(color: AppColors.textSecondary),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Implement actual delete functionality
-              setState(() {
-                _allVehicles.removeWhere((v) => v.id == vehicle.id);
-                _filteredVehicles.removeWhere((v) => v.id == vehicle.id);
-              });
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Vehicle "${vehicle.displayName}" deleted successfully',
-                    style: GoogleFonts.poppins(),
-                  ),
-                  backgroundColor: AppColors.successGreen,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.errorRed,
-              foregroundColor: Colors.white,
-            ),
-            child: Text(
-              'Delete',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
+    _deleteVehicle(vehicle);
   }
 }

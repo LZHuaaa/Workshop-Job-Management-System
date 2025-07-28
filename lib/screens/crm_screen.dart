@@ -65,7 +65,8 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
           .where((customer) =>
               customer.fullName.toLowerCase().contains(searchTerm) ||
               customer.email.toLowerCase().contains(searchTerm) ||
-              customer.phone.contains(searchTerm))
+              customer.phone.contains(searchTerm) ||
+              (customer.address?.toLowerCase().contains(searchTerm) ?? false))
           .toList();
     }
 
@@ -249,45 +250,23 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
     }
   }
 
-  void _performSearch() async {
-    if (_searchController.text.isEmpty) {
-      await _loadCustomers();
-      return;
-    }
-
-    try {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-
-      final searchResults =
-          await _customerService.searchCustomers(_searchController.text);
-
-      setState(() {
-        _allCustomers = searchResults;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
-    }
-  }
-
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _initializeRealtimeData();
     
-    // Add listener to search controller with debounce
-    _searchController.addListener(() {
-      if (_searchController.text.isEmpty) {
-        _initializeRealtimeData();
-      }
-    });
+    // Add listener to search controller for real-time search
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    // Trigger rebuild when search text changes for real-time filtering
+    if (mounted) {
+      setState(() {
+        // The _getFilteredCustomers method will automatically filter based on search text
+      });
+    }
   }
 
   void _initializeRealtimeData() {
@@ -315,6 +294,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -391,7 +371,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
-                        hintText: 'Search customers...',
+                        hintText: 'Search customers by name, email, or phone...',
                         prefixIcon: Icon(
                           Icons.search,
                           color: AppColors.textSecondary,
@@ -411,7 +391,6 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.all(16),
                       ),
-                      onSubmitted: (_) => _performSearch(),
                     ),
                   ),
 
