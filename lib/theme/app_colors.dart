@@ -13,14 +13,17 @@ class AppColors {
   static const Color backgroundLight = Color(0xFFFAFAFA);
   static const Color cardBackground = Color(0xFFFFFFFF);
   static const Color textDark = Color(0xFF333333);
+  static const Color textPrimary = Color(0xFF333333);
   static const Color textSecondary = Color(0xFF666666);
   static const Color textLight = Color(0xFF999999);
+  static const Color lightGray = Color(0xFFF5F5F5);
   
   // Status Colors
   static const Color successGreen = Color(0xFF4CAF50);
   static const Color warningOrange = Color(0xFFFF9800);
   static const Color errorRed = Color(0xFFF44336);
   static const Color infoBlue = Color(0xFF2196F3);
+  static const Color primaryBlue = Color(0xFF2196F3);
   
   // Chart Colors
   static const Color chartPrimary = primaryPink;

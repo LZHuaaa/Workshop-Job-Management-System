@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
-import '../widgets/dashboard_card.dart';
 import '../models/inventory_item.dart';
 import '../screens/item_details_screen.dart';
+import '../screens/inventory_usage_screen.dart';
 import '../dialogs/add_item_dialog.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -180,8 +180,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Inventory',
@@ -191,28 +191,64 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           color: AppColors.textDark,
                         ),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () => _showAddItemDialog(),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: Text(
-                          'Add Item',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => const InventoryUsageScreen(),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.analytics, size: 18),
+                              label: Text(
+                                'Usage Management',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primaryPink,
+                                side: BorderSide(color: AppColors.primaryPink),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryPink,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 1,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _showAddItemDialog(),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: Text(
+                                'Add Item',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primaryPink,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
+                        ],
                       ),
                     ],
                   ),
