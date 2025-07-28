@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../widgets/custom_dialog.dart';
 import '../models/customer.dart';
+import '../services/customer_service.dart';
 
 class EditCustomerDialog extends StatefulWidget {
   final Customer customer;
@@ -29,6 +30,8 @@ class _EditCustomerDialogState extends State<EditCustomerDialog> {
   late final TextEditingController _stateController;
   late final TextEditingController _zipCodeController;
   late final TextEditingController _notesController;
+
+  final CustomerService _customerService = CustomerService();
 
   String _selectedContactMethod = 'phone';
   bool _receivePromotions = true;
@@ -94,40 +97,60 @@ class _EditCustomerDialogState extends State<EditCustomerDialog> {
       _isLoading = true;
     });
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 1));
-
-    final updatedCustomer = widget.customer.copyWith(
-      firstName: _firstNameController.text,
-      lastName: _lastNameController.text,
-      email: _emailController.text,
-      phone: _phoneController.text,
-      address: _addressController.text,
-      city: _cityController.text,
-      state: _stateController.text,
-      zipCode: _zipCodeController.text,
-      notes: _notesController.text.isEmpty ? null : _notesController.text,
-      preferences: CustomerPreferences(
-        preferredContactMethod: _selectedContactMethod,
-        receivePromotions: _receivePromotions,
-        receiveReminders: _receiveReminders,
-        preferredMechanic: _preferredMechanic,
-      ),
-    );
-
-    widget.onCustomerUpdated(updatedCustomer);
-
-    if (mounted) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Customer updated successfully!',
-            style: GoogleFonts.poppins(),
-          ),
-          backgroundColor: AppColors.successGreen,
+    try {
+      final updatedCustomer = widget.customer.copyWith(
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        email: _emailController.text.trim().toLowerCase(),
+        phone: _phoneController.text.trim(),
+        address: _addressController.text.trim().isEmpty
+            ? null
+            : _addressController.text.trim(),
+        city: _cityController.text.trim().isEmpty
+            ? null
+            : _cityController.text.trim(),
+        state: _stateController.text.trim().isEmpty
+            ? null
+            : _stateController.text.trim(),
+        zipCode: _zipCodeController.text.trim().isEmpty
+            ? null
+            : _zipCodeController.text.trim(),
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
+        preferences: CustomerPreferences(
+          preferredContactMethod: _selectedContactMethod,
+          receivePromotions: _receivePromotions,
+          receiveReminders: _receiveReminders,
+          preferredMechanic: _preferredMechanic,
         ),
       );
+
+      // Update customer in Firebase
+      await _customerService.updateCustomer(updatedCustomer);
+
+      // Call the callback with the updated customer
+      widget.onCustomerUpdated(updatedCustomer);
+
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update customer: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
     }
   }
 

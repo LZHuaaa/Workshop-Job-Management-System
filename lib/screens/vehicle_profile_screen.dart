@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../models/vehicle.dart';
+import '../models/service_record.dart';
 import '../dialogs/add_appointment_dialog.dart';
 import '../dialogs/edit_vehicle_dialog.dart';
 import 'vehicle_photo_manager.dart';
@@ -465,7 +466,8 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
                 _buildDetailRow('Color', _currentVehicle.color),
                 _buildDetailRow('VIN', _currentVehicle.vin),
                 _buildDetailRow('License Plate', _currentVehicle.licensePlate),
-                _buildDetailRow('Current Mileage', '${NumberFormat('#,###').format(_currentVehicle.mileage)} miles'),
+                _buildDetailRow('Current Mileage',
+                    '${NumberFormat('#,###').format(_currentVehicle.mileage)} miles'),
               ],
             ),
           ),
@@ -477,7 +479,8 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
                 _buildDetailRow('Name', _currentVehicle.customerName),
                 _buildDetailRow('Phone', _currentVehicle.customerPhone),
                 _buildDetailRow('Email', _currentVehicle.customerEmail),
-                _buildDetailRow('Customer Since', DateFormat('MMM d, y').format(_currentVehicle.createdAt)),
+                _buildDetailRow('Customer Since',
+                    DateFormat('MMM d, y').format(_currentVehicle.createdAt)),
               ],
             ),
           ),
@@ -583,8 +586,6 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
     );
   }
 
-
-
   Widget _buildServiceCard(ServiceRecord service) {
     return DashboardCard(
       title: service.serviceType,
@@ -595,7 +596,7 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
             children: [
               Expanded(
                 child: Text(
-                  DateFormat('MMM d, y').format(service.date),
+                  DateFormat('MMM d, y').format(service.serviceDate),
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -604,7 +605,7 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
                 ),
               ),
               Text(
-                'RM${service.totalCost.toStringAsFixed(2)}',
+                'RM${service.cost.toStringAsFixed(2)}',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -623,32 +624,35 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Mechanic: ${service.mechanicName} • ${service.laborHours} hours • ${service.mileage.toString()} miles',
+            'Mechanic: ${service.mechanicName} • ${service.mileage.toString()} miles',
             style: GoogleFonts.poppins(
               fontSize: 12,
               color: AppColors.textSecondary,
             ),
           ),
-          if (service.partsUsed.isNotEmpty) ...[
+          if (service.partsReplaced.isNotEmpty) ...[
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 4,
-              children: service.partsUsed.map((part) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.softPink,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  part,
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    color: AppColors.primaryPink,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              )).toList(),
+              children: service.partsReplaced
+                  .map((part) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.softPink,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          part,
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            color: AppColors.primaryPink,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ))
+                  .toList(),
             ),
           ],
         ],

@@ -31,6 +31,50 @@ class ServiceRecord {
     this.notes = '',
   });
 
+  // Firestore serialization methods
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'customerId': customerId,
+      'vehicleId': vehicleId,
+      'serviceDate': serviceDate.toIso8601String(),
+      'serviceType': serviceType,
+      'description': description,
+      'servicesPerformed': servicesPerformed,
+      'cost': cost,
+      'mechanicName': mechanicName,
+      'status': status.name,
+      'nextServiceDue': nextServiceDue?.toIso8601String(),
+      'mileage': mileage,
+      'partsReplaced': partsReplaced,
+      'notes': notes,
+    };
+  }
+
+  factory ServiceRecord.fromMap(Map<String, dynamic> map) {
+    return ServiceRecord(
+      id: map['id'] ?? '',
+      customerId: map['customerId'] ?? '',
+      vehicleId: map['vehicleId'] ?? '',
+      serviceDate: DateTime.parse(map['serviceDate']),
+      serviceType: map['serviceType'] ?? '',
+      description: map['description'] ?? '',
+      servicesPerformed: List<String>.from(map['servicesPerformed'] ?? []),
+      cost: (map['cost'] ?? 0.0).toDouble(),
+      mechanicName: map['mechanicName'] ?? '',
+      status: ServiceStatus.values.firstWhere(
+        (e) => e.name == map['status'],
+        orElse: () => ServiceStatus.completed,
+      ),
+      nextServiceDue: map['nextServiceDue'] != null
+          ? DateTime.parse(map['nextServiceDue'])
+          : null,
+      mileage: map['mileage'] ?? 0,
+      partsReplaced: List<String>.from(map['partsReplaced'] ?? []),
+      notes: map['notes'] ?? '',
+    );
+  }
+
   ServiceRecord copyWith({
     String? id,
     String? customerId,

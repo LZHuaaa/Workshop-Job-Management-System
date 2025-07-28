@@ -9,17 +9,8 @@ import 'services/app_initialization_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  // Initialize app and optionally populate sample data
-  // Set autoPopulateOnFirstRun to true if you want automatic data population
-  await AppInitializationService.initializeApp(
-    autoPopulateOnFirstRun: true, // Change to true for automatic population
-    forceRepopulate: false,
-  );
+  // Initialize Firebase and populate sample data
+  await AppInitializationService.initialize();
 
   runApp(const GreenstemWorkshopApp());
 }
