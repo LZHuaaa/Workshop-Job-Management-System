@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/schedule_overview_card.dart';
 import '../widgets/management_hub_card.dart';
-import '../widgets/inventory_card.dart';
 import '../theme/app_colors.dart';
 import 'user_profile_screen.dart';
 
@@ -136,21 +135,6 @@ class DashboardScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     const ManagementHubCard(),
-                    const SizedBox(height: 20),
-                    InventoryCard(
-                      onOrdersCreated: (orders) {
-                        // Handle procurement orders
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              '${orders.length} procurement order${orders.length != 1 ? 's' : ''} created',
-                              style: GoogleFonts.poppins(),
-                            ),
-                            backgroundColor: AppColors.successGreen,
-                          ),
-                        );
-                      },
-                    ),
                     const SizedBox(
                         height: 100), // Extra space for bottom navigation
                   ],

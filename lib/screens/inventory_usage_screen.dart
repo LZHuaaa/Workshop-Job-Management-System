@@ -645,51 +645,66 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
         .where((usage) => usage.status == UsageStatus.recorded).length;
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      child: Row(
+      padding: const EdgeInsets.all(20),
+      child: Column(
         children: [
-          Expanded(
-            child: _buildSummaryCard(
-              'Total Records',
-              totalRecords.toString(),
-              Icons.receipt_long,
-              AppColors.primaryPink,
-            ),
+          // First row
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryCard(
+                  'Total Records',
+                  totalRecords.toString(),
+                  Icons.receipt_long,
+                  AppColors.primaryPink,
+                  '',
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildSummaryCard(
+                  'Total Cost',
+                  'RM${totalCost.toStringAsFixed(2)}',
+                  Icons.attach_money,
+                  AppColors.successGreen,
+                  '',
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildSummaryCard(
-              'Total Cost',
-              'RM${totalCost.toStringAsFixed(2)}',
-              Icons.attach_money,
-              AppColors.successGreen,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildSummaryCard(
-              'Items Used',
-              totalQuantity.toString(),
-              Icons.inventory,
-              AppColors.warningOrange,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildSummaryCard(
-              'Unverified',
-              unverifiedCount.toString(),
-              Icons.pending,
-              AppColors.errorRed,
-            ),
+          const SizedBox(height: 16),
+          // Second row
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryCard(
+                  'Items Used',
+                  totalQuantity.toString(),
+                  Icons.inventory,
+                  AppColors.warningOrange,
+                  '',
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildSummaryCard(
+                  'Unverified',
+                  unverifiedCount.toString(),
+                  Icons.pending,
+                  AppColors.errorRed,
+                  '',
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
+  Widget _buildSummaryCard(String title, String value, IconData icon, Color color, String subtitle) {
     return Container(
+      height: 100,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -704,7 +719,9 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // Header with icon and title
           Row(
             children: [
               Icon(icon, color: color, size: 20),
@@ -721,11 +738,11 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          // Value
           Text(
             value,
             style: GoogleFonts.poppins(
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
             ),

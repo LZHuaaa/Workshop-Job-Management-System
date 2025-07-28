@@ -39,14 +39,55 @@ class _InventoryAnalyticsScreenState extends State<InventoryAnalyticsScreen> {
       endDate: _endDate,
     );
 
-    // Get analytics for top used items
-    final allUsageRecords = _usageService.getAllUsageRecords();
-    final itemIds = allUsageRecords.map((u) => u.itemId).toSet();
-    _itemAnalytics = itemIds
-        .map((id) => _usageService.getItemUsageAnalytics(id))
-        .where((analytics) => analytics != null)
-        .cast<UsageAnalytics>()
-        .toList();
+    // Get analytics for top used items in the selected period
+    final periodUsageRecords = _usageService.getUsageRecords(
+      startDate: _startDate,
+      endDate: _endDate,
+    );
+
+    // Group by item and calculate analytics for the period
+    final itemUsageMap = <String, List<InventoryUsage>>{};
+    for (final usage in periodUsageRecords) {
+      itemUsageMap.putIfAbsent(usage.itemId, () => []).add(usage);
+    }
+
+    _itemAnalytics = itemUsageMap.entries.map((entry) {
+      final itemId = entry.key;
+      final itemUsages = entry.value;
+
+      if (itemUsages.isEmpty) return null;
+
+      final totalQuantity = itemUsages.fold<int>(0, (sum, usage) => sum + usage.quantityUsed);
+      final totalCost = itemUsages.fold<double>(0, (sum, usage) => sum + usage.totalCost);
+      final usageByType = <UsageType, int>{};
+      final usageByEmployee = <String, int>{};
+
+      for (final usage in itemUsages) {
+        usageByType[usage.usageType] = (usageByType[usage.usageType] ?? 0) + 1;
+        usageByEmployee[usage.usedBy] = (usageByEmployee[usage.usedBy] ?? 0) + usage.quantityUsed;
+      }
+
+      itemUsages.sort((a, b) => a.usageDate.compareTo(b.usageDate));
+      final firstUsage = itemUsages.first.usageDate;
+      final lastUsage = itemUsages.last.usageDate;
+
+      final daysDiff = lastUsage.difference(firstUsage).inDays;
+      final averageUsagePerMonth = daysDiff > 0 ? (totalQuantity / (daysDiff / 30.44)) : totalQuantity.toDouble();
+
+      return UsageAnalytics(
+        itemId: itemId,
+        itemName: itemUsages.first.itemName,
+        category: itemUsages.first.itemCategory,
+        totalQuantityUsed: totalQuantity,
+        totalCost: totalCost,
+        usageCount: itemUsages.length,
+        firstUsage: firstUsage,
+        lastUsage: lastUsage,
+        averageUsagePerMonth: averageUsagePerMonth,
+        usageByType: usageByType,
+        usageByEmployee: usageByEmployee,
+      );
+    }).where((analytics) => analytics != null).cast<UsageAnalytics>().toList();
 
     // Sort by total quantity used
     _itemAnalytics.sort((a, b) => b.totalQuantityUsed.compareTo(a.totalQuantityUsed));
@@ -101,13 +142,6 @@ class _InventoryAnalyticsScreenState extends State<InventoryAnalyticsScreen> {
         ),
         backgroundColor: AppColors.primaryPink,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.date_range, color: Colors.white),
-            onPressed: _selectDateRange,
-            tooltip: 'Select Date Range',
-          ),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -194,49 +228,64 @@ class _InventoryAnalyticsScreenState extends State<InventoryAnalyticsScreen> {
   Widget _buildSummaryCards() {
     if (_summary == null) return const SizedBox.shrink();
 
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _buildSummaryCard(
-            'Total Records',
-            _summary!.totalUsageRecords.toString(),
-            Icons.receipt_long,
-            AppColors.primaryPink,
-          ),
+        // First row
+        Row(
+          children: [
+            Expanded(
+              child: _buildSummaryCard(
+                'Total Records',
+                _summary!.totalUsageRecords.toString(),
+                Icons.receipt_long,
+                AppColors.primaryPink,
+                '',
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildSummaryCard(
+                'Total Cost',
+                'RM${_summary!.totalCost.toStringAsFixed(2)}',
+                Icons.attach_money,
+                AppColors.successGreen,
+                '',
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildSummaryCard(
-            'Total Cost',
-            'RM${_summary!.totalCost.toStringAsFixed(2)}',
-            Icons.attach_money,
-            AppColors.successGreen,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildSummaryCard(
-            'Items Used',
-            _summary!.totalQuantityUsed.toString(),
-            Icons.inventory,
-            AppColors.warningOrange,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildSummaryCard(
-            'Avg/Record',
-            'RM${_summary!.averageCostPerRecord.toStringAsFixed(2)}',
-            Icons.trending_up,
-            AppColors.errorRed,
-          ),
+        const SizedBox(height: 16),
+        // Second row
+        Row(
+          children: [
+            Expanded(
+              child: _buildSummaryCard(
+                'Items Used',
+                _summary!.totalQuantityUsed.toString(),
+                Icons.inventory,
+                AppColors.warningOrange,
+                '',
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildSummaryCard(
+                'Avg/Record',
+                'RM${_summary!.averageCostPerRecord.toStringAsFixed(2)}',
+                Icons.trending_up,
+                AppColors.errorRed,
+                '',
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
+  Widget _buildSummaryCard(String title, String value, IconData icon, Color color, String subtitle) {
     return Container(
+      height: 100,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -251,7 +300,9 @@ class _InventoryAnalyticsScreenState extends State<InventoryAnalyticsScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // Header with icon and title
           Row(
             children: [
               Icon(icon, color: color, size: 20),
@@ -268,11 +319,11 @@ class _InventoryAnalyticsScreenState extends State<InventoryAnalyticsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          // Value
           Text(
             value,
             style: GoogleFonts.poppins(
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
             ),
