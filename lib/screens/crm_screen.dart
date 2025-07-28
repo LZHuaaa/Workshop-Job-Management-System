@@ -79,7 +79,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
         _errorMessage = null;
       });
 
-      await _customerService.createCustomer(customer);
+      // Customer is already created in the dialog, just reload the list
       await _loadCustomers(); // Reload customers from Firebase
 
       if (mounted) {

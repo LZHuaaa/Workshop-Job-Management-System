@@ -161,7 +161,7 @@ class _ProcurementDialogState extends State<ProcurementDialog> {
             ),
           ),
           const SizedBox(height: 20),
-
+          
           Text(
             'Select items to order:',
             style: GoogleFonts.poppins(
@@ -171,7 +171,7 @@ class _ProcurementDialogState extends State<ProcurementDialog> {
             ),
           ),
           const SizedBox(height: 12),
-
+          
           // Items List
           ...widget.lowStockItems.map((item) => _buildItemCard(item)),
         ],

@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../widgets/custom_dialog.dart';
 import '../models/customer.dart';
+import '../models/vehicle.dart';
 import '../services/customer_service.dart';
+import '../services/vehicle_service.dart';
 
 class AddCustomerDialog extends StatefulWidget {
   final Function(Customer) onCustomerAdded;
