@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 
 class DashboardCard extends StatelessWidget {
   final String title;
+  final String? subtitle;
   final Widget child;
   final Widget? action;
   final EdgeInsetsGeometry? padding;
@@ -12,6 +13,7 @@ class DashboardCard extends StatelessWidget {
   const DashboardCard({
     super.key,
     required this.title,
+    this.subtitle,
     required this.child,
     this.action,
     this.padding,
@@ -42,14 +44,29 @@ class DashboardCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Text(
-                    title,
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textDark,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textDark,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle!,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 if (action != null) 

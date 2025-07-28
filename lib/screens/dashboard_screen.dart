@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/schedule_overview_card.dart';
 import '../widgets/management_hub_card.dart';
 import '../widgets/inventory_card.dart';
-import '../widgets/pending_approvals_card.dart';
 import '../theme/app_colors.dart';
 import 'user_profile_screen.dart';
 
@@ -152,8 +151,6 @@ class DashboardScreen extends StatelessWidget {
                         );
                       },
                     ),
-                    const SizedBox(height: 20),
-                    const PendingApprovalsCard(),
                     const SizedBox(
                         height: 100), // Extra space for bottom navigation
                   ],

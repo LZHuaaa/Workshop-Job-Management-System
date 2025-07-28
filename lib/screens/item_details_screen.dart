@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../models/inventory_item.dart';
+import '../models/order_request.dart';
 
 class ItemDetailsScreen extends StatefulWidget {
   final InventoryItem item;
@@ -209,6 +210,362 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
           ],
         );
       },
+    );
+  }
+
+  void _requestMoreOrder() {
+    // Show confirmation dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Request More Order',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to request more order for:',
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _currentItem.name,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryPink,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Current stock: ${_currentItem.currentStock}',
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+            Text(
+              'Stock to reorder: ${_currentItem.stockToReorder}',
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+            Text(
+              'Supplier: ${_currentItem.supplier}',
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Cancel', style: GoogleFonts.poppins()),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _submitOrderRequest();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryPink,
+            ),
+            child: Text('Confirm Request', style: GoogleFonts.poppins(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _submitOrderRequest() {
+    // Simulate API call for order request
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Submitting order request...',
+              style: GoogleFonts.poppins(),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.primaryPink,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    // Simulate API delay and create order request
+    Future.delayed(const Duration(seconds: 2), () {
+      final orderRequestId = 'OR-${DateTime.now().millisecondsSinceEpoch}';
+      final orderRequest = OrderRequest(
+        id: orderRequestId,
+        itemId: _currentItem.id,
+        itemName: _currentItem.name,
+        supplier: _currentItem.supplier,
+        quantity: _currentItem.stockToReorder,
+        unitPrice: _currentItem.unitPrice,
+        totalAmount: _currentItem.stockToReorder * _currentItem.unitPrice,
+        status: OrderRequestStatus.pending,
+        requestDate: DateTime.now(),
+        requestedBy: 'Current User', // In real app, get from auth service
+      );
+
+      // Update item with pending order request
+      final updatedItem = _currentItem.copyWith(
+        pendingOrderRequest: true,
+        orderRequestDate: DateTime.now(),
+        orderRequestId: orderRequestId,
+      );
+
+      setState(() {
+        _currentItem = updatedItem;
+      });
+
+      widget.onItemUpdated(updatedItem);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Order request submitted! Waiting for company approval.',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: AppColors.successGreen,
+        ),
+      );
+    });
+  }
+
+  void _viewOrderRequestDetails() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Order Request Details',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow('Request ID', _currentItem.orderRequestId ?? 'N/A'),
+            _buildDetailRow('Item Name', _currentItem.name),
+            _buildDetailRow('Supplier', _currentItem.supplier),
+            _buildDetailRow('Quantity', _currentItem.stockToReorder.toString()),
+            _buildDetailRow('Unit Price', 'RM${_currentItem.unitPrice.toStringAsFixed(2)}'),
+            _buildDetailRow('Total Amount', 'RM${(_currentItem.stockToReorder * _currentItem.unitPrice).toStringAsFixed(2)}'),
+            _buildDetailRow('Request Date', DateFormat('MMM d, y HH:mm').format(_currentItem.orderRequestDate!)),
+            _buildDetailRow('Status', 'Pending Company Approval'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFA500).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFFA500)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: const Color(0xFFFFA500),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Your request is being reviewed by the company. You will be notified once a decision is made.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: const Color(0xFFFFA500),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Close', style: GoogleFonts.poppins()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _cancelOrderRequest() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Cancel Order Request',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to cancel the order request for:',
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _currentItem.name,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryPink,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Request ID: ${_currentItem.orderRequestId}',
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+            Text(
+              'Quantity: ${_currentItem.stockToReorder}',
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.errorRed.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.errorRed),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning,
+                    color: AppColors.errorRed,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This action cannot be undone. The request will be permanently cancelled.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.errorRed,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Keep Request', style: GoogleFonts.poppins()),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _confirmCancelRequest();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.errorRed,
+            ),
+            child: Text('Cancel Request', style: GoogleFonts.poppins(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmCancelRequest() {
+    // Show loading indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Cancelling request...',
+              style: GoogleFonts.poppins(),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.errorRed,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    // Simulate API call to cancel request
+    Future.delayed(const Duration(seconds: 2), () {
+      // Update item to remove pending order request
+      final updatedItem = _currentItem.copyWith(
+        pendingOrderRequest: false,
+        orderRequestDate: null,
+        orderRequestId: null,
+      );
+
+      setState(() {
+        _currentItem = updatedItem;
+      });
+
+      widget.onItemUpdated(updatedItem);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Order request cancelled successfully!',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: AppColors.successGreen,
+        ),
+      );
+    });
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppColors.textDark,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -472,6 +829,197 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
                 ],
               ),
             ),
+
+            const SizedBox(height: 20),
+
+            // Request More Order Button
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    _currentItem.pendingOrderRequest 
+                        ? 'Order Request Status'
+                        : 'Need More Stock?',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_currentItem.pendingOrderRequest) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFA500).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFFFA500)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.pending,
+                            size: 16,
+                            color: const Color(0xFFFFA500),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Pending Company Approval',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFFFFA500),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Request submitted on ${DateFormat('MMM d, y').format(_currentItem.orderRequestDate!)}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Waiting for company to review and approve your order request.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: ElevatedButton.icon(
+                              onPressed: _viewOrderRequestDetails,
+                              icon: Icon(
+                                Icons.visibility,
+                                size: 20,
+                                color: Colors.white,
+                              ),
+                              label: Text(
+                                'View Details',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primaryPink,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: ElevatedButton.icon(
+                              onPressed: _cancelOrderRequest,
+                              icon: Icon(
+                                Icons.cancel,
+                                size: 20,
+                                color: Colors.white,
+                              ),
+                              label: Text(
+                                'Cancel Request',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.errorRed,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    Text(
+                      _currentItem.canRequestOrder
+                          ? 'Stock is running low. Request more from supplier.'
+                          : 'Stock levels are adequate.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: _currentItem.canRequestOrder
+                            ? _requestMoreOrder
+                            : null,
+                        icon: Icon(
+                          Icons.shopping_cart,
+                          size: 20,
+                          color: _currentItem.canRequestOrder
+                              ? Colors.white
+                              : Colors.grey,
+                        ),
+                        label: Text(
+                          'Request More Order',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: _currentItem.canRequestOrder
+                                ? Colors.white
+                                : Colors.grey,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _currentItem.canRequestOrder
+                              ? AppColors.primaryPink
+                              : Colors.grey.shade300,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
           ],
         ),
       ),

@@ -11,6 +11,9 @@ class InventoryItem {
   final String description;
   final DateTime? lastRestocked;
   final String? imageUrl;
+  final bool pendingOrderRequest;
+  final DateTime? orderRequestDate;
+  final String? orderRequestId;
 
   InventoryItem({
     required this.id,
@@ -25,6 +28,9 @@ class InventoryItem {
     required this.description,
     this.lastRestocked,
     this.imageUrl,
+    this.pendingOrderRequest = false,
+    this.orderRequestDate,
+    this.orderRequestId,
   });
 
   bool get isLowStock => currentStock <= minStock;
@@ -39,6 +45,9 @@ class InventoryItem {
 
   double get totalValue => currentStock * unitPrice;
 
+  // Check if order can be requested (low/critical stock and no pending request)
+  bool get canRequestOrder => (isLowStock || isCriticalStock) && !pendingOrderRequest;
+
   InventoryItem copyWith({
     String? id,
     String? name,
@@ -52,6 +61,9 @@ class InventoryItem {
     String? description,
     DateTime? lastRestocked,
     String? imageUrl,
+    bool? pendingOrderRequest,
+    DateTime? orderRequestDate,
+    String? orderRequestId,
   }) {
     return InventoryItem(
       id: id ?? this.id,
@@ -66,6 +78,9 @@ class InventoryItem {
       description: description ?? this.description,
       lastRestocked: lastRestocked ?? this.lastRestocked,
       imageUrl: imageUrl ?? this.imageUrl,
+      pendingOrderRequest: pendingOrderRequest ?? this.pendingOrderRequest,
+      orderRequestDate: orderRequestDate ?? this.orderRequestDate,
+      orderRequestId: orderRequestId ?? this.orderRequestId,
     );
   }
 
@@ -83,6 +98,9 @@ class InventoryItem {
       'description': description,
       'lastRestocked': lastRestocked?.toIso8601String(),
       'imageUrl': imageUrl,
+      'pendingOrderRequest': pendingOrderRequest,
+      'orderRequestDate': orderRequestDate?.toIso8601String(),
+      'orderRequestId': orderRequestId,
     };
   }
 
@@ -102,6 +120,11 @@ class InventoryItem {
           ? DateTime.parse(json['lastRestocked'])
           : null,
       imageUrl: json['imageUrl'],
+      pendingOrderRequest: json['pendingOrderRequest'] ?? false,
+      orderRequestDate: json['orderRequestDate'] != null
+          ? DateTime.parse(json['orderRequestDate'])
+          : null,
+      orderRequestId: json['orderRequestId'],
     );
   }
 }

@@ -435,24 +435,31 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
               ),
               Row(
                 children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      // TODO: Implement approve action
-                    },
-                    icon: const Icon(Icons.check_circle_outline, size: 18),
-                    label: const Text('Approve'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.successGreen,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFA500).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFFA500)),
                     ),
-                  ),
-                  TextButton.icon(
-                    onPressed: () {
-                      // TODO: Implement reject action
-                    },
-                    icon: const Icon(Icons.cancel_outlined, size: 18),
-                    label: const Text('Reject'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.errorRed,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.pending,
+                          size: 12,
+                          color: const Color(0xFFFFA500),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Pending',
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFFFA500),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

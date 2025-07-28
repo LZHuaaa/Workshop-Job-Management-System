@@ -18,6 +18,7 @@ class _PendingApprovalsCardState extends State<PendingApprovalsCard> {
       title: 'Invoice #INV-0078 for John Doe',
       subtitle: 'Brake pad replacement - \$245.00',
       status: ApprovalStatus.pending,
+      submittedDate: DateTime.now().subtract(const Duration(days: 2)),
     ),
     PendingApproval(
       id: '2',
@@ -25,6 +26,7 @@ class _PendingApprovalsCardState extends State<PendingApprovalsCard> {
       title: 'Procurement Request #P-045',
       subtitle: 'Engine oil filters - 50 units',
       status: ApprovalStatus.pending,
+      submittedDate: DateTime.now().subtract(const Duration(days: 1)),
     ),
     PendingApproval(
       id: '3',
@@ -32,54 +34,26 @@ class _PendingApprovalsCardState extends State<PendingApprovalsCard> {
       title: 'Schedule Change Request',
       subtitle: 'Move Honda Civic service to 3:00 PM',
       status: ApprovalStatus.pending,
+      submittedDate: DateTime.now().subtract(const Duration(hours: 6)),
     ),
   ];
-
-  void _handleApproval(String id, bool approved) {
-    setState(() {
-      final index = _approvals.indexWhere((approval) => approval.id == id);
-      if (index != -1) {
-        _approvals[index] = _approvals[index].copyWith(
-          status: approved ? ApprovalStatus.approved : ApprovalStatus.declined,
-        );
-      }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          approved ? 'Request approved successfully!' : 'Request declined.',
-          style: GoogleFonts.poppins(),
-        ),
-        backgroundColor:
-            approved ? AppColors.successGreen : AppColors.warningOrange,
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     return DashboardCard(
-      title: 'Action Required',
+      title: 'Pending Requests',
+      subtitle: 'Waiting for company approval',
       child: Column(
         children: _approvals
             .where((approval) => approval.status == ApprovalStatus.pending)
             .map((approval) => Padding(
                   padding: const EdgeInsets.only(bottom: 16),
-                  child: _buildApprovalItem(
+                  child: _buildPendingRequestItem(
                     icon: _getIconForType(approval.type),
                     title: approval.title,
                     subtitle: approval.subtitle,
                     type: approval.type,
-                    onApprove: approval.type == ApprovalType.procurement
-                        ? null
-                        : () => _handleApproval(approval.id, true),
-                    onDecline: approval.type == ApprovalType.procurement
-                        ? null
-                        : () => _handleApproval(approval.id, false),
-                    onTap: approval.type == ApprovalType.procurement
-                        ? () => _handleApproval(approval.id, true)
-                        : null,
+                    submittedDate: approval.submittedDate,
                   ),
                 ))
             .toList(),
@@ -98,137 +72,138 @@ class _PendingApprovalsCardState extends State<PendingApprovalsCard> {
     }
   }
 
-  Widget _buildApprovalItem({
+  Widget _buildPendingRequestItem({
     required IconData icon,
     required String title,
     required String subtitle,
     required ApprovalType type,
-    VoidCallback? onTap,
-    VoidCallback? onApprove,
-    VoidCallback? onDecline,
+    required DateTime submittedDate,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.softPink,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.lightPink.withOpacity(0.5),
-            width: 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryPink.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: AppColors.primaryPink,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (onTap != null)
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    color: AppColors.textSecondary,
-                    size: 16,
-                  ),
-              ],
-            ),
-
-            // Action Buttons for Invoice and Schedule types
-            if (type == ApprovalType.invoice ||
-                type == ApprovalType.schedule) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: onDecline,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppColors.textSecondary,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          side: BorderSide(
-                            color: AppColors.textSecondary.withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                      child: Text(
-                        'Decline',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: onApprove,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryPink,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                      ),
-                      child: Text(
-                        'Approve',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.softPink,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.lightPink.withOpacity(0.5),
+          width: 1,
         ),
       ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryPink.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: AppColors.primaryPink,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFA500).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFFA500)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.pending,
+                      size: 12,
+                      color: const Color(0xFFFFA500),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Pending',
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFFFFA500),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(
+                Icons.access_time,
+                size: 14,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Submitted ${_getTimeAgo(submittedDate)}',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Waiting for company review',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
+  }
+
+  String _getTimeAgo(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
+    } else {
+      return 'Just now';
+    }
   }
 }
 
@@ -250,6 +225,7 @@ class PendingApproval {
   final String title;
   final String subtitle;
   final ApprovalStatus status;
+  final DateTime submittedDate;
 
   PendingApproval({
     required this.id,
@@ -257,6 +233,7 @@ class PendingApproval {
     required this.title,
     required this.subtitle,
     required this.status,
+    required this.submittedDate,
   });
 
   PendingApproval copyWith({
@@ -265,6 +242,7 @@ class PendingApproval {
     String? title,
     String? subtitle,
     ApprovalStatus? status,
+    DateTime? submittedDate,
   }) {
     return PendingApproval(
       id: id ?? this.id,
@@ -272,6 +250,7 @@ class PendingApproval {
       title: title ?? this.title,
       subtitle: subtitle ?? this.subtitle,
       status: status ?? this.status,
+      submittedDate: submittedDate ?? this.submittedDate,
     );
   }
 }
