@@ -132,6 +132,10 @@ class _EditCustomerDialogState extends State<EditCustomerDialog> {
       // Call the callback with the updated customer
       widget.onCustomerUpdated(updatedCustomer);
 
+      setState(() {
+        _isLoading = false;
+      });
+
       if (mounted) {
         Navigator.of(context).pop();
       }

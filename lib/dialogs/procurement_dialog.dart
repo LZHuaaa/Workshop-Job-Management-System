@@ -92,6 +92,10 @@ class _ProcurementDialogState extends State<ProcurementDialog> {
 
     widget.onOrdersCreated(orders);
 
+    setState(() {
+      _isLoading = false;
+    });
+
     if (mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -157,7 +161,7 @@ class _ProcurementDialogState extends State<ProcurementDialog> {
             ),
           ),
           const SizedBox(height: 20),
-          
+
           Text(
             'Select items to order:',
             style: GoogleFonts.poppins(
@@ -167,7 +171,7 @@ class _ProcurementDialogState extends State<ProcurementDialog> {
             ),
           ),
           const SizedBox(height: 12),
-          
+
           // Items List
           ...widget.lowStockItems.map((item) => _buildItemCard(item)),
         ],
@@ -274,7 +278,6 @@ class _ProcurementDialogState extends State<ProcurementDialog> {
               ),
             ],
           ),
-          
           if (isSelected) ...[
             const SizedBox(height: 12),
             Row(

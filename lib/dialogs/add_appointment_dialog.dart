@@ -144,6 +144,10 @@ class _AddAppointmentDialogState extends State<AddAppointmentDialog> {
 
     widget.onAppointmentCreated(newAppointment);
 
+    setState(() {
+      _isLoading = false;
+    });
+
     if (mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(

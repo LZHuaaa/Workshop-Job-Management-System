@@ -34,13 +34,40 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
   bool _isLoading = false;
 
   final List<String> _makes = [
-    'Toyota', 'Honda', 'Ford', 'Chevrolet', 'Nissan', 'BMW', 'Mercedes-Benz',
-    'Audi', 'Volkswagen', 'Hyundai', 'Kia', 'Mazda', 'Subaru', 'Lexus', 'Acura', 'Proton'
+    'Toyota',
+    'Honda',
+    'Ford',
+    'Chevrolet',
+    'Nissan',
+    'BMW',
+    'Mercedes-Benz',
+    'Audi',
+    'Volkswagen',
+    'Hyundai',
+    'Kia',
+    'Mazda',
+    'Subaru',
+    'Lexus',
+    'Acura',
+    'Proton'
   ];
 
   final List<String> _colors = [
-    'White', 'Black', 'Silver', 'Gray', 'Red', 'Blue', 'Green', 'Yellow',
-    'Orange', 'Purple', 'Brown', 'Gold', 'Beige', 'Maroon', 'Navy'
+    'White',
+    'Black',
+    'Silver',
+    'Gray',
+    'Red',
+    'Blue',
+    'Green',
+    'Yellow',
+    'Orange',
+    'Purple',
+    'Brown',
+    'Gold',
+    'Beige',
+    'Maroon',
+    'Navy'
   ];
 
   @override
@@ -59,14 +86,20 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
 
     _makeController = TextEditingController(text: widget.vehicle.make);
     _modelController = TextEditingController(text: widget.vehicle.model);
-    _yearController = TextEditingController(text: widget.vehicle.year.toString());
+    _yearController =
+        TextEditingController(text: widget.vehicle.year.toString());
     _colorController = TextEditingController(text: widget.vehicle.color);
-    _licensePlateController = TextEditingController(text: widget.vehicle.licensePlate);
+    _licensePlateController =
+        TextEditingController(text: widget.vehicle.licensePlate);
     _vinController = TextEditingController(text: widget.vehicle.vin);
-    _mileageController = TextEditingController(text: widget.vehicle.mileage.toString());
-    _customerNameController = TextEditingController(text: widget.vehicle.customerName);
-    _customerPhoneController = TextEditingController(text: widget.vehicle.customerPhone);
-    _customerEmailController = TextEditingController(text: widget.vehicle.customerEmail);
+    _mileageController =
+        TextEditingController(text: widget.vehicle.mileage.toString());
+    _customerNameController =
+        TextEditingController(text: widget.vehicle.customerName);
+    _customerPhoneController =
+        TextEditingController(text: widget.vehicle.customerPhone);
+    _customerEmailController =
+        TextEditingController(text: widget.vehicle.customerEmail);
     _notesController = TextEditingController(text: widget.vehicle.notes ?? '');
   }
 
@@ -111,6 +144,11 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
         );
 
         widget.onVehicleUpdated(updatedVehicle);
+
+        setState(() {
+          _isLoading = false;
+        });
+
         Navigator.of(context).pop();
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -240,7 +278,7 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
                           'Update vehicle details',
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // Make and Model Row
                         Row(
                           children: [
@@ -383,9 +421,9 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
 
                         // VIN Section with Scanner
                         _buildVINSection(),
-                        
+
                         const SizedBox(height: 32),
-                        
+
                         // Customer Information Section
                         _buildSectionHeader(
                           'Customer Information',
@@ -393,7 +431,7 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
                           'Update customer details',
                         ),
                         const SizedBox(height: 24),
-                        
+
                         // Customer Name (Full Width)
                         CustomTextField(
                           label: 'Customer Name',
@@ -406,9 +444,9 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
                             return null;
                           },
                         ),
-                        
+
                         const SizedBox(height: 24),
-                        
+
                         // Phone and Email Row
                         Row(
                           children: [
@@ -446,17 +484,18 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 24),
-                        
+
                         // Notes Section
                         CustomTextField(
                           label: 'Additional Notes (Optional)',
-                          hint: 'Any special instructions, vehicle condition notes, or customer preferences...',
+                          hint:
+                              'Any special instructions, vehicle condition notes, or customer preferences...',
                           controller: _notesController,
                           maxLines: 3,
                         ),
-                        
+
                         const SizedBox(height: 8),
                       ],
                     ),

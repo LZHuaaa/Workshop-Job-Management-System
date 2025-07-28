@@ -126,6 +126,10 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
 
     widget.onVehicleAdded(newVehicle);
 
+    setState(() {
+      _isLoading = false;
+    });
+
     if (mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(

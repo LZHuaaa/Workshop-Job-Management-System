@@ -110,6 +110,10 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
       final createdCustomer = newCustomer.copyWith(id: customerId);
       widget.onCustomerAdded(createdCustomer);
 
+      setState(() {
+        _isLoading = false;
+      });
+
       if (mounted) {
         Navigator.of(context).pop();
       }

@@ -76,6 +76,10 @@ class _AddCommunicationDialogState extends State<AddCommunicationDialog> {
 
     widget.onCommunicationAdded(newCommunication);
 
+    setState(() {
+      _isLoading = false;
+    });
+
     if (mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(

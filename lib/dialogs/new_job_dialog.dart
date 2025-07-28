@@ -170,6 +170,10 @@ class _NewJobDialogState extends State<NewJobDialog> {
 
     widget.onJobCreated(newJob);
 
+    setState(() {
+      _isLoading = false;
+    });
+
     if (mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
