@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../firebase_options.dart';
 import 'firebase_data_populator_service.dart';
+import 'inventory_usage_data_populator.dart';
 
 class InitializationStatus {
   final bool isFirstRun;
@@ -123,7 +124,8 @@ class AppInitializationService {
         'appointments',
         'invoices',
         'inventory',
-        'order_requests'
+        'order_requests',
+        'inventory_usage'
       ];
 
       print('\n📋 COLLECTION DETAILS:');
@@ -229,6 +231,22 @@ class AppInitializationService {
       print('✅ Data marked as populated');
     } catch (e) {
       print('❌ Error marking data as populated: $e');
+    }
+  }
+
+  /// Fix inventory usage data to match inventory items
+  static Future<void> fixInventoryUsageData() async {
+    try {
+      print('🔧 Fixing inventory usage data to match inventory items...');
+
+      await InventoryUsageDataPopulator.forceRepopulateWithCorrectData(
+        usageRecordCount: 25,
+      );
+
+      print('✅ Inventory usage data fixed successfully!');
+    } catch (e) {
+      print('❌ Error fixing inventory usage data: $e');
+      rethrow;
     }
   }
 }

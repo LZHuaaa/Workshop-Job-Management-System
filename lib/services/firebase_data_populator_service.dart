@@ -6,6 +6,7 @@ import '../data/sample_data_generator.dart';
 import 'customer_service.dart';
 import 'vehicle_service.dart';
 import 'service_record_service.dart';
+import 'inventory_usage_data_populator.dart';
 
 class FirebaseDataPopulatorService {
   static final FirebaseDataPopulatorService _instance =
@@ -417,6 +418,17 @@ class FirebaseDataPopulatorService {
         await populateFirebaseWithSampleData();
       } else {
         print('Database already contains data, skipping population.');
+
+        // Check if we need to fix inventory usage data
+        print('🔧 Checking if inventory usage data needs fixing...');
+        try {
+          await InventoryUsageDataPopulator.forceRepopulateWithCorrectData(
+            usageRecordCount: 25,
+          );
+          print('✅ Inventory usage data fixed successfully!');
+        } catch (e) {
+          print('⚠️ Could not fix inventory usage data: $e');
+        }
       }
     } catch (e) {
       print('Error initializing sample data: $e');

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../theme/app_colors.dart';
 import '../models/inventory_usage.dart';
 import '../services/inventory_usage_service.dart';
+import '../services/inventory_service.dart';
 
 
 import 'inventory_analytics_screen.dart';
@@ -17,10 +18,9 @@ class InventoryUsageScreen extends StatefulWidget {
 
 class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
   final InventoryUsageService _usageService = InventoryUsageService();
+  final InventoryService _inventoryService = InventoryService();
   final TextEditingController _searchController = TextEditingController();
-  
-  List<InventoryUsage> _filteredUsageRecords = [];
-  
+
   String _selectedCategory = 'All';
   UsageType? _selectedUsageType;
   UsageStatus? _selectedStatus;
@@ -30,32 +30,73 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
   String _sortBy = 'Date';
   bool _sortAscending = false;
 
-  final List<String> _categories = [
-    'All', 'Engine', 'Brakes', 'Filters', 'Fluids', 'Electrical', 'Suspension'
-  ];
+  List<String> _categories = ['All'];
 
-  final List<String> _employees = [
-    'All', 'Lim Wei Ming', 'Siti Nurhaliza binti Hassan', 'Ahmad Faiz bin Rahman'
-  ];
+  List<String> _employees = ['All'];
 
   final List<String> _sortOptions = [
-    'Date', 'Item Name', 'Quantity', 'Cost', 'Employee', 'Customer'
+    'Date', 'Item Name', 'Quantity', 'Cost'
   ];
 
   @override
   void initState() {
     super.initState();
-    _loadUsageRecords();
+    _searchController.addListener(_onSearchChanged);
+    _loadCategories();
+    _loadEmployees();
   }
 
-  void _loadUsageRecords() {
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _loadCategories() async {
+    try {
+      final categories = await _inventoryService.getCategories();
+      setState(() {
+        _categories = categories;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading categories: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
+  }
+
+  void _loadEmployees() async {
+    try {
+      final employees = await _usageService.getEmployees();
+      setState(() {
+        _employees = employees;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading employees: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
+  }
+
+  void _onSearchChanged() {
     setState(() {
-      _applyFilters();
+      // Trigger rebuild to update filtered stream
     });
   }
 
-  void _applyFilters() {
-    var filtered = _usageService.getUsageRecords(
+  Stream<List<InventoryUsage>> get _filteredUsageStream {
+    return _usageService.getUsageRecords(
       category: _selectedCategory != 'All' ? _selectedCategory : null,
       usageType: _selectedUsageType,
       status: _selectedStatus,
@@ -63,59 +104,34 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
       startDate: _startDate,
       endDate: _endDate,
       searchQuery: _searchController.text,
+      sortBy: _sortBy,
+      sortAscending: _sortAscending,
     );
-
-    // Apply sorting
-    switch (_sortBy) {
-      case 'Date':
-        filtered.sort((a, b) => _sortAscending 
-            ? a.usageDate.compareTo(b.usageDate)
-            : b.usageDate.compareTo(a.usageDate));
-        break;
-      case 'Item Name':
-        filtered.sort((a, b) => _sortAscending 
-            ? a.itemName.compareTo(b.itemName)
-            : b.itemName.compareTo(a.itemName));
-        break;
-      case 'Quantity':
-        filtered.sort((a, b) => _sortAscending 
-            ? a.quantityUsed.compareTo(b.quantityUsed)
-            : b.quantityUsed.compareTo(a.quantityUsed));
-        break;
-      case 'Cost':
-        filtered.sort((a, b) => _sortAscending 
-            ? a.totalCost.compareTo(b.totalCost)
-            : b.totalCost.compareTo(a.totalCost));
-        break;
-      case 'Employee':
-        filtered.sort((a, b) => _sortAscending 
-            ? a.usedBy.compareTo(b.usedBy)
-            : b.usedBy.compareTo(a.usedBy));
-        break;
-      case 'Customer':
-        filtered.sort((a, b) => _sortAscending 
-            ? (a.customerName ?? '').compareTo(b.customerName ?? '')
-            : (b.customerName ?? '').compareTo(a.customerName ?? ''));
-        break;
-    }
-
-    setState(() {
-      _filteredUsageRecords = filtered;
-    });
   }
 
 
 
-  void _verifyUsage(InventoryUsage usage) {
-    _usageService.verifyUsage(usage.id, 'Manager').then((updatedUsage) {
-      _loadUsageRecords();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Usage verified successfully', style: GoogleFonts.poppins()),
-          backgroundColor: AppColors.successGreen,
-        ),
-      );
-    });
+  void _verifyUsage(InventoryUsage usage) async {
+    try {
+      await _usageService.verifyUsage(usage.id, 'Manager');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Usage verified successfully', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error verifying usage: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
   }
 
   void _disputeUsage(InventoryUsage usage) {
@@ -252,16 +268,27 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
     );
   }
 
-  void _performDispute(InventoryUsage usage, String reason) {
-    _usageService.disputeUsage(usage.id, 'Manager', reason).then((updatedUsage) {
-      _loadUsageRecords();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Usage record disputed successfully', style: GoogleFonts.poppins()),
-          backgroundColor: AppColors.warningOrange,
-        ),
-      );
-    });
+  void _performDispute(InventoryUsage usage, String reason) async {
+    try {
+      await _usageService.disputeUsage(usage.id, 'Manager', reason);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Usage record disputed successfully', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.warningOrange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error disputing usage: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
   }
 
   void _undisputeUsage(InventoryUsage usage) {
@@ -360,16 +387,27 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
     );
   }
 
-  void _performUndispute(InventoryUsage usage) {
-    _usageService.undisputeUsage(usage.id, 'Manager').then((updatedUsage) {
-      _loadUsageRecords();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Usage record undisputed successfully', style: GoogleFonts.poppins()),
-          backgroundColor: AppColors.successGreen,
-        ),
-      );
-    });
+  void _performUndispute(InventoryUsage usage) async {
+    try {
+      await _usageService.undisputeUsage(usage.id, 'Manager');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Usage record undisputed successfully', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error undisputing usage: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
   }
 
   void _deleteUsage(InventoryUsage usage) {
@@ -468,25 +506,27 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
     );
   }
 
-  void _performDelete(InventoryUsage usage) {
-    _usageService.deleteUsage(usage.id).then((success) {
-      if (success) {
-        _loadUsageRecords();
+  void _performDelete(InventoryUsage usage) async {
+    try {
+      await _usageService.deleteUsage(usage.id);
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Usage record deleted successfully', style: GoogleFonts.poppins()),
             backgroundColor: AppColors.successGreen,
           ),
         );
-      } else {
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to delete usage record', style: GoogleFonts.poppins()),
+            content: Text('Error deleting usage: $e', style: GoogleFonts.poppins()),
             backgroundColor: AppColors.errorRed,
           ),
         );
       }
-    });
+    }
   }
 
   void _showStatusInfo() {
@@ -623,25 +663,71 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildSummaryCards(),
-          _buildFiltersSection(),
-          Expanded(
-            child: _buildUsageList(),
-          ),
-        ],
+      body: StreamBuilder<List<InventoryUsage>>(
+        stream: _filteredUsageStream,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: AppColors.errorRed,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error loading usage records',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    snapshot.error.toString(),
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          final usageRecords = snapshot.data ?? [];
+
+          return Column(
+            children: [
+              _buildSummaryCards(usageRecords),
+              _buildFiltersSection(),
+              Expanded(
+                child: _buildUsageList(usageRecords),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildSummaryCards() {
-    final totalRecords = _filteredUsageRecords.length;
-    final totalCost = _filteredUsageRecords.fold<double>(
+  Widget _buildSummaryCards(List<InventoryUsage> usageRecords) {
+    final totalRecords = usageRecords.length;
+    final totalCost = usageRecords.fold<double>(
         0, (sum, usage) => sum + usage.totalCost);
-    final totalQuantity = _filteredUsageRecords.fold<int>(
+    final totalQuantity = usageRecords.fold<int>(
         0, (sum, usage) => sum + usage.quantityUsed);
-    final unverifiedCount = _filteredUsageRecords
+    final unverifiedCount = usageRecords
         .where((usage) => usage.status == UsageStatus.recorded).length;
 
     return Container(
@@ -774,7 +860,7 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
                 borderSide: BorderSide(color: AppColors.primaryPink),
               ),
             ),
-            onChanged: (_) => _applyFilters(),
+            onChanged: (_) {}, // Stream will automatically update
           ),
           const SizedBox(height: 12),
           // Filter chips
@@ -784,17 +870,14 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
               children: [
                 _buildFilterChip('Category', _selectedCategory, _categories, (value) {
                   setState(() => _selectedCategory = value);
-                  _applyFilters();
                 }),
                 const SizedBox(width: 8),
                 _buildFilterChip('Employee', _selectedEmployee, _employees, (value) {
                   setState(() => _selectedEmployee = value);
-                  _applyFilters();
                 }),
                 const SizedBox(width: 8),
                 _buildFilterChip('Sort', _sortBy, _sortOptions, (value) {
                   setState(() => _sortBy = value);
-                  _applyFilters();
                 }),
                 const SizedBox(width: 8),
                 IconButton(
@@ -804,7 +887,6 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
                   ),
                   onPressed: () {
                     setState(() => _sortAscending = !_sortAscending);
-                    _applyFilters();
                   },
                   tooltip: _sortAscending ? 'Sort Ascending' : 'Sort Descending',
                 ),
@@ -833,8 +915,8 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
     );
   }
 
-  Widget _buildUsageList() {
-    if (_filteredUsageRecords.isEmpty) {
+  Widget _buildUsageList(List<InventoryUsage> usageRecords) {
+    if (usageRecords.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -868,9 +950,9 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _filteredUsageRecords.length,
+      itemCount: usageRecords.length,
       itemBuilder: (context, index) {
-        final usage = _filteredUsageRecords[index];
+        final usage = usageRecords[index];
         return _buildUsageCard(usage);
       },
     );

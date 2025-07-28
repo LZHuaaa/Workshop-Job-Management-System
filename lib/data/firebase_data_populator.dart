@@ -7,6 +7,7 @@ import '../models/job_appointment.dart';
 import '../models/invoice.dart';
 import '../models/inventory_item.dart';
 import '../models/order_request.dart';
+import '../services/inventory_usage_data_populator.dart';
 import 'sample_data_generator.dart';
 
 class FirebaseDataPopulator {
@@ -20,6 +21,7 @@ class FirebaseDataPopulator {
   static const String invoicesCollection = 'invoices';
   static const String inventoryCollection = 'inventory';
   static const String orderRequestsCollection = 'order_requests';
+  static const String inventoryUsageCollection = 'inventory_usage';
 
   /// Populate Firebase with comprehensive Malaysian sample data
   static Future<void> populateAllData({
@@ -30,6 +32,7 @@ class FirebaseDataPopulator {
     int invoiceCount = 20,
     int inventoryItemCount = 50,
     int orderRequestCount = 15,
+    int inventoryUsageCount = 25,
   }) async {
     try {
       debugPrint('🚀 Starting Firebase data population...');
@@ -58,6 +61,7 @@ class FirebaseDataPopulator {
       debugPrint('   - ${invoices.length} invoices');
       debugPrint('   - ${inventoryItems.length} inventory items');
       debugPrint('   - ${orderRequests.length} order requests');
+      debugPrint('   - $inventoryUsageCount inventory usage records (to be generated)');
 
       // Step 2: Update relationships
       debugPrint('🔗 Updating data relationships...');
@@ -73,6 +77,12 @@ class FirebaseDataPopulator {
       await _populateInvoices(invoices);
       await _populateInventoryItems(inventoryItems);
       await _populateOrderRequests(orderRequests);
+
+      // Step 4: Populate inventory usage data (after inventory items are created)
+      debugPrint('📝 Populating inventory usage data...');
+      await InventoryUsageDataPopulator.populateInventoryUsage(
+        usageRecordCount: inventoryUsageCount,
+      );
 
       debugPrint('🎉 Firebase data population completed successfully!');
     } catch (e) {
@@ -273,6 +283,7 @@ class FirebaseDataPopulator {
       invoicesCollection,
       inventoryCollection,
       orderRequestsCollection,
+      inventoryUsageCollection,
     ];
 
     for (final collectionName in collections) {

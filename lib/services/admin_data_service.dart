@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/firebase_data_populator.dart';
+import 'inventory_usage_data_populator.dart';
 
 /// Admin service for managing sample data population and database operations
 /// This service provides hidden admin functionality for data management
@@ -148,12 +149,13 @@ class AdminDataService {
     try {
       final collections = [
         'customers',
-        'vehicles', 
+        'vehicles',
         'service_records',
         'appointments',
         'invoices',
         'inventory',
         'order_requests',
+        'inventory_usage',
       ];
 
       for (final collection in collections) {
@@ -250,6 +252,32 @@ class AdminDataService {
       return AdminOperationResult(
         success: false,
         message: 'Firebase validation failed: ${e.toString()}',
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Fix inventory usage data to match inventory items exactly
+  Future<AdminOperationResult> fixInventoryUsageData() async {
+    try {
+      debugPrint('🔧 Starting inventory usage data fix...');
+
+      await InventoryUsageDataPopulator.forceRepopulateWithCorrectData(usageRecordCount: 25);
+
+      return AdminOperationResult(
+        success: true,
+        message: 'Inventory usage data fixed successfully',
+        details: {
+          'description': 'All usage records now match the actual inventory items with correct names, categories, and prices.',
+          'records_updated': 25,
+          'operation': 'force_repopulate',
+        },
+      );
+    } catch (e) {
+      debugPrint('❌ Error fixing inventory usage data: $e');
+      return AdminOperationResult(
+        success: false,
+        message: 'Failed to fix inventory usage data',
         error: e.toString(),
       );
     }

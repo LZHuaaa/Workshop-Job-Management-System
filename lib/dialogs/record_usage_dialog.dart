@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../models/inventory_usage.dart';
 import '../models/inventory_item.dart';
+import '../services/inventory_service.dart';
 import '../widgets/custom_dialog.dart';
 
 class RecordUsageDialog extends StatefulWidget {
@@ -25,6 +26,7 @@ class _RecordUsageDialogState extends State<RecordUsageDialog> {
   final _customerNameController = TextEditingController();
   final _vehiclePlateController = TextEditingController();
   final _locationController = TextEditingController();
+  final InventoryService _inventoryService = InventoryService();
 
   InventoryItem? _selectedItem;
   UsageType _selectedUsageType = UsageType.service;
@@ -32,69 +34,7 @@ class _RecordUsageDialogState extends State<RecordUsageDialog> {
   DateTime _usageDate = DateTime.now();
   bool _isLoading = false;
 
-  // Sample inventory items for selection
-  final List<InventoryItem> _availableItems = [
-    InventoryItem(
-      id: '1',
-      name: 'Engine Oil Filter',
-      category: 'Filters',
-      currentStock: 45,
-      minStock: 20,
-      maxStock: 100,
-      unitPrice: 12.99,
-      supplier: 'AutoParts Plus',
-      location: 'A-1-3',
-      description: 'High-quality oil filter for most vehicles',
-    ),
-    InventoryItem(
-      id: '2',
-      name: 'Brake Pads - Front',
-      category: 'Brakes',
-      currentStock: 8,
-      minStock: 15,
-      maxStock: 50,
-      unitPrice: 89.99,
-      supplier: 'BrakeTech Solutions',
-      location: 'B-2-1',
-      description: 'Premium ceramic brake pads',
-    ),
-    InventoryItem(
-      id: '3',
-      name: 'Synthetic Motor Oil 5W-30',
-      category: 'Fluids',
-      currentStock: 120,
-      minStock: 50,
-      maxStock: 200,
-      unitPrice: 24.99,
-      supplier: 'Oil Express',
-      location: 'C-1-2',
-      description: 'Full synthetic motor oil, 5 quart bottle',
-    ),
-    InventoryItem(
-      id: '4',
-      name: 'Air Filter',
-      category: 'Filters',
-      currentStock: 2,
-      minStock: 10,
-      maxStock: 40,
-      unitPrice: 18.99,
-      supplier: 'FilterMax',
-      location: 'A-1-4',
-      description: 'High-flow air filter for improved performance',
-    ),
-    InventoryItem(
-      id: '5',
-      name: 'Spark Plugs (Set of 4)',
-      category: 'Engine',
-      currentStock: 25,
-      minStock: 12,
-      maxStock: 60,
-      unitPrice: 32.99,
-      supplier: 'Ignition Pro',
-      location: 'D-3-1',
-      description: 'Iridium spark plugs for extended life',
-    ),
-  ];
+
 
   final List<String> _employees = [
     'Lim Wei Ming',
@@ -181,51 +121,116 @@ class _RecordUsageDialogState extends State<RecordUsageDialog> {
                 ),
               ),
               const SizedBox(height: 8),
-              DropdownButtonFormField<InventoryItem>(
-                value: _selectedItem,
-                decoration: InputDecoration(
-                  hintText: 'Choose an item',
-                  hintStyle: GoogleFonts.poppins(color: AppColors.textSecondary),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppColors.primaryPink),
-                  ),
-                ),
-                items: _availableItems.map((item) => DropdownMenuItem(
-                  value: item,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.name,
+              StreamBuilder<List<InventoryItem>>(
+                stream: _inventoryService.getInventoryItems(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorRed.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.errorRed),
+                      ),
+                      child: Text(
+                        'Error loading items: ${snapshot.error}',
                         style: GoogleFonts.poppins(
+                          color: AppColors.errorRed,
                           fontSize: 14,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      Text(
-                        '${item.category} • Stock: ${item.currentStock} • RM${item.unitPrice.toStringAsFixed(2)}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                )).toList(),
-                onChanged: (item) {
-                  setState(() {
-                    _selectedItem = item;
-                  });
-                },
-                validator: (value) {
-                  if (value == null) {
-                    return 'Please select an item';
+                    );
                   }
-                  return null;
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Container(
+                      height: 56,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.textSecondary.withOpacity(0.3)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+
+                  final availableItems = snapshot.data ?? [];
+
+                  if (availableItems.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.warningOrange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.warningOrange),
+                      ),
+                      child: Text(
+                        'No inventory items available',
+                        style: GoogleFonts.poppins(
+                          color: AppColors.warningOrange,
+                          fontSize: 14,
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Reset selected item if it's not in the current list
+                  if (_selectedItem != null && !availableItems.any((item) => item.id == _selectedItem!.id)) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      setState(() {
+                        _selectedItem = null;
+                      });
+                    });
+                  }
+
+                  return DropdownButtonFormField<InventoryItem>(
+                    value: _selectedItem,
+                    decoration: InputDecoration(
+                      hintText: 'Choose an item',
+                      hintStyle: GoogleFonts.poppins(color: AppColors.textSecondary),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: AppColors.primaryPink),
+                      ),
+                    ),
+                    items: availableItems.map((item) => DropdownMenuItem(
+                      value: item,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.name,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Text(
+                            '${item.category} • Stock: ${item.currentStock} • RM${item.unitPrice.toStringAsFixed(2)}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )).toList(),
+                    onChanged: (item) {
+                      setState(() {
+                        _selectedItem = item;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null) {
+                        return 'Please select an item';
+                      }
+                      return null;
+                    },
+                  );
                 },
               ),
               const SizedBox(height: 16),

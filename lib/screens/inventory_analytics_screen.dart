@@ -28,73 +28,36 @@ class _InventoryAnalyticsScreenState extends State<InventoryAnalyticsScreen> {
     _loadAnalytics();
   }
 
-  void _loadAnalytics() {
+  void _loadAnalytics() async {
     setState(() {
       _isLoading = true;
     });
 
-    // Get usage summary for the period
-    _summary = _usageService.getUsageSummary(
-      startDate: _startDate,
-      endDate: _endDate,
-    );
+    try {
+      // Get usage summary for the period
+      final summary = await _usageService.getUsageSummary(
+        startDate: _startDate,
+        endDate: _endDate,
+      );
 
-    // Get analytics for top used items in the selected period
-    final periodUsageRecords = _usageService.getUsageRecords(
-      startDate: _startDate,
-      endDate: _endDate,
-    );
-
-    // Group by item and calculate analytics for the period
-    final itemUsageMap = <String, List<InventoryUsage>>{};
-    for (final usage in periodUsageRecords) {
-      itemUsageMap.putIfAbsent(usage.itemId, () => []).add(usage);
+      setState(() {
+        _summary = summary;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading analytics: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
 
-    _itemAnalytics = itemUsageMap.entries.map((entry) {
-      final itemId = entry.key;
-      final itemUsages = entry.value;
-
-      if (itemUsages.isEmpty) return null;
-
-      final totalQuantity = itemUsages.fold<int>(0, (sum, usage) => sum + usage.quantityUsed);
-      final totalCost = itemUsages.fold<double>(0, (sum, usage) => sum + usage.totalCost);
-      final usageByType = <UsageType, int>{};
-      final usageByEmployee = <String, int>{};
-
-      for (final usage in itemUsages) {
-        usageByType[usage.usageType] = (usageByType[usage.usageType] ?? 0) + 1;
-        usageByEmployee[usage.usedBy] = (usageByEmployee[usage.usedBy] ?? 0) + usage.quantityUsed;
-      }
-
-      itemUsages.sort((a, b) => a.usageDate.compareTo(b.usageDate));
-      final firstUsage = itemUsages.first.usageDate;
-      final lastUsage = itemUsages.last.usageDate;
-
-      final daysDiff = lastUsage.difference(firstUsage).inDays;
-      final averageUsagePerMonth = daysDiff > 0 ? (totalQuantity / (daysDiff / 30.44)) : totalQuantity.toDouble();
-
-      return UsageAnalytics(
-        itemId: itemId,
-        itemName: itemUsages.first.itemName,
-        category: itemUsages.first.itemCategory,
-        totalQuantityUsed: totalQuantity,
-        totalCost: totalCost,
-        usageCount: itemUsages.length,
-        firstUsage: firstUsage,
-        lastUsage: lastUsage,
-        averageUsagePerMonth: averageUsagePerMonth,
-        usageByType: usageByType,
-        usageByEmployee: usageByEmployee,
-      );
-    }).where((analytics) => analytics != null).cast<UsageAnalytics>().toList();
-
-    // Sort by total quantity used
-    _itemAnalytics.sort((a, b) => b.totalQuantityUsed.compareTo(a.totalQuantityUsed));
-
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   Future<void> _selectDateRange() async {

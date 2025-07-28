@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'firebase_data_populator.dart';
+import '../services/inventory_usage_data_populator.dart';
 
 /// Simple utility widget to populate Firebase with sample data
 /// This can be called from your app's admin panel or debug menu
@@ -29,6 +30,7 @@ class _PopulateSampleDataWidgetState extends State<PopulateSampleDataWidget> {
         invoiceCount: 20,
         inventoryItemCount: 50,
         orderRequestCount: 15,
+        inventoryUsageCount: 25,
       );
 
       setState(() {
@@ -194,6 +196,7 @@ Future<void> populateMalaysianSampleData() async {
       invoiceCount: 20,
       inventoryItemCount: 50,
       orderRequestCount: 15,
+      inventoryUsageCount: 25,
     );
     
     debugPrint('🎉 Malaysian sample data population completed!');
@@ -211,6 +214,22 @@ Future<void> clearAllFirebaseData() async {
     debugPrint('🎉 Data clearing completed!');
   } catch (e) {
     debugPrint('❌ Error clearing data: $e');
+    rethrow;
+  }
+}
+
+/// Fix inventory usage data to match inventory items
+Future<void> fixInventoryUsageData() async {
+  try {
+    debugPrint('🔧 Fixing inventory usage data to match inventory items...');
+
+    await InventoryUsageDataPopulator.forceRepopulateWithCorrectData(
+      usageRecordCount: 25,
+    );
+
+    debugPrint('✅ Inventory usage data fixed successfully!');
+  } catch (e) {
+    debugPrint('❌ Error fixing inventory usage data: $e');
     rethrow;
   }
 }

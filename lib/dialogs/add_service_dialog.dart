@@ -236,7 +236,8 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
         );
 
         try {
-          await _usageService.recordUsage(usage);
+          final usageId = await _usageService.recordUsage(usage);
+          debugPrint('Recorded usage for $partName with ID: $usageId');
         } catch (e) {
           // Log error but don't fail the service creation
           debugPrint('Failed to record usage for $partName: $e');
