@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'service_record.dart';
 
 class Vehicle {
@@ -93,9 +94,9 @@ class Vehicle {
       customerName: map['customerName'] ?? '',
       customerPhone: map['customerPhone'] ?? '',
       customerEmail: map['customerEmail'] ?? '',
-      createdAt: DateTime.parse(map['createdAt']),
+      createdAt: _parseDateTime(map['createdAt']),
       lastServiceDate: map['lastServiceDate'] != null
-          ? DateTime.parse(map['lastServiceDate'])
+          ? _parseDateTime(map['lastServiceDate'])
           : null,
       serviceHistory: (map['serviceHistory'] as List?)
               ?.map((service) => ServiceRecord.fromMap(service))
@@ -104,6 +105,28 @@ class Vehicle {
       photos: List<String>.from(map['photos'] ?? []),
       notes: map['notes'],
     );
+  }
+
+  // Helper method to parse DateTime from various formats
+  static DateTime _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) {
+      return DateTime.now();
+    }
+
+    if (dateValue is Timestamp) {
+      return dateValue.toDate();
+    }
+
+    if (dateValue is String) {
+      return DateTime.parse(dateValue);
+    }
+
+    if (dateValue is DateTime) {
+      return dateValue;
+    }
+
+    // Fallback to current time if we can't parse
+    return DateTime.now();
   }
 
   Vehicle copyWith({

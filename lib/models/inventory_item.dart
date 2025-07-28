@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class InventoryItem {
   final String id;
   final String name;
@@ -46,7 +48,8 @@ class InventoryItem {
   double get totalValue => currentStock * unitPrice;
 
   // Check if order can be requested (low/critical stock and no pending request)
-  bool get canRequestOrder => (isLowStock || isCriticalStock) && !pendingOrderRequest;
+  bool get canRequestOrder =>
+      (isLowStock || isCriticalStock) && !pendingOrderRequest;
 
   InventoryItem copyWith({
     String? id,
@@ -117,14 +120,36 @@ class InventoryItem {
       location: json['location'],
       description: json['description'],
       lastRestocked: json['lastRestocked'] != null
-          ? DateTime.parse(json['lastRestocked'])
+          ? _parseDateTime(json['lastRestocked'])
           : null,
       imageUrl: json['imageUrl'],
       pendingOrderRequest: json['pendingOrderRequest'] ?? false,
       orderRequestDate: json['orderRequestDate'] != null
-          ? DateTime.parse(json['orderRequestDate'])
+          ? _parseDateTime(json['orderRequestDate'])
           : null,
       orderRequestId: json['orderRequestId'],
     );
+  }
+
+  // Helper method to parse DateTime from various formats
+  static DateTime _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) {
+      return DateTime.now();
+    }
+
+    if (dateValue is Timestamp) {
+      return dateValue.toDate();
+    }
+
+    if (dateValue is String) {
+      return DateTime.parse(dateValue);
+    }
+
+    if (dateValue is DateTime) {
+      return dateValue;
+    }
+
+    // Fallback to current time if we can't parse
+    return DateTime.now();
   }
 }

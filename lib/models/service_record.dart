@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ServiceRecord {
   final String id;
   final String customerId;
@@ -56,7 +58,7 @@ class ServiceRecord {
       id: map['id'] ?? '',
       customerId: map['customerId'] ?? '',
       vehicleId: map['vehicleId'] ?? '',
-      serviceDate: DateTime.parse(map['serviceDate']),
+      serviceDate: _parseDateTime(map['serviceDate']),
       serviceType: map['serviceType'] ?? '',
       description: map['description'] ?? '',
       servicesPerformed: List<String>.from(map['servicesPerformed'] ?? []),
@@ -67,12 +69,34 @@ class ServiceRecord {
         orElse: () => ServiceStatus.completed,
       ),
       nextServiceDue: map['nextServiceDue'] != null
-          ? DateTime.parse(map['nextServiceDue'])
+          ? _parseDateTime(map['nextServiceDue'])
           : null,
       mileage: map['mileage'] ?? 0,
       partsReplaced: List<String>.from(map['partsReplaced'] ?? []),
       notes: map['notes'] ?? '',
     );
+  }
+
+  // Helper method to parse DateTime from various formats
+  static DateTime _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) {
+      return DateTime.now();
+    }
+
+    if (dateValue is Timestamp) {
+      return dateValue.toDate();
+    }
+
+    if (dateValue is String) {
+      return DateTime.parse(dateValue);
+    }
+
+    if (dateValue is DateTime) {
+      return dateValue;
+    }
+
+    // Fallback to current time if we can't parse
+    return DateTime.now();
   }
 
   ServiceRecord copyWith({
