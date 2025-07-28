@@ -181,7 +181,7 @@ class AdminDataService {
         'service_records', 
         'appointments',
         'invoices',
-        'inventory',
+        'Inventory',
         'order_requests',
       ];
 

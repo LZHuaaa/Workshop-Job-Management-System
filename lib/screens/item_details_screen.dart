@@ -22,7 +22,6 @@ class ItemDetailsScreen extends StatefulWidget {
 
 class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
   late InventoryItem _currentItem;
-  bool _isUpdating = false;
 
   @override
   void initState() {
@@ -30,90 +29,9 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
     _currentItem = widget.item;
   }
 
-  Future<void> _updateStock(int newStock) async {
-    setState(() {
-      _isUpdating = true;
-    });
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 1));
 
-    final updatedItem = _currentItem.copyWith(
-      currentStock: newStock,
-      lastRestocked: DateTime.now(),
-    );
 
-    setState(() {
-      _currentItem = updatedItem;
-      _isUpdating = false;
-    });
-
-    widget.onItemUpdated(updatedItem);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Stock updated successfully',
-          style: GoogleFonts.poppins(),
-        ),
-        backgroundColor: AppColors.successGreen,
-      ),
-    );
-  }
-
-  void _showStockUpdateDialog() {
-    final controller =
-        TextEditingController(text: _currentItem.currentStock.toString());
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Update Stock',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Current stock: ${_currentItem.currentStock}',
-              style: GoogleFonts.poppins(fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'New Stock Level',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final newStock = int.tryParse(controller.text);
-              if (newStock != null && newStock >= 0) {
-                Navigator.of(context).pop();
-                _updateStock(newStock);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryPink,
-            ),
-            child: Text('Update'),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showEditItemDialog() {
     final nameController = TextEditingController(text: _currentItem.name);
@@ -700,37 +618,6 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
             // Stock Information Card
             DashboardCard(
               title: 'Stock Information',
-              action: ElevatedButton.icon(
-                onPressed: _isUpdating ? null : _showStockUpdateDialog,
-                icon: _isUpdating
-                    ? SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : Icon(Icons.edit, size: 16),
-                label: Text(
-                  'Update Stock',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryPink,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
               child: Column(
                 children: [
                   // Stock Level Indicator

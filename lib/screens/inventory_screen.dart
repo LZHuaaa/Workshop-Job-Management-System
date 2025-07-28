@@ -5,6 +5,8 @@ import '../models/inventory_item.dart';
 import '../screens/item_details_screen.dart';
 import '../screens/inventory_usage_screen.dart';
 import '../dialogs/add_item_dialog.dart';
+import '../services/inventory_service.dart';
+
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -15,18 +17,10 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final InventoryService _inventoryService = InventoryService();
   String _selectedCategory = 'All';
   String _selectedSort = 'Name';
-
-  final List<String> _categories = [
-    'All',
-    'Engine',
-    'Brakes',
-    'Filters',
-    'Fluids',
-    'Electrical',
-    'Suspension',
-  ];
+  List<String> _categories = ['All'];
 
   final List<String> _sortOptions = [
     'Name',
@@ -35,126 +29,98 @@ class _InventoryScreenState extends State<InventoryScreen> {
     'Category',
   ];
 
-  // Sample inventory data
-  final List<InventoryItem> _allItems = [
-    InventoryItem(
-      id: '1',
-      name: 'Engine Oil Filter',
-      category: 'Filters',
-      currentStock: 45,
-      minStock: 20,
-      maxStock: 100,
-      unitPrice: 12.99,
-      supplier: 'AutoParts Plus',
-      location: 'A-1-3',
-      description: 'High-quality oil filter for most vehicles',
-    ),
-    InventoryItem(
-      id: '2',
-      name: 'Brake Pads - Front',
-      category: 'Brakes',
-      currentStock: 8,
-      minStock: 15,
-      maxStock: 50,
-      unitPrice: 89.99,
-      supplier: 'BrakeTech Solutions',
-      location: 'B-2-1',
-      description: 'Premium ceramic brake pads',
-    ),
-    InventoryItem(
-      id: '3',
-      name: 'Synthetic Motor Oil 5W-30',
-      category: 'Fluids',
-      currentStock: 120,
-      minStock: 50,
-      maxStock: 200,
-      unitPrice: 24.99,
-      supplier: 'Oil Express',
-      location: 'C-1-2',
-      description: 'Full synthetic motor oil, 5 quart bottle',
-    ),
-    InventoryItem(
-      id: '4',
-      name: 'Air Filter',
-      category: 'Filters',
-      currentStock: 2,
-      minStock: 10,
-      maxStock: 40,
-      unitPrice: 18.99,
-      supplier: 'FilterMax',
-      location: 'A-1-4',
-      description: 'High-flow air filter for improved performance',
-    ),
-    InventoryItem(
-      id: '5',
-      name: 'Spark Plugs (Set of 4)',
-      category: 'Engine',
-      currentStock: 25,
-      minStock: 12,
-      maxStock: 60,
-      unitPrice: 32.99,
-      supplier: 'Ignition Pro',
-      location: 'D-3-1',
-      description: 'Iridium spark plugs for extended life',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+    _searchController.addListener(_onSearchChanged);
 
-  List<InventoryItem> get _filteredItems {
-    List<InventoryItem> filtered = _allItems;
 
-    // Apply category filter
-    if (_selectedCategory != 'All') {
-      filtered =
-          filtered.where((item) => item.category == _selectedCategory).toList();
-    }
-
-    // Apply search filter
-    if (_searchController.text.isNotEmpty) {
-      final searchTerm = _searchController.text.toLowerCase();
-      filtered = filtered
-          .where((item) =>
-              item.name.toLowerCase().contains(searchTerm) ||
-              item.category.toLowerCase().contains(searchTerm) ||
-              item.supplier.toLowerCase().contains(searchTerm))
-          .toList();
-    }
-
-    // Apply sorting
-    switch (_selectedSort) {
-      case 'Name':
-        filtered.sort((a, b) => a.name.compareTo(b.name));
-        break;
-      case 'Stock Level':
-        filtered.sort((a, b) => a.currentStock.compareTo(b.currentStock));
-        break;
-      case 'Price':
-        filtered.sort((a, b) => a.unitPrice.compareTo(b.unitPrice));
-        break;
-      case 'Category':
-        filtered.sort((a, b) => a.category.compareTo(b.category));
-        break;
-    }
-
-    return filtered;
   }
 
-  int get _lowStockCount => _allItems.where((item) => item.isLowStock).length;
-  int get _criticalStockCount =>
-      _allItems.where((item) => item.isCriticalStock).length;
-
-  void _addItem(InventoryItem item) {
-    setState(() {
-      _allItems.add(item);
-    });
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
   }
 
-  void _updateItem(InventoryItem updatedItem) {
-    setState(() {
-      final index = _allItems.indexWhere((item) => item.id == updatedItem.id);
-      if (index != -1) {
-        _allItems[index] = updatedItem;
+  void _loadCategories() async {
+    try {
+      final categories = await _inventoryService.getCategories();
+      setState(() {
+        _categories = categories;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading categories: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
       }
+    }
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      // Trigger rebuild to update filtered items
     });
+  }
+
+  Stream<List<InventoryItem>> get _filteredItemsStream {
+    return _inventoryService.getFilteredInventoryItems(
+      category: _selectedCategory,
+      searchQuery: _searchController.text,
+      sortBy: _selectedSort,
+    );
+  }
+
+  void _addItem(InventoryItem item) async {
+    try {
+      await _inventoryService.addInventoryItem(item);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Item added successfully', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error adding item: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
+  }
+
+  void _updateItem(InventoryItem updatedItem) async {
+    try {
+      await _inventoryService.updateInventoryItem(updatedItem);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Item updated successfully', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating item: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -256,35 +222,45 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   const SizedBox(height: 16),
 
                   // Stock Status Summary
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatusCard(
-                          'Total Items',
-                          _allItems.length.toString(),
-                          AppColors.primaryPink,
-                          Icons.inventory_2,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildStatusCard(
-                          'Low Stock',
-                          _lowStockCount.toString(),
-                          AppColors.warningOrange,
-                          Icons.warning_amber,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildStatusCard(
-                          'Critical',
-                          _criticalStockCount.toString(),
-                          AppColors.errorRed,
-                          Icons.error,
-                        ),
-                      ),
-                    ],
+                  StreamBuilder<List<InventoryItem>>(
+                    stream: _inventoryService.getInventoryItems(),
+                    builder: (context, snapshot) {
+                      final items = snapshot.data ?? [];
+                      final totalItems = items.length;
+                      final lowStockCount = items.where((item) => item.isLowStock).length;
+                      final criticalStockCount = items.where((item) => item.isCriticalStock).length;
+
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatusCard(
+                              'Total Items',
+                              totalItems.toString(),
+                              AppColors.primaryPink,
+                              Icons.inventory_2,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildStatusCard(
+                              'Low Stock',
+                              lowStockCount.toString(),
+                              AppColors.warningOrange,
+                              Icons.warning_amber,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildStatusCard(
+                              'Critical',
+                              criticalStockCount.toString(),
+                              AppColors.errorRed,
+                              Icons.error,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 16),
@@ -297,7 +273,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ),
                     child: TextField(
                       controller: _searchController,
-                      onChanged: (value) => setState(() {}),
                       decoration: InputDecoration(
                         hintText: 'Search parts, categories, or suppliers...',
                         hintStyle: GoogleFonts.poppins(
@@ -400,14 +375,94 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
             // Items List
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: _filteredItems.length,
-                itemBuilder: (context, index) {
-                  final item = _filteredItems[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _buildInventoryCard(item),
+              child: StreamBuilder<List<InventoryItem>>(
+                stream: _filteredItemsStream,
+                builder: (context, snapshot) {
+
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 64,
+                            color: AppColors.errorRed,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Error loading inventory',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            snapshot.error.toString(),
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: AppColors.textSecondary,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+
+                  final items = snapshot.data ?? [];
+
+                  if (items.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 64,
+                            color: AppColors.textSecondary,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No items found',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Try adjusting your search or filters',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _buildInventoryCard(item),
+                      );
+                    },
                   );
                 },
               ),
