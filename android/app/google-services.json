@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "266868812338",
+    "project_id": "pinkdrive-21122",
+    "storage_bucket": "pinkdrive-21122.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:266868812338:android:627ef61b8fdba37fa4aa2b",
+        "android_client_info": {
+          "package_name": "com.example.assignment"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQe3H7bUmGERIQib2TaCAWM7p3tSiJjyQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
