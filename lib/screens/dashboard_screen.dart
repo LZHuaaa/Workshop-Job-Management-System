@@ -5,6 +5,7 @@ import '../widgets/management_hub_card.dart';
 import '../widgets/inventory_card.dart';
 import '../widgets/pending_approvals_card.dart';
 import '../theme/app_colors.dart';
+import 'user_profile_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -79,14 +80,32 @@ class DashboardScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(width: 8),
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: AppColors.primaryPink.withOpacity(0.1),
-                        child: Text(
-                          'SM',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primaryPink,
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => UserProfileScreen(
+                                userName: 'Sarah Manager',
+                                email: 'sarah.manager@example.com',
+                                contactNumber: '123-456-7890',
+                                password: 'password123',
+                                onLogout: () {
+                                  Navigator.of(context).popUntil((route) => route.isFirst);
+                                  // TODO: Add actual logout logic
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                        child: CircleAvatar(
+                          radius: 20,
+                          backgroundColor: AppColors.primaryPink.withOpacity(0.1),
+                          child: Text(
+                            'SM',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryPink,
+                            ),
                           ),
                         ),
                       ),
