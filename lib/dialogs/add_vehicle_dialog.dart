@@ -4,6 +4,8 @@ import '../theme/app_colors.dart';
 import '../widgets/custom_dialog.dart';
 import '../models/vehicle.dart';
 import '../screens/vin_scanner_screen.dart';
+import '../utils/validation_utils.dart';
+import '../services/vin_decoder_service.dart';
 
 class AddVehicleDialog extends StatefulWidget {
   final Function(Vehicle) onVehicleAdded;
@@ -91,10 +93,45 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
             setState(() {
               _vinController.text = vin;
             });
+            _decodeVIN(vin);
           },
         ),
       ),
     );
+  }
+
+  void _decodeVIN(String vin) {
+    if (vin.length == 17) {
+      final result = VinDecoderService.decodeVin(vin);
+
+      if (result.isValid) {
+        setState(() {
+          // Auto-populate make if decoded successfully
+          if (result.make != null && _makes.contains(result.make)) {
+            _makeController.text = result.make!;
+          }
+
+          // Auto-populate year if decoded successfully
+          if (result.year != null) {
+            _yearController.text = result.year.toString();
+          }
+        });
+
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'VIN decoded: ${result.make ?? 'Unknown'} ${result.year ?? ''}',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: AppColors.successGreen,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _addVehicle() async {
@@ -171,29 +208,16 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
                       onChanged: (value) {
                         setState(() {
                           _makeController.text = value ?? '';
+                          // Clear model when make changes
+                          _modelController.clear();
                         });
                       },
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please select make';
-                        }
-                        return null;
-                      },
+                      validator: (value) => ValidationUtils.validateRequired(value, 'make'),
                     ),
                   ),
                   const SizedBox(width: 20),
                   Expanded(
-                    child: CustomTextField(
-                      label: 'Model',
-                      hint: 'e.g., Civic, Camry',
-                      controller: _modelController,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter model';
-                        }
-                        return null;
-                      },
-                    ),
+                    child: _buildModelField(),
                   ),
                 ],
               ),
@@ -209,18 +233,7 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
                       hint: 'e.g., 2020',
                       controller: _yearController,
                       keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter year';
-                        }
-                        final year = int.tryParse(value);
-                        if (year == null ||
-                            year < 1900 ||
-                            year > DateTime.now().year + 1) {
-                          return 'Invalid year';
-                        }
-                        return null;
-                      },
+                      validator: ValidationUtils.validateYear,
                     ),
                   ),
                   const SizedBox(width: 20),
@@ -229,12 +242,7 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
                       label: 'License Plate',
                       hint: 'e.g., ABC 1234',
                       controller: _licensePlateController,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter license plate';
-                        }
-                        return null;
-                      },
+                      validator: ValidationUtils.validateLicensePlate,
                     ),
                   ),
                 ],
@@ -262,12 +270,7 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
                           _colorController.text = value ?? '';
                         });
                       },
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please select color';
-                        }
-                        return null;
-                      },
+                      validator: (value) => ValidationUtils.validateRequired(value, 'color'),
                     ),
                   ),
                   const SizedBox(width: 20),
@@ -277,15 +280,7 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
                       hint: 'e.g., 50000',
                       controller: _mileageController,
                       keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter mileage';
-                        }
-                        if (int.tryParse(value) == null) {
-                          return 'Invalid mileage';
-                        }
-                        return null;
-                      },
+                      validator: ValidationUtils.validateMileage,
                     ),
                   ),
                 ],
@@ -311,12 +306,7 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
                 label: 'Customer Name',
                 hint: 'Enter customer\'s full name',
                 controller: _customerNameController,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter customer name';
-                  }
-                  return null;
-                },
+                validator: (value) => ValidationUtils.validateName(value, 'Customer Name'),
               ),
 
               const SizedBox(height: 24),
@@ -330,12 +320,7 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
                       hint: 'e.g., (555) 123-4567',
                       controller: _customerPhoneController,
                       keyboardType: TextInputType.phone,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter phone number';
-                        }
-                        return null;
-                      },
+                      validator: ValidationUtils.validatePhoneNumber,
                     ),
                   ),
                   const SizedBox(width: 20),
@@ -346,13 +331,7 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
                       controller: _customerEmailController,
                       keyboardType: TextInputType.emailAddress,
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter email';
-                        }
-                        if (!value.contains('@')) {
-                          return 'Invalid email';
-                        }
-                        return null;
+                        return ValidationUtils.validateEmail(value);
                       },
                     ),
                   ),
@@ -449,27 +428,43 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
                 label: 'Vehicle Identification Number (VIN)',
                 hint: 'Enter 17-character VIN code',
                 controller: _vinController,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter VIN';
+                validator: ValidationUtils.validateVIN,
+                onChanged: (value) {
+                  if (value.length == 17) {
+                    _decodeVIN(value);
                   }
-                  if (value.length != 17) {
-                    return 'VIN must be 17 characters';
-                  }
-                  return null;
                 },
-                suffixIcon: IconButton(
-                  onPressed: _scanVIN,
-                  icon: Icon(
-                    Icons.qr_code_scanner,
-                    color: AppColors.primaryPink,
-                    size: 20,
-                  ),
-                  tooltip: 'Scan VIN with camera',
-                  style: IconButton.styleFrom(
-                    backgroundColor: AppColors.primaryPink.withOpacity(0.1),
-                    padding: const EdgeInsets.all(8),
-                  ),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: () => _decodeVIN(_vinController.text),
+                      icon: Icon(
+                        Icons.auto_fix_high,
+                        color: AppColors.primaryPink,
+                        size: 20,
+                      ),
+                      tooltip: 'Decode VIN',
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.primaryPink.withOpacity(0.1),
+                        padding: const EdgeInsets.all(8),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed: _scanVIN,
+                      icon: Icon(
+                        Icons.qr_code_scanner,
+                        color: AppColors.primaryPink,
+                        size: 20,
+                      ),
+                      tooltip: 'Scan VIN with camera',
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.primaryPink.withOpacity(0.1),
+                        padding: const EdgeInsets.all(8),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -502,6 +497,77 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
             ],
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildModelField() {
+    final suggestedModels = _makeController.text.isNotEmpty
+        ? VinDecoderService.getSuggestedModels(_makeController.text)
+        : <String>[];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CustomTextField(
+          label: 'Model',
+          hint: 'e.g., Civic, Camry',
+          controller: _modelController,
+          validator: (value) => ValidationUtils.validateName(value, 'Model'),
+          suffixIcon: suggestedModels.isNotEmpty
+              ? PopupMenuButton<String>(
+                  icon: Icon(
+                    Icons.arrow_drop_down,
+                    color: AppColors.primaryPink,
+                  ),
+                  onSelected: (value) {
+                    setState(() {
+                      _modelController.text = value;
+                    });
+                  },
+                  itemBuilder: (context) => suggestedModels
+                      .map((model) => PopupMenuItem(
+                            value: model,
+                            child: Text(model),
+                          ))
+                      .toList(),
+                )
+              : null,
+        ),
+        if (suggestedModels.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: suggestedModels.take(6).map((model) {
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _modelController.text = model;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryPink.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.primaryPink.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Text(
+                    model,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.primaryPink,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ],
     );
   }

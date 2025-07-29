@@ -146,6 +146,7 @@ class CustomTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           label,
@@ -200,6 +201,19 @@ class CustomTextField extends StatelessWidget {
                 color: AppColors.errorRed,
               ),
             ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: AppColors.errorRed,
+                width: 2,
+              ),
+            ),
+            errorStyle: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AppColors.errorRed,
+              height: 1.4,
+            ),
+            errorMaxLines: 3,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 12,
@@ -291,6 +305,25 @@ class CustomDropdown<T> extends StatelessWidget {
                   width: 2,
                 ),
               ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: AppColors.errorRed,
+                ),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: AppColors.errorRed,
+                  width: 2,
+                ),
+              ),
+              errorStyle: GoogleFonts.poppins(
+                fontSize: 12,
+                color: AppColors.errorRed,
+                height: 1.4,
+              ),
+              errorMaxLines: 3,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 12,

@@ -5,6 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../theme/app_colors.dart';
 import '../models/vehicle.dart';
+import '../services/photo_storage_service.dart';
+import '../services/vehicle_service.dart';
 
 class VehiclePhotoManager extends StatefulWidget {
   final Vehicle vehicle;
@@ -22,8 +24,10 @@ class VehiclePhotoManager extends StatefulWidget {
 
 class _VehiclePhotoManagerState extends State<VehiclePhotoManager> {
   final ImagePicker _picker = ImagePicker();
+  final VehicleService _vehicleService = VehicleService();
   List<String> _photos = [];
-  final bool _isLoading = false;
+  bool _isLoading = false;
+  bool _isUploading = false;
 
   @override
   void initState() {
@@ -50,12 +54,6 @@ class _VehiclePhotoManagerState extends State<VehiclePhotoManager> {
           icon: Icon(Icons.arrow_back, color: AppColors.textDark),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.add_a_photo, color: AppColors.primaryPink),
-            onPressed: _showAddPhotoOptions,
-          ),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -63,9 +61,20 @@ class _VehiclePhotoManagerState extends State<VehiclePhotoManager> {
               ? _buildEmptyState()
               : _buildPhotoGrid(),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddPhotoOptions,
-        backgroundColor: AppColors.primaryPink,
-        child: const Icon(Icons.add_a_photo, color: Colors.white),
+        onPressed: _isUploading ? null : _showAddPhotoOptions,
+        backgroundColor: _isUploading
+            ? AppColors.textSecondary
+            : AppColors.primaryPink,
+        child: _isUploading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Icon(Icons.add_a_photo, color: Colors.white),
       ),
     );
   }
@@ -356,22 +365,7 @@ class _VehiclePhotoManagerState extends State<VehiclePhotoManager> {
       );
 
       if (photo != null) {
-        setState(() {
-          _photos.add(photo.path);
-        });
-        widget.onPhotosUpdated(_photos);
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Photo added successfully',
-                style: GoogleFonts.poppins(),
-              ),
-              backgroundColor: AppColors.successGreen,
-            ),
-          );
-        }
+        await _uploadPhotoToFirebase(File(photo.path));
       }
     } catch (e) {
       if (mounted) {
@@ -398,22 +392,7 @@ class _VehiclePhotoManagerState extends State<VehiclePhotoManager> {
       );
 
       if (photo != null) {
-        setState(() {
-          _photos.add(photo.path);
-        });
-        widget.onPhotosUpdated(_photos);
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Photo added successfully',
-                style: GoogleFonts.poppins(),
-              ),
-              backgroundColor: AppColors.successGreen,
-            ),
-          );
-        }
+        await _uploadPhotoToFirebase(File(photo.path));
       }
     } catch (e) {
       if (mounted) {
@@ -463,24 +442,9 @@ class _VehiclePhotoManagerState extends State<VehiclePhotoManager> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _photos.removeAt(index);
-              });
-              widget.onPhotosUpdated(_photos);
+            onPressed: () async {
               Navigator.of(context).pop();
-
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Photo deleted',
-                      style: GoogleFonts.poppins(),
-                    ),
-                    backgroundColor: AppColors.successGreen,
-                  ),
-                );
-              }
+              await _deletePhotoFromFirebase(index);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.errorRed,
@@ -494,6 +458,144 @@ class _VehiclePhotoManagerState extends State<VehiclePhotoManager> {
         ],
       ),
     );
+  }
+
+  // Upload photo to Firebase Storage and update vehicle
+  Future<void> _uploadPhotoToFirebase(File photoFile) async {
+    if (_isUploading) return; // Prevent multiple uploads
+
+    setState(() {
+      _isUploading = true;
+    });
+
+    try {
+      // Show uploading indicator
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  'Uploading photo...',
+                  style: GoogleFonts.poppins(),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.primaryPink,
+            duration: const Duration(seconds: 30), // Long duration for upload
+          ),
+        );
+      }
+
+      // Upload to storage (Firebase with local fallback)
+      final photoUrl = await PhotoStorageService.uploadVehiclePhoto(
+        vehicleId: widget.vehicle.id,
+        photoFile: photoFile,
+      );
+
+      // Update vehicle photos in Firestore
+      await _vehicleService.addPhotoToVehicle(widget.vehicle.id, photoUrl);
+
+      // Update local state
+      setState(() {
+        _photos.add(photoUrl);
+      });
+
+      // Update parent widget
+      widget.onPhotosUpdated(_photos);
+
+      // Hide uploading indicator and show success
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Photo uploaded successfully',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to upload photo: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isUploading = false;
+      });
+    }
+  }
+
+  // Delete photo from Firebase Storage and update vehicle
+  Future<void> _deletePhotoFromFirebase(int index) async {
+    if (index >= _photos.length) return;
+
+    final photoUrl = _photos[index];
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Delete from storage (Firebase or local)
+      await PhotoStorageService.deleteVehiclePhoto(photoUrl);
+
+      // Update vehicle photos in Firestore
+      await _vehicleService.removePhotoFromVehicle(widget.vehicle.id, photoUrl);
+
+      // Update local state
+      setState(() {
+        _photos.removeAt(index);
+      });
+
+      // Update parent widget
+      widget.onPhotosUpdated(_photos);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Photo deleted successfully',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to delete photo: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 }
 

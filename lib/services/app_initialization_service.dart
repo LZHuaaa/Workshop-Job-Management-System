@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../firebase_options.dart';
@@ -42,6 +43,9 @@ class AppInitializationService {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
+
+      // Sign in anonymously for Firebase Storage access
+      await _ensureAuthenticated();
 
       // Initialize Firebase data population service
       final dataPopulator = FirebaseDataPopulatorService();
@@ -247,6 +251,21 @@ class AppInitializationService {
     } catch (e) {
       print('❌ Error fixing inventory usage data: $e');
       rethrow;
+    }
+  }
+
+  /// Ensure user is authenticated (anonymously if needed) for Firebase Storage
+  static Future<void> _ensureAuthenticated() async {
+    final auth = FirebaseAuth.instance;
+
+    if (auth.currentUser == null) {
+      try {
+        await auth.signInAnonymously();
+        print('Signed in anonymously for Firebase Storage access');
+      } catch (e) {
+        print('Failed to sign in anonymously: $e');
+        // Continue without authentication - some features may not work
+      }
     }
   }
 }

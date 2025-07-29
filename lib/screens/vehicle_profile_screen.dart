@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -7,7 +8,9 @@ import '../models/vehicle.dart';
 import '../models/service_record.dart';
 import '../dialogs/add_appointment_dialog.dart';
 import '../dialogs/edit_vehicle_dialog.dart';
-import 'vehicle_photo_manager.dart';
+import '../services/vehicle_photo_service.dart';
+import '../services/service_record_service.dart';
+import 'enhanced_vehicle_photo_manager.dart';
 
 class VehicleProfileScreen extends StatefulWidget {
   final Vehicle vehicle;
@@ -27,18 +30,71 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
   late Vehicle _currentVehicle;
+  List<VehiclePhoto> _photos = [];
+  bool _isLoadingPhotos = false;
+  List<ServiceRecord> _serviceRecords = [];
+  bool _isLoadingServiceRecords = false;
+  final ServiceRecordService _serviceRecordService = ServiceRecordService();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _currentVehicle = widget.vehicle;
+    _loadPhotos();
+    _loadServiceRecords();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _loadPhotos() async {
+    setState(() {
+      _isLoadingPhotos = true;
+    });
+
+    try {
+      final photos = await VehiclePhotoService.getVehiclePhotos(_currentVehicle.id);
+      if (mounted) {
+        setState(() {
+          _photos = photos;
+          _isLoadingPhotos = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading photos: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingPhotos = false;
+        });
+      }
+    }
+  }
+
+  void _loadServiceRecords() async {
+    setState(() {
+      _isLoadingServiceRecords = true;
+    });
+
+    try {
+      final serviceRecords = await _serviceRecordService.getServiceRecordsByVehicle(_currentVehicle.id);
+      if (mounted) {
+        setState(() {
+          _serviceRecords = serviceRecords;
+          _isLoadingServiceRecords = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading service records: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingServiceRecords = false;
+        });
+      }
+    }
   }
 
   void _scheduleService() {
@@ -61,10 +117,10 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
     );
   }
 
-  void _managePhotos() {
-    Navigator.of(context).push(
+  void _managePhotos() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => VehiclePhotoManager(
+        builder: (context) => EnhancedVehiclePhotoManager(
           vehicle: _currentVehicle,
           onPhotosUpdated: (photos) {
             setState(() {
@@ -75,6 +131,9 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
         ),
       ),
     );
+
+    // Refresh photos when returning from photo manager
+    _loadPhotos();
   }
 
   void _editVehicle() {
@@ -503,54 +562,393 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
   }
 
   Widget _buildServiceHistoryTab() {
+    if (_isLoadingServiceRecords) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
-        children: _currentVehicle.serviceHistory.isEmpty
-            ? [
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with service count
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Service History',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark,
+                ),
+              ),
+              if (_serviceRecords.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.all(40),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.build_circle_outlined,
-                        size: 64,
-                        color: AppColors.textSecondary,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No Service History',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      Text(
-                        'This vehicle has no recorded services yet',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryPink.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.primaryPink.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    '${_serviceRecords.length} record${_serviceRecords.length != 1 ? 's' : ''}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryPink,
+                    ),
                   ),
                 ),
-              ]
-            : _currentVehicle.serviceHistory
-                .map((service) => Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      child: _buildServiceCard(service),
-                    ))
-                .toList(),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Service records or empty state
+          ..._serviceRecords.isEmpty
+              ? [
+                  Container(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.build_circle_outlined,
+                          size: 64,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No Service History',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'This vehicle has no recorded services yet',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: _scheduleService,
+                          icon: const Icon(Icons.add),
+                          label: const Text('Schedule Service'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryPink,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ]
+              : _serviceRecords
+                  .map((service) => Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: _buildServiceCard(service),
+                      ))
+                  .toList(),
+        ],
       ),
     );
   }
 
   Widget _buildPhotosTab() {
-    return const Center(
-      child: Text('Photos functionality coming soon!'),
+    if (_isLoadingPhotos) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_photos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.photo_library_outlined,
+              size: 64,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No photos yet',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Add photos to see them organized by category',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _managePhotos,
+              icon: const Icon(Icons.add_a_photo),
+              label: const Text('Add Photos'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryPink,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Group photos by category
+    final photosByCategory = <PhotoCategory, List<VehiclePhoto>>{};
+    for (final category in PhotoCategory.values) {
+      photosByCategory[category] = _photos.where((p) => p.category == category).toList();
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with manage photos button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Vehicle Photos',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark,
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: _managePhotos,
+                icon: const Icon(Icons.photo_library, size: 18),
+                label: const Text('Manage'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryPink,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Photo categories
+          ...PhotoCategory.values.map((category) {
+            final categoryPhotos = photosByCategory[category] ?? [];
+            if (categoryPhotos.isEmpty) return const SizedBox.shrink();
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Category header
+                Row(
+                  children: [
+                    Icon(category.icon, color: category.color, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      category.label,
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: category.color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: category.color.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        categoryPhotos.length.toString(),
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: category.color,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Photo grid for this category
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                    childAspectRatio: 1,
+                  ),
+                  itemCount: categoryPhotos.length,
+                  itemBuilder: (context, index) {
+                    final photo = categoryPhotos[index];
+                    return _buildPhotoThumbnail(photo, category);
+                  },
+                ),
+                const SizedBox(height: 24),
+              ],
+            );
+          }).toList(),
+        ],
+      ),
     );
+  }
+
+  Widget _buildPhotoThumbnail(VehiclePhoto photo, PhotoCategory category) {
+    return GestureDetector(
+      onTap: () => _viewPhotoInManager(photo),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: category.color.withOpacity(0.3)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(7),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Handle both network and local file URLs
+              photo.url.startsWith('http')
+                  ? Image.network(
+                      photo.url,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: AppColors.backgroundLight,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                      loadingProgress.expectedTotalBytes!
+                                  : null,
+                              strokeWidth: 2,
+                              color: category.color,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        print('❌ Network image error for ${photo.url}: $error');
+                        return Container(
+                          color: AppColors.backgroundLight,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.broken_image,
+                                color: AppColors.textSecondary,
+                                size: 24,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Failed to load',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 8,
+                                  color: AppColors.textSecondary,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    )
+                  : Image.file(
+                      File(photo.url),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        print('❌ Local file error for ${photo.url}: $error');
+                        return Container(
+                          color: AppColors.backgroundLight,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.broken_image,
+                                color: AppColors.textSecondary,
+                                size: 24,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'File not found',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 8,
+                                  color: AppColors.textSecondary,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+
+              // Category indicator
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: category.color,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Icon(
+                    category.icon,
+                    size: 12,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+
+              // Annotation indicator
+              if (photo.annotation != null && photo.annotation!.isNotEmpty)
+                Positioned(
+                  bottom: 4,
+                  left: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(
+                      Icons.note,
+                      size: 12,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _viewPhotoInManager(VehiclePhoto photo) {
+    // Navigate to the enhanced photo manager and switch to the photo's category
+    _managePhotos();
   }
 
   Widget _buildDetailRow(String label, String value) {
