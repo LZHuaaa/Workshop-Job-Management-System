@@ -20,6 +20,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   final InventoryService _inventoryService = InventoryService();
   String _selectedCategory = 'All';
   String _selectedSort = 'Name';
+  bool _showUnavailable = true;
   List<String> _categories = ['All'];
 
   final List<String> _sortOptions = [
@@ -74,6 +75,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       category: _selectedCategory,
       searchQuery: _searchController.text,
       sortBy: _selectedSort,
+      showUnavailable: _showUnavailable,
     );
   }
 
@@ -369,6 +371,37 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       ),
                     ],
                   ),
+
+                  const SizedBox(height: 12),
+
+                  // Show Unavailable Items Toggle
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.visibility,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Show out of stock items',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Switch(
+                        value: _showUnavailable,
+                        onChanged: (value) {
+                          setState(() {
+                            _showUnavailable = value;
+                          });
+                        },
+                        activeColor: AppColors.primaryPink,
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -517,18 +550,25 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget _buildInventoryCard(InventoryItem item) {
     return GestureDetector(
       onTap: () => _showItemDetails(item),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+      child: Opacity(
+        opacity: item.isOutOfStock ? 0.6 : 1.0,
+        child: Container(
+          decoration: BoxDecoration(
+            color: item.isOutOfStock
+                ? Colors.grey.shade100
+                : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: item.isOutOfStock
+                ? Border.all(color: Colors.grey.shade300, width: 1)
+                : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -627,7 +667,24 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  if (item.isCriticalStock || item.isLowStock)
+                  if (item.isOutOfStock)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade600,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'OUT OF STOCK',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    )
+                  else if (item.isCriticalStock || item.isLowStock)
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
@@ -673,6 +730,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ],
             ],
           ),
+        ),
         ),
       ),
     );

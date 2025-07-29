@@ -3,8 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
+import '../widgets/numeric_spinner.dart';
 import '../models/inventory_item.dart';
 import '../models/order_request.dart';
+import '../services/inventory_service.dart';
 
 class ItemDetailsScreen extends StatefulWidget {
   final InventoryItem item;
@@ -22,6 +24,7 @@ class ItemDetailsScreen extends StatefulWidget {
 
 class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
   late InventoryItem _currentItem;
+  final InventoryService _inventoryService = InventoryService();
 
   @override
   void initState() {
@@ -33,9 +36,26 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
 
 
 
-  void _showEditItemDialog() {
+  void _showEditItemDialog() async {
+    // Load categories first
+    List<String> categories = [];
+    try {
+      final loadedCategories = await _inventoryService.getCategories();
+      categories = loadedCategories.where((category) => category != 'All').toList();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading categories: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+      return;
+    }
+
     final nameController = TextEditingController(text: _currentItem.name);
-    final categoryController = TextEditingController(text: _currentItem.category);
+    String selectedCategory = _currentItem.category;
     final minStockController = TextEditingController(text: _currentItem.minStock.toString());
     final maxStockController = TextEditingController(text: _currentItem.maxStock.toString());
     final unitPriceController = TextEditingController(text: _currentItem.unitPrice.toString());
@@ -46,89 +66,340 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text('Edit Item', style: GoogleFonts.poppins()),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(labelText: 'Name'),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Edit Item', style: GoogleFonts.poppins()),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(labelText: 'Name'),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedCategory,
+                      decoration: InputDecoration(labelText: 'Category'),
+                      items: categories.map((category) {
+                        return DropdownMenuItem(
+                          value: category,
+                          child: Text(category),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          selectedCategory = value!;
+                        });
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please select category';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    NumericSpinner(
+                      label: 'Min Stock',
+                      controller: minStockController,
+                      step: 1,
+                      min: 0,
+                      isInteger: true,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Required';
+                        }
+                        if (int.tryParse(value) == null) {
+                          return 'Invalid number';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    NumericSpinner(
+                      label: 'Max Stock',
+                      controller: maxStockController,
+                      step: 1,
+                      min: 0,
+                      isInteger: true,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Required';
+                        }
+                        if (int.tryParse(value) == null) {
+                          return 'Invalid number';
+                        }
+                        final maxStock = int.parse(value);
+                        final minStock = int.tryParse(minStockController.text) ?? 0;
+                        if (maxStock <= minStock) {
+                          return 'Must be > min';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    NumericSpinner(
+                      label: 'Unit Price (\$)',
+                      controller: unitPriceController,
+                      step: 0.01,
+                      min: 0,
+                      isInteger: false,
+                      decimalPlaces: 2,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter unit price';
+                        }
+                        if (double.tryParse(value) == null) {
+                          return 'Invalid price';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: supplierController,
+                      decoration: InputDecoration(labelText: 'Supplier'),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: locationController,
+                      decoration: InputDecoration(labelText: 'Location'),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: descriptionController,
+                      decoration: InputDecoration(labelText: 'Description'),
+                      maxLines: 2,
+                    ),
+                  ],
                 ),
-                TextField(
-                  controller: categoryController,
-                  decoration: InputDecoration(labelText: 'Category'),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('Cancel', style: GoogleFonts.poppins()),
                 ),
-                TextField(
-                  controller: minStockController,
-                  decoration: InputDecoration(labelText: 'Min Stock'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: maxStockController,
-                  decoration: InputDecoration(labelText: 'Max Stock'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: unitPriceController,
-                  decoration: InputDecoration(labelText: 'Unit Price'),
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
-                ),
-                TextField(
-                  controller: supplierController,
-                  decoration: InputDecoration(labelText: 'Supplier'),
-                ),
-                TextField(
-                  controller: locationController,
-                  decoration: InputDecoration(labelText: 'Location'),
-                ),
-                TextField(
-                  controller: descriptionController,
-                  decoration: InputDecoration(labelText: 'Description'),
-                  maxLines: 2,
+                ElevatedButton(
+                  onPressed: () {
+                    final updatedItem = _currentItem.copyWith(
+                      name: nameController.text,
+                      category: selectedCategory,
+                      minStock: int.tryParse(minStockController.text) ?? _currentItem.minStock,
+                      maxStock: int.tryParse(maxStockController.text) ?? _currentItem.maxStock,
+                      unitPrice: double.tryParse(unitPriceController.text) ?? _currentItem.unitPrice,
+                      supplier: supplierController.text,
+                      location: locationController.text,
+                      description: descriptionController.text,
+                    );
+                    setState(() {
+                      _currentItem = updatedItem;
+                    });
+                    widget.onItemUpdated(updatedItem);
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Item updated successfully', style: GoogleFonts.poppins()),
+                        backgroundColor: AppColors.successGreen,
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryPink,
+                  ),
+                  child: Text('Save', style: GoogleFonts.poppins(color: Colors.white)),
                 ),
               ],
-            ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                Icons.warning,
+                color: AppColors.errorRed,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Delete Item',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.errorRed,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Are you sure you want to permanently delete this item?',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.errorRed.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.errorRed.withOpacity(0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Item to be deleted:',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _currentItem.name,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'Category: ${_currentItem.category}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '⚠️ This action cannot be undone. All related usage records will remain but will reference a deleted item.',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: AppColors.errorRed,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel', style: GoogleFonts.poppins()),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ),
             ElevatedButton(
               onPressed: () {
-                final updatedItem = _currentItem.copyWith(
-                  name: nameController.text,
-                  category: categoryController.text,
-                  minStock: int.tryParse(minStockController.text) ?? _currentItem.minStock,
-                  maxStock: int.tryParse(maxStockController.text) ?? _currentItem.maxStock,
-                  unitPrice: double.tryParse(unitPriceController.text) ?? _currentItem.unitPrice,
-                  supplier: supplierController.text,
-                  location: locationController.text,
-                  description: descriptionController.text,
-                );
-                setState(() {
-                  _currentItem = updatedItem;
-                });
-                widget.onItemUpdated(updatedItem);
                 Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Item updated successfully', style: GoogleFonts.poppins()),
-                    backgroundColor: AppColors.successGreen,
-                  ),
-                );
+                _deleteItem();
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryPink,
+                backgroundColor: AppColors.errorRed,
+                foregroundColor: Colors.white,
               ),
-              child: Text('Save', style: GoogleFonts.poppins(color: Colors.white)),
+              child: Text(
+                'Delete',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         );
       },
     );
+  }
+
+  Future<void> _deleteItem() async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Deleting item...',
+                style: GoogleFonts.poppins(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    try {
+      // Delete the item from the database
+      await _inventoryService.deleteInventoryItem(_currentItem.id);
+
+      // Close loading dialog
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // Show success message and navigate back
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Item "${_currentItem.name}" deleted successfully',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
+
+        // Navigate back to inventory screen
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to delete item: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
   }
 
   void _requestMoreOrder() {
@@ -512,6 +783,14 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
             onPressed: () {
               _showEditItemDialog();
             },
+            tooltip: 'Edit Item',
+          ),
+          IconButton(
+            icon: Icon(Icons.delete, color: AppColors.errorRed),
+            onPressed: () {
+              _showDeleteConfirmationDialog();
+            },
+            tooltip: 'Delete Item',
           ),
         ],
       ),
@@ -541,19 +820,23 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: _currentItem.isCriticalStock
-                              ? AppColors.errorRed
-                              : _currentItem.isLowStock
-                                  ? AppColors.warningOrange
-                                  : AppColors.successGreen,
+                          color: _currentItem.isOutOfStock
+                              ? Colors.grey.shade600
+                              : _currentItem.isCriticalStock
+                                  ? AppColors.errorRed
+                                  : _currentItem.isLowStock
+                                      ? AppColors.warningOrange
+                                      : AppColors.successGreen,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          _currentItem.isCriticalStock
-                              ? 'CRITICAL'
-                              : _currentItem.isLowStock
-                                  ? 'LOW STOCK'
-                                  : 'IN STOCK',
+                          _currentItem.isOutOfStock
+                              ? 'OUT OF STOCK'
+                              : _currentItem.isCriticalStock
+                                  ? 'CRITICAL'
+                                  : _currentItem.isLowStock
+                                      ? 'LOW STOCK'
+                                      : 'IN STOCK',
                           style: GoogleFonts.poppins(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,

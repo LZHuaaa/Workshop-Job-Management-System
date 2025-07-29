@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../widgets/custom_dialog.dart';
+import '../widgets/numeric_spinner.dart';
 import '../models/inventory_item.dart';
+import '../services/inventory_service.dart';
 
 class AddItemDialog extends StatefulWidget {
   final Function(InventoryItem) onItemAdded;
@@ -26,24 +28,17 @@ class _AddItemDialogState extends State<AddItemDialog> {
   final _unitPriceController = TextEditingController();
   final _supplierController = TextEditingController();
   final _locationController = TextEditingController();
+  final InventoryService _inventoryService = InventoryService();
 
   String? _selectedCategory;
   bool _isLoading = false;
+  List<String> _categories = [];
 
-  final List<String> _categories = [
-    'Engine',
-    'Brakes',
-    'Filters',
-    'Fluids',
-    'Electrical',
-    'Suspension',
-    'Transmission',
-    'Cooling',
-    'Exhaust',
-    'Body',
-    'Interior',
-    'Tools',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
 
   @override
   void dispose() {
@@ -56,6 +51,25 @@ class _AddItemDialogState extends State<AddItemDialog> {
     _supplierController.dispose();
     _locationController.dispose();
     super.dispose();
+  }
+
+  void _loadCategories() async {
+    try {
+      final categories = await _inventoryService.getCategories();
+      setState(() {
+        // Remove 'All' from categories for the dropdown since it's not a valid category for new items
+        _categories = categories.where((category) => category != 'All').toList();
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading categories: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _addItem() async {
@@ -167,11 +181,13 @@ class _AddItemDialogState extends State<AddItemDialog> {
             Row(
               children: [
                 Expanded(
-                  child: CustomTextField(
+                  child: NumericSpinner(
                     label: 'Current Stock',
                     hint: '0',
                     controller: _currentStockController,
-                    keyboardType: TextInputType.number,
+                    step: 1,
+                    min: 0,
+                    isInteger: true,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Required';
@@ -185,11 +201,13 @@ class _AddItemDialogState extends State<AddItemDialog> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: CustomTextField(
+                  child: NumericSpinner(
                     label: 'Min Stock',
                     hint: '10',
                     controller: _minStockController,
-                    keyboardType: TextInputType.number,
+                    step: 1,
+                    min: 0,
+                    isInteger: true,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Required';
@@ -203,11 +221,13 @@ class _AddItemDialogState extends State<AddItemDialog> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: CustomTextField(
+                  child: NumericSpinner(
                     label: 'Max Stock',
                     hint: '100',
                     controller: _maxStockController,
-                    keyboardType: TextInputType.number,
+                    step: 1,
+                    min: 0,
+                    isInteger: true,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Required';
@@ -231,11 +251,14 @@ class _AddItemDialogState extends State<AddItemDialog> {
             Row(
               children: [
                 Expanded(
-                  child: CustomTextField(
+                  child: NumericSpinner(
                     label: 'Unit Price (\$)',
                     hint: '0.00',
                     controller: _unitPriceController,
-                    keyboardType: TextInputType.number,
+                    step: 0.01,
+                    min: 0,
+                    isInteger: false,
+                    decimalPlaces: 2,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter unit price';

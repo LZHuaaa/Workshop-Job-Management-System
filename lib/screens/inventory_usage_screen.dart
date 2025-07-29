@@ -38,6 +38,10 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
     'Date', 'Item Name', 'Quantity', 'Cost'
   ];
 
+  // Add keys to force StreamBuilder rebuild when search changes
+  Key _summaryStreamKey = UniqueKey();
+  Key _listStreamKey = UniqueKey();
+
   @override
   void initState() {
     super.initState();
@@ -90,8 +94,10 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
   }
 
   void _onSearchChanged() {
+    // Update the stream keys to force StreamBuilder rebuild with new search parameters
     setState(() {
-      // Trigger rebuild to update filtered stream
+      _summaryStreamKey = UniqueKey();
+      _listStreamKey = UniqueKey();
     });
   }
 
@@ -663,60 +669,67 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<List<InventoryUsage>>(
-        stream: _filteredUsageStream,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: AppColors.errorRed,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Error loading usage records',
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+      body: Column(
+        children: [
+          StreamBuilder<List<InventoryUsage>>(
+            key: _summaryStreamKey,
+            stream: _filteredUsageStream,
+            builder: (context, snapshot) {
+              final usageRecords = snapshot.data ?? [];
+              return _buildSummaryCards(usageRecords);
+            },
+          ),
+          _buildFiltersSection(),
+          Expanded(
+            child: StreamBuilder<List<InventoryUsage>>(
+              key: _listStreamKey,
+              stream: _filteredUsageStream,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 64,
+                          color: AppColors.errorRed,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error loading usage records',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          snapshot.error.toString(),
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    snapshot.error.toString(),
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            );
-          }
+                  );
+                }
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
 
-          final usageRecords = snapshot.data ?? [];
-
-          return Column(
-            children: [
-              _buildSummaryCards(usageRecords),
-              _buildFiltersSection(),
-              Expanded(
-                child: _buildUsageList(usageRecords),
-              ),
-            ],
-          );
-        },
+                final usageRecords = snapshot.data ?? [];
+                return _buildUsageList(usageRecords);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -845,22 +858,27 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
       child: Column(
         children: [
           // Search bar
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search by item, employee, customer, or purpose...',
-              hintStyle: GoogleFonts.poppins(color: AppColors.textSecondary),
-              prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppColors.lightGray),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppColors.primaryPink),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.backgroundLight,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search by item name...',
+                hintStyle: GoogleFonts.poppins(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: AppColors.textSecondary,
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.all(16),
               ),
             ),
-            onChanged: (_) {}, // Stream will automatically update
           ),
           const SizedBox(height: 12),
           // Filter chips

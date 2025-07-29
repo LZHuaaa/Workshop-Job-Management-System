@@ -122,7 +122,7 @@ class _RecordUsageDialogState extends State<RecordUsageDialog> {
               ),
               const SizedBox(height: 8),
               StreamBuilder<List<InventoryItem>>(
-                stream: _inventoryService.getInventoryItems(),
+                stream: _inventoryService.getAvailableItems(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return Container(
@@ -166,7 +166,7 @@ class _RecordUsageDialogState extends State<RecordUsageDialog> {
                         border: Border.all(color: AppColors.warningOrange),
                       ),
                       child: Text(
-                        'No inventory items available',
+                        'No items available for usage (all items are out of stock)',
                         style: GoogleFonts.poppins(
                           color: AppColors.warningOrange,
                           fontSize: 14,

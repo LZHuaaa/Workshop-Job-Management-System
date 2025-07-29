@@ -39,6 +39,7 @@ class InventoryItem {
   bool get isCriticalStock => currentStock <= (minStock * 0.5);
   bool get isOutOfStock => currentStock == 0;
   bool get isOverstocked => currentStock > maxStock;
+  bool get isAvailable => currentStock > 0;
 
   double get stockPercentage => currentStock / maxStock;
 

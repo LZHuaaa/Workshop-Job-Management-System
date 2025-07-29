@@ -43,6 +43,7 @@ class InventoryService {
     String? category,
     String? searchQuery,
     String? sortBy,
+    bool? showUnavailable,
   }) {
     Query query = _inventoryRef;
 
@@ -65,6 +66,11 @@ class InventoryService {
             item.category.toLowerCase().contains(searchTerm) ||
             item.supplier.toLowerCase().contains(searchTerm) ||
             item.description.toLowerCase().contains(searchTerm)).toList();
+      }
+
+      // Apply availability filter
+      if (showUnavailable != null && !showUnavailable) {
+        items = items.where((item) => item.isAvailable).toList();
       }
 
       // Apply sorting
@@ -161,6 +167,26 @@ class InventoryService {
         final data = doc.data() as Map<String, dynamic>;
         return _mapToInventoryItem(data);
       }).where((item) => item.isCriticalStock).toList();
+    });
+  }
+
+  // Get out of stock items
+  Stream<List<InventoryItem>> getOutOfStockItems() {
+    return _inventoryRef.snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return _mapToInventoryItem(data);
+      }).where((item) => item.isOutOfStock).toList();
+    });
+  }
+
+  // Get available items (stock > 0)
+  Stream<List<InventoryItem>> getAvailableItems() {
+    return _inventoryRef.snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return _mapToInventoryItem(data);
+      }).where((item) => item.isAvailable).toList();
     });
   }
 
