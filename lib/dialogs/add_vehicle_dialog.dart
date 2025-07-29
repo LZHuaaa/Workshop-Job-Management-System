@@ -104,43 +104,34 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
       _isLoading = true;
     });
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 1));
-
-    final newVehicle = Vehicle(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      make: _makeController.text,
-      model: _modelController.text,
-      year: int.parse(_yearController.text),
-      licensePlate: _licensePlateController.text,
-      vin: _vinController.text,
-      color: _colorController.text,
-      mileage: int.parse(_mileageController.text),
-      customerId: DateTime.now().millisecondsSinceEpoch.toString(),
-      customerName: _customerNameController.text,
-      customerPhone: _customerPhoneController.text,
-      customerEmail: _customerEmailController.text,
-      createdAt: DateTime.now(),
-      notes: _notesController.text.isEmpty ? null : _notesController.text,
-    );
-
-    widget.onVehicleAdded(newVehicle);
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (mounted) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Vehicle added successfully!',
-            style: GoogleFonts.poppins(),
-          ),
-          backgroundColor: AppColors.successGreen,
-        ),
+    try {
+      final newVehicle = Vehicle(
+        id: '', // Firebase will generate
+        make: _makeController.text,
+        model: _modelController.text,
+        year: int.parse(_yearController.text),
+        licensePlate: _licensePlateController.text,
+        vin: _vinController.text,
+        color: _colorController.text,
+        mileage: int.parse(_mileageController.text),
+        customerId: '', // TODO: Link to actual customer
+        customerName: _customerNameController.text,
+        customerPhone: _customerPhoneController.text,
+        customerEmail: _customerEmailController.text,
+        createdAt: DateTime.now(),
+        notes: _notesController.text.isEmpty ? null : _notesController.text,
       );
+
+      widget.onVehicleAdded(newVehicle);
+      Navigator.of(context).pop();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 

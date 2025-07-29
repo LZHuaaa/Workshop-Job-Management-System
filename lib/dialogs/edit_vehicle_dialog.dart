@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../widgets/custom_dialog.dart';
 import '../models/vehicle.dart';
+import '../screens/vin_scanner_screen.dart';
+
 
 class EditVehicleDialog extends StatefulWidget {
   final Vehicle vehicle;
@@ -163,36 +165,15 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
   }
 
   void _scanVIN() {
-    // TODO: Implement VIN scanning functionality
-    // For now, show a placeholder dialog
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        title: Row(
-          children: [
-            Icon(Icons.qr_code_scanner, color: AppColors.primaryPink),
-            const SizedBox(width: 8),
-            Text(
-              'Scan VIN',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-            ),
-          ],
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => VINScannerScreen(
+          onVINScanned: (vin) {
+            setState(() {
+              _vinController.text = vin;
+            });
+          },
         ),
-        content: Text(
-          'VIN scanning functionality will be implemented here.\n\nThis would typically open the camera to scan a VIN barcode or QR code.',
-          style: GoogleFonts.poppins(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Close',
-              style: GoogleFonts.poppins(color: AppColors.primaryPink),
-            ),
-          ),
-        ],
       ),
     );
   }
