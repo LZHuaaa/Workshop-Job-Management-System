@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/vehicle.dart';
+import '../models/customer.dart';
 import '../models/service_record.dart' as sr;
 import 'customer_service.dart';
 
@@ -18,19 +19,63 @@ class VehicleService {
   // Create a new vehicle
   Future<String> createVehicle(Vehicle vehicle) async {
     try {
-      final docRef = await _vehiclesRef.add(vehicle.toMap());
-
-      // Update the vehicle with the generated ID
+      String actualCustomerId = vehicle.customerId;
+      
+      // If no customer ID provided, create or find customer
+      if (actualCustomerId.isEmpty) {
+        actualCustomerId = await _findOrCreateCustomer(
+          vehicle.customerName,
+          vehicle.customerPhone,
+          vehicle.customerEmail,
+        );
+      }
+      
+      // Create vehicle with proper customer ID
+      final vehicleWithCustomer = vehicle.copyWith(customerId: actualCustomerId);
+      final docRef = await _vehiclesRef.add(vehicleWithCustomer.toMap());
       await docRef.update({'id': docRef.id});
 
       // Add vehicle ID to customer's vehicle list
-      await _customerService.addVehicleToCustomer(
-          vehicle.customerId, docRef.id);
+      await _customerService.addVehicleToCustomer(actualCustomerId, docRef.id);
 
       return docRef.id;
     } catch (e) {
-      throw VehicleServiceException(
-          'Failed to create vehicle: ${e.toString()}');
+      throw VehicleServiceException('Failed to create vehicle: ${e.toString()}');
+    }
+  }
+
+  Future<String> _findOrCreateCustomer(String name, String phone, String email) async {
+    try {
+      // First, try to find existing customer by phone or email
+      final existingCustomers = await _customerService.searchCustomers(phone);
+      
+      if (existingCustomers.isNotEmpty) {
+        return existingCustomers.first.id;
+      }
+      
+      // Create new customer if not found
+      // Split name into first and last name
+      final nameParts = name.trim().split(' ');
+      final firstName = nameParts.isNotEmpty ? nameParts.first : '';
+      final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+      
+      final newCustomer = Customer(
+        id: '',
+        firstName: firstName,
+        lastName: lastName,
+        phone: phone,
+        email: email,
+        createdAt: DateTime.now(),
+        preferences: CustomerPreferences(
+          preferredContactMethod: 'phone',
+          receivePromotions: false,
+          receiveReminders: true,
+        ),
+      );
+      
+      return await _customerService.createCustomer(newCustomer);
+    } catch (e) {
+      throw VehicleServiceException('Failed to find or create customer: ${e.toString()}');
     }
   }
 
