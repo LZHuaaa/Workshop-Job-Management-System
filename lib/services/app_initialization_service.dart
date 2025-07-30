@@ -44,7 +44,7 @@ class AppInitializationService {
         options: DefaultFirebaseOptions.currentPlatform,
       );
 
-      // Sign in anonymously for Firebase Storage access
+      // Sign in anonymously for Firebase Storage access (only if no real user is signed in)
       await _ensureAuthenticated();
 
       // Initialize Firebase data population service

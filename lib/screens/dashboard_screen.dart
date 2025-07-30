@@ -82,16 +82,7 @@ class DashboardScreen extends StatelessWidget {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => UserProfileScreen(
-                                userName: 'Sarah Manager',
-                                email: 'sarah.manager@example.com',
-                                contactNumber: '123-456-7890',
-                                password: 'password123',
-                                onLogout: () {
-                                  Navigator.of(context).popUntil((route) => route.isFirst);
-                                  // TODO: Add actual logout logic
-                                },
-                              ),
+                              builder: (context) => const UserProfileScreen(),
                             ),
                           );
                         },

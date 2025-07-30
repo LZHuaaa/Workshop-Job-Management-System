@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'screens/auth/login_screen.dart';
+import 'screens/auth/simple_auth_wrapper.dart';
 import 'theme/app_colors.dart';
 import 'services/app_initialization_service.dart';
 
@@ -49,7 +49,7 @@ class GreenstemWorkshopApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(), // Changed from MainNavigation to LoginScreen
+      home: const SimpleAuthWrapper(),
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context)

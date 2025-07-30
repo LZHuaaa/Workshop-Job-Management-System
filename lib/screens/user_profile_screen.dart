@@ -2,32 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../services/admin_data_service.dart';
+import '../services/simple_auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/hidden_admin_panel.dart';
+import 'auth/login_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
-  final String userName;
-  final String email;
-  final String contactNumber;
-  final String password;
-  final VoidCallback onLogout;
-
-  const UserProfileScreen({
-    super.key,
-    required this.userName,
-    required this.email,
-    required this.contactNumber,
-    required this.password,
-    required this.onLogout,
-  });
+  const UserProfileScreen({super.key});
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
-  late TextEditingController _passwordController;
-  bool _obscurePassword = true;
-  bool _showPassword = false;
+  final _authService = SimpleAuthService();
+  User? _currentUser;
+  bool _isLoading = false;
   bool _showOldPassword = false;
   bool _showNewPassword = false;
   bool _showConfirmPassword = false;
@@ -35,30 +25,46 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _passwordController = TextEditingController(text: widget.password);
+    _currentUser = _authService.currentUser;
   }
 
-  @override
-  void dispose() {
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  void _togglePasswordVisibility() {
+  Future<void> _handleLogout() async {
     setState(() {
-      _obscurePassword = !_obscurePassword;
+      _isLoading = true;
     });
+
+    try {
+      await _authService.signOut();
+
+      if (mounted) {
+        // Navigate to login screen
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to sign out: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
-  void _savePassword() {
-    // TODO: Implement password update logic
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Password Updated', style: GoogleFonts.poppins()),
-        backgroundColor: AppColors.successGreen,
-      ),
-    );
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -115,14 +121,23 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     child: CircleAvatar(
                       radius: 40,
                       backgroundColor: AppColors.primaryPink.withOpacity(0.1),
-                      child: Text(
-                        widget.userName.isNotEmpty ? widget.userName[0] : '',
-                        style: GoogleFonts.poppins(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primaryPink,
-                        ),
-                      ),
+                      backgroundImage: _currentUser?.photoURL != null
+                          ? NetworkImage(_currentUser!.photoURL!)
+                          : null,
+                      child: _currentUser?.photoURL == null
+                          ? Text(
+                              (_currentUser?.displayName?.isNotEmpty == true)
+                                  ? _currentUser!.displayName![0].toUpperCase()
+                                  : (_currentUser?.email?.isNotEmpty == true)
+                                      ? _currentUser!.email![0].toUpperCase()
+                                      : 'U',
+                              style: GoogleFonts.poppins(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryPink,
+                              ),
+                            )
+                          : null,
                     ),
                   ),
                   Positioned(
@@ -160,17 +175,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
             ),
             const SizedBox(height: 32),
-            _buildInfoRow('Username', widget.userName, Icons.person),
+            _buildInfoRow('Display Name', _currentUser?.displayName ?? 'Not set', Icons.person),
             const SizedBox(height: 16),
-            _buildInfoRow('Email', widget.email, Icons.email),
+            _buildInfoRow('Email', _currentUser?.email ?? 'Not set', Icons.email),
             const SizedBox(height: 16),
-            _buildInfoRow('Contact Number', widget.contactNumber, Icons.phone),
+            _buildInfoRow('Auth Provider', _getAuthProviderText(), Icons.security),
             const SizedBox(height: 16),
-            _buildPasswordRow(),
+            if (_currentUser?.phoneNumber != null) ...[
+              _buildInfoRow('Phone Number', _currentUser!.phoneNumber!, Icons.phone),
+              const SizedBox(height: 16),
+            ],
             const Spacer(),
             Center(
               child: ElevatedButton.icon(
-                onPressed: widget.onLogout,
+                onPressed: _isLoading ? null : _handleLogout,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.errorRed,
                   padding:
@@ -179,15 +197,47 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                icon: const Icon(Icons.logout, color: Colors.white),
-                label: Text('Logout',
-                    style: GoogleFonts.poppins(color: Colors.white)),
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.logout, color: Colors.white),
+                label: Text(
+                  _isLoading ? 'Signing out...' : 'Logout',
+                  style: GoogleFonts.poppins(color: Colors.white),
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _getAuthProviderText() {
+    if (_currentUser == null) return 'Unknown';
+
+    // For Firebase Auth, we can check the provider data
+    if (_currentUser!.providerData.isNotEmpty) {
+      final providerId = _currentUser!.providerData.first.providerId;
+      switch (providerId) {
+        case 'password':
+          return 'Email/Password';
+        case 'google.com':
+          return 'Google';
+        case 'facebook.com':
+          return 'Facebook';
+        default:
+          return 'Email/Password';
+      }
+    }
+
+    return 'Email/Password';
   }
 
   Widget _buildInfoRow(String label, String value, IconData icon) {
@@ -215,146 +265,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildPasswordRow() {
-    return Row(
-      children: [
-        Icon(Icons.lock, color: AppColors.primaryPink, size: 20),
-        const SizedBox(width: 12),
-        Text(
-          'Password:',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textDark,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            _showPassword ? widget.password : '*' * widget.password.length,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        IconButton(
-          icon: Icon(_showPassword ? Icons.visibility : Icons.visibility_off,
-              color: AppColors.primaryPink, size: 20),
-          onPressed: () {
-            setState(() {
-              _showPassword = !_showPassword;
-            });
-          },
-        ),
-        GestureDetector(
-          onTap: () {
-            _showEditPasswordDialog();
-          },
-          child: Icon(Icons.edit, color: AppColors.primaryPink, size: 20),
-        ),
-      ],
-    );
-  }
-
-  void _showEditPasswordDialog() {
-    TextEditingController oldPasswordController = TextEditingController();
-    TextEditingController newPasswordController = TextEditingController();
-    TextEditingController confirmPasswordController = TextEditingController();
-    bool showOld = false;
-    bool showNew = false;
-    bool showConfirm = false;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text('Edit Password', style: GoogleFonts.poppins()),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: oldPasswordController,
-                    obscureText: !showOld,
-                    decoration: InputDecoration(
-                      labelText: 'Old Password',
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                            showOld ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () {
-                          setState(() {
-                            showOld = !showOld;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: newPasswordController,
-                    obscureText: !showNew,
-                    decoration: InputDecoration(
-                      labelText: 'New Password',
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                            showNew ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () {
-                          setState(() {
-                            showNew = !showNew;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: confirmPasswordController,
-                    obscureText: !showConfirm,
-                    decoration: InputDecoration(
-                      labelText: 'Confirm New Password',
-                      suffixIcon: IconButton(
-                        icon: Icon(showConfirm
-                            ? Icons.visibility
-                            : Icons.visibility_off),
-                        onPressed: () {
-                          setState(() {
-                            showConfirm = !showConfirm;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Cancel', style: GoogleFonts.poppins()),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    // TODO: Add validation and update logic
-                    _passwordController.text = newPasswordController.text;
-                    _savePassword();
-                    Navigator.of(context).pop();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryPink,
-                  ),
-                  child: Text('Save',
-                      style: GoogleFonts.poppins(color: Colors.white)),
-                ),
-              ],
-            );
-          },
-        );
-      },
     );
   }
 }

@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_colors.dart';
+import '../../services/simple_auth_service.dart';
+import '../../utils/validation_utils.dart';
+import '../main_navigation.dart';
+import 'login_screen.dart';
+import 'email_verification_screen.dart';
+import '../../widgets/success_dialog.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -16,9 +22,12 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _passwordFocusNode = FocusNode();
+  final _authService = SimpleAuthService();
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isPasswordFocused = false;
+  bool _isLoading = false;
 
   // Password strength indicators
   bool _hasMinLength = false;
@@ -29,23 +38,82 @@ class _SignupScreenState extends State<SignupScreen> {
   double _strengthIndicator = 0.0;
 
   void _checkPasswordStrength(String password) {
+    final strength = ValidationUtils.checkPasswordStrength(password);
     setState(() {
-      _hasMinLength = password.length >= 8;
-      _hasUppercase = password.contains(RegExp(r'[A-Z]'));
-      _hasLowercase = password.contains(RegExp(r'[a-z]'));
-      _hasNumber = password.contains(RegExp(r'[0-9]'));
-      _hasSpecialChar = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
-
-      // Calculate strength indicator (0.0 to 1.0)
-      int strength = 0;
-      if (_hasMinLength) strength++;
-      if (_hasUppercase) strength++;
-      if (_hasLowercase) strength++;
-      if (_hasNumber) strength++;
-      if (_hasSpecialChar) strength++;
-
-      _strengthIndicator = strength / 5;
+      _hasMinLength = strength.hasMinLength;
+      _hasUppercase = strength.hasUppercase;
+      _hasLowercase = strength.hasLowercase;
+      _hasNumber = strength.hasNumber;
+      _hasSpecialChar = strength.hasSpecialChar;
+      _strengthIndicator = strength.strengthPercentage;
     });
+  }
+
+  Future<void> _handleSignUp() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final result = await _authService.signUpWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        displayName: _nameController.text.trim(),
+      );
+
+      if (mounted) {
+        if (result.isSuccess) {
+          // Show success popup
+          SuccessDialog.show(
+            context,
+            title: 'Account Created!',
+            message: 'Your account has been created successfully. Please check your email to verify your account.',
+            icon: Icons.email_outlined,
+            onOkPressed: () {
+              // Navigate to email verification screen
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => EmailVerificationScreen(
+                    email: _emailController.text.trim(),
+                  ),
+                ),
+              );
+            },
+          );
+        } else {
+          // Show error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                result.message,
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'An unexpected error occurred: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Color _getStrengthColor() {
@@ -233,12 +301,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           ),
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your name';
-                        }
-                        return null;
-                      },
+                      validator: (value) => ValidationUtils.validateRequired(value, 'name'),
                     ),
                     const SizedBox(height: 20),
 
@@ -273,15 +336,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           ),
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
-                        }
-                        if (!value.contains('@')) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
+                      validator: ValidationUtils.validateEmail,
                     ),
                     const SizedBox(height: 20),
 
@@ -333,16 +388,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your password';
-                            }
-                            if (!_hasMinLength || !_hasUppercase || !_hasLowercase || 
-                                !_hasNumber || !_hasSpecialChar) {
-                              return 'Password does not meet all requirements';
-                            }
-                            return null;
-                          },
+                          validator: ValidationUtils.validatePassword,
                         ),
                         // Dynamic Password Validation
                         _buildPasswordValidation(),
@@ -394,25 +440,13 @@ class _SignupScreenState extends State<SignupScreen> {
                           ),
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please confirm your password';
-                        }
-                        if (value != _passwordController.text) {
-                          return 'Passwords do not match';
-                        }
-                        return null;
-                      },
+                      validator: (value) => ValidationUtils.validateConfirmPassword(value, _passwordController.text),
                     ),
                     const SizedBox(height: 32),
 
                     // Sign Up Button
                     ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          // TODO: Implement signup
-                        }
-                      },
+                      onPressed: _isLoading ? null : _handleSignUp,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryPink,
                         foregroundColor: Colors.white,
@@ -422,13 +456,22 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                         elevation: 0,
                       ),
-                      child: Text(
-                        'Create Account',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Text(
+                              'Create Account',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                     ),
                     const SizedBox(height: 24),
 

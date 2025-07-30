@@ -132,22 +132,129 @@ class ValidationUtils {
     if (value == null || value.trim().isEmpty) {
       return 'Please enter $fieldName';
     }
-    
+
     final cleanName = value.trim();
     if (cleanName.length < 2) {
       return '$fieldName must be at least 2 characters';
     }
-    
+
     if (cleanName.length > 50) {
       return '$fieldName must be less than 50 characters';
     }
-    
+
     // Allow letters, numbers, spaces, hyphens, and apostrophes
     final nameRegex = RegExp(r"^[a-zA-Z0-9\s\-']+$");
     if (!nameRegex.hasMatch(cleanName)) {
       return '$fieldName contains invalid characters';
     }
-    
+
     return null;
+  }
+
+  // Password validation with strength requirements
+  static String? validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter a password';
+    }
+
+    if (value.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+
+    if (!value.contains(RegExp(r'[A-Z]'))) {
+      return 'Password must contain at least one uppercase letter';
+    }
+
+    if (!value.contains(RegExp(r'[a-z]'))) {
+      return 'Password must contain at least one lowercase letter';
+    }
+
+    if (!value.contains(RegExp(r'[0-9]'))) {
+      return 'Password must contain at least one number';
+    }
+
+    if (!value.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
+      return 'Password must contain at least one special character';
+    }
+
+    return null;
+  }
+
+  // Confirm password validation
+  static String? validateConfirmPassword(String? value, String? originalPassword) {
+    if (value == null || value.isEmpty) {
+      return 'Please confirm your password';
+    }
+
+    if (value != originalPassword) {
+      return 'Passwords do not match';
+    }
+
+    return null;
+  }
+
+  // Password strength checker
+  static PasswordStrength checkPasswordStrength(String password) {
+    int score = 0;
+    bool hasMinLength = password.length >= 8;
+    bool hasUppercase = password.contains(RegExp(r'[A-Z]'));
+    bool hasLowercase = password.contains(RegExp(r'[a-z]'));
+    bool hasNumber = password.contains(RegExp(r'[0-9]'));
+    bool hasSpecialChar = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+
+    if (hasMinLength) score++;
+    if (hasUppercase) score++;
+    if (hasLowercase) score++;
+    if (hasNumber) score++;
+    if (hasSpecialChar) score++;
+
+    return PasswordStrength(
+      score: score,
+      hasMinLength: hasMinLength,
+      hasUppercase: hasUppercase,
+      hasLowercase: hasLowercase,
+      hasNumber: hasNumber,
+      hasSpecialChar: hasSpecialChar,
+    );
+  }
+}
+
+class PasswordStrength {
+  final int score;
+  final bool hasMinLength;
+  final bool hasUppercase;
+  final bool hasLowercase;
+  final bool hasNumber;
+  final bool hasSpecialChar;
+
+  PasswordStrength({
+    required this.score,
+    required this.hasMinLength,
+    required this.hasUppercase,
+    required this.hasLowercase,
+    required this.hasNumber,
+    required this.hasSpecialChar,
+  });
+
+  double get strengthPercentage => score / 5.0;
+
+  bool get isStrong => score >= 5;
+
+  String get strengthText {
+    switch (score) {
+      case 0:
+      case 1:
+        return 'Very Weak';
+      case 2:
+        return 'Weak';
+      case 3:
+        return 'Fair';
+      case 4:
+        return 'Good';
+      case 5:
+        return 'Strong';
+      default:
+        return 'Unknown';
+    }
   }
 }

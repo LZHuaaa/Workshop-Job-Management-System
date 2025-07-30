@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_colors.dart';
+import '../../services/simple_auth_service.dart';
+import '../../utils/validation_utils.dart';
+import '../../widgets/success_dialog.dart';
 import 'signup_screen.dart';
+import 'password_reset_request_screen.dart';
 import '../main_navigation.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -15,23 +19,99 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authService = SimpleAuthService();
+
   bool _obscurePassword = true;
   bool _rememberMe = false;
+  bool _isLoading = false;
 
-  void _handleGoogleSignIn() {
-    // TODO: Implement Google Sign In
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => const MainNavigation(),
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedEmail();
   }
 
-  void _handleFacebookSignIn() {
-    // TODO: Implement Facebook Sign In
-    Navigator.of(context).pushReplacement(
+  Future<void> _loadRememberedEmail() async {
+    final rememberedEmail = await _authService.getRememberedEmail();
+    if (rememberedEmail != null) {
+      setState(() {
+        _emailController.text = rememberedEmail;
+        _rememberMe = true;
+      });
+    }
+  }
+
+  Future<void> _handleEmailSignIn() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final result = await _authService.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        rememberMe: _rememberMe,
+      );
+
+      if (mounted) {
+        if (result.isSuccess) {
+          // Show success popup
+          SuccessDialog.show(
+            context,
+            title: 'Welcome Back!',
+            message: 'You have successfully signed in to your account.',
+            icon: Icons.login,
+            onOkPressed: () {
+              // Navigate to main app
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => const MainNavigation(),
+                ),
+              );
+            },
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                result.message,
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'An unexpected error occurred: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+
+
+  void _handleForgotPassword() {
+    // Navigate to password reset request screen
+    Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => const MainNavigation(),
+        builder: (context) => const PasswordResetRequestScreen(),
       ),
     );
   }
@@ -137,15 +217,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
-                        }
-                        if (!value.contains('@')) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
+                      validator: ValidationUtils.validateEmail,
                     ),
                     const SizedBox(height: 20),
 
@@ -193,15 +265,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
+                      validator: (value) => ValidationUtils.validateRequired(value, 'password'),
                     ),
                     const SizedBox(height: 16),
 
@@ -240,9 +304,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         const Spacer(),
                         // Forgot Password
                         TextButton(
-                          onPressed: () {
-                            // TODO: Navigate to forgot password
-                          },
+                          onPressed: _handleForgotPassword,
                           style: TextButton.styleFrom(
                             foregroundColor: AppColors.primaryPink,
                           ),
@@ -260,16 +322,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     // Login Button
                     ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          // Navigate to main app
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (context) => const MainNavigation(),
-                            ),
-                          );
-                        }
-                      },
+                      onPressed: _isLoading ? null : _handleEmailSignIn,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryPink,
                         foregroundColor: Colors.white,
@@ -279,118 +332,24 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         elevation: 0,
                       ),
-                      child: Text(
-                        'Sign In',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Or continue with
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Divider(
-                            color: AppColors.textSecondary.withOpacity(0.2),
-                            thickness: 1,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            'Or continue with',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: AppColors.textSecondary.withOpacity(0.2),
-                            thickness: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Social Login Buttons
-                    Row(
-                      children: [
-                        // Google Login Button
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _handleGoogleSignIn,
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              side: BorderSide(
-                                color: AppColors.textSecondary.withOpacity(0.2),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            icon: Container(
-                              width: 24,
-                              height: 24,
-                              padding: const EdgeInsets.all(2),
-                              child: Image.asset(
-                                'assets/icons/google.png',
-                                width: 20,
-                                height: 20,
-                              ),
-                            ),
-                            label: Text(
-                              'Google',
+                            )
+                          : Text(
+                              'Sign In',
                               style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.textDark,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        // Facebook Login Button
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _handleFacebookSignIn,
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              side: BorderSide(
-                                color: AppColors.textSecondary.withOpacity(0.2),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            icon: Container(
-                              width: 24,
-                              height: 24,
-                              padding: const EdgeInsets.all(2),
-                              child: Image.asset(
-                                'assets/icons/facebook.png',
-                                width: 20,
-                                height: 20,
-                              ),
-                            ),
-                            label: Text(
-                              'Facebook',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.textDark,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 32),
 
                     // Sign Up Link
                     Row(
