@@ -1,5 +1,44 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Enum for tracking order request approval status
+enum OrderRequestStatus {
+  pending,
+  approved,
+  rejected,
+  completed,
+}
+
+/// Extension to provide string values and helper methods for OrderRequestStatus
+extension OrderRequestStatusExtension on OrderRequestStatus {
+  String get value {
+    switch (this) {
+      case OrderRequestStatus.pending:
+        return 'pending';
+      case OrderRequestStatus.approved:
+        return 'approved';
+      case OrderRequestStatus.rejected:
+        return 'rejected';
+      case OrderRequestStatus.completed:
+        return 'completed';
+    }
+  }
+
+  static OrderRequestStatus? fromString(String? value) {
+    switch (value?.toLowerCase()) {
+      case 'pending':
+        return OrderRequestStatus.pending;
+      case 'approved':
+        return OrderRequestStatus.approved;
+      case 'rejected':
+        return OrderRequestStatus.rejected;
+      case 'completed':
+        return OrderRequestStatus.completed;
+      default:
+        return null; // Return null for no active order request
+    }
+  }
+}
+
 class InventoryItem {
   final String id;
   final String name;
@@ -16,6 +55,7 @@ class InventoryItem {
   final bool pendingOrderRequest;
   final DateTime? orderRequestDate;
   final String? orderRequestId;
+  final OrderRequestStatus? orderRequestStatus;
 
   InventoryItem({
     required this.id,
@@ -33,6 +73,7 @@ class InventoryItem {
     this.pendingOrderRequest = false,
     this.orderRequestDate,
     this.orderRequestId,
+    this.orderRequestStatus,
   });
 
   bool get isLowStock => currentStock <= minStock;
@@ -52,6 +93,51 @@ class InventoryItem {
   bool get canRequestOrder =>
       (isLowStock || isCriticalStock) && !pendingOrderRequest;
 
+  // Order request status helper methods
+  bool get hasOrderRequestPending => orderRequestStatus == OrderRequestStatus.pending;
+  bool get hasOrderRequestApproved => orderRequestStatus == OrderRequestStatus.approved;
+  bool get hasOrderRequestRejected => orderRequestStatus == OrderRequestStatus.rejected;
+  bool get hasOrderRequestCompleted => orderRequestStatus == OrderRequestStatus.completed;
+  bool get hasNoActiveOrderRequest => orderRequestStatus == null;
+
+  // Check if item is waiting for company restocking (approved orders)
+  bool get isWaitingForRestock => hasOrderRequestApproved;
+
+  // Check if item can request order (low stock and no active request)
+  bool get canRequestOrderNew => (isLowStock || isCriticalStock) && hasNoActiveOrderRequest;
+
+  // Get human-readable status text
+  String get orderRequestStatusText {
+    switch (orderRequestStatus) {
+      case OrderRequestStatus.pending:
+        return 'Pending Company Approval';
+      case OrderRequestStatus.approved:
+        return 'Approved - Company Processing';
+      case OrderRequestStatus.rejected:
+        return 'Rejected by Company';
+      case OrderRequestStatus.completed:
+        return 'Restocking Complete';
+      case null:
+        return 'No Active Request';
+    }
+  }
+
+  // Get status color for UI
+  String get orderRequestStatusColor {
+    switch (orderRequestStatus) {
+      case OrderRequestStatus.pending:
+        return '#FFA500'; // Orange
+      case OrderRequestStatus.approved:
+        return '#2196F3'; // Blue
+      case OrderRequestStatus.rejected:
+        return '#F44336'; // Red
+      case OrderRequestStatus.completed:
+        return '#4CAF50'; // Green
+      case null:
+        return '#9E9E9E'; // Grey
+    }
+  }
+
   InventoryItem copyWith({
     String? id,
     String? name,
@@ -68,6 +154,8 @@ class InventoryItem {
     bool? pendingOrderRequest,
     DateTime? orderRequestDate,
     String? orderRequestId,
+    OrderRequestStatus? orderRequestStatus,
+    bool clearOrderRequestStatus = false,
   }) {
     return InventoryItem(
       id: id ?? this.id,
@@ -85,6 +173,7 @@ class InventoryItem {
       pendingOrderRequest: pendingOrderRequest ?? this.pendingOrderRequest,
       orderRequestDate: orderRequestDate ?? this.orderRequestDate,
       orderRequestId: orderRequestId ?? this.orderRequestId,
+      orderRequestStatus: clearOrderRequestStatus ? null : (orderRequestStatus ?? this.orderRequestStatus),
     );
   }
 
@@ -105,6 +194,7 @@ class InventoryItem {
       'pendingOrderRequest': pendingOrderRequest,
       'orderRequestDate': orderRequestDate?.toIso8601String(),
       'orderRequestId': orderRequestId,
+      'orderRequestStatus': orderRequestStatus?.value,
     };
   }
 
@@ -129,6 +219,7 @@ class InventoryItem {
           ? _parseDateTime(json['orderRequestDate'])
           : null,
       orderRequestId: json['orderRequestId'],
+      orderRequestStatus: OrderRequestStatusExtension.fromString(json['orderRequestStatus']),
     );
   }
 

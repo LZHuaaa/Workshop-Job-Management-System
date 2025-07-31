@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../services/admin_data_service.dart';
 import '../services/app_initialization_service.dart';
+import '../utils/inventory_migration.dart';
 
 /// Hidden admin panel for data management operations
 /// Accessible only through secret gesture sequence
@@ -180,6 +181,62 @@ class _HiddenAdminPanelState extends State<HiddenAdminPanel> {
     }
   }
 
+  Future<void> _migrateInventoryRecords() async {
+    setState(() {
+      _isLoading = true;
+      _statusMessage = '🔄 Migrating inventory records...';
+    });
+
+    try {
+      // Check if migration is needed first
+      final migrationStatus = await InventoryMigration.getMigrationStatus();
+
+      if (migrationStatus.containsKey('error')) {
+        setState(() {
+          _statusMessage = '❌ Error checking migration status: ${migrationStatus['error']}';
+        });
+        return;
+      }
+
+      final totalItems = migrationStatus['totalItems'] ?? 0;
+      final migrationNeeded = migrationStatus['migrationNeeded'] ?? false;
+
+      if (!migrationNeeded) {
+        setState(() {
+          _statusMessage = '✅ No migration needed. All $totalItems inventory items already have correct orderRequestStatus values.';
+        });
+        return;
+      }
+
+      // Run the migration
+      await InventoryMigration.runMigration();
+
+      // Get updated status
+      final updatedStatus = await InventoryMigration.getMigrationStatus();
+      final itemsWithPendingStatus = updatedStatus['itemsWithPendingStatus'] ?? 0;
+      final itemsWithNullStatus = updatedStatus['itemsWithNullStatus'] ?? 0;
+
+      setState(() {
+        _statusMessage = '''✅ Inventory migration completed successfully!
+
+📊 Results:
+• Total items: $totalItems
+• Items with pending status: $itemsWithPendingStatus
+• Items with null status: $itemsWithNullStatus
+
+💡 All inventory items now have proper orderRequestStatus values.''';
+      });
+    } catch (e) {
+      setState(() {
+        _statusMessage = '❌ Error migrating inventory records: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -282,6 +339,16 @@ class _HiddenAdminPanelState extends State<HiddenAdminPanel> {
               subtitle: 'Reset flags and force data population for testing',
               color: Colors.teal,
               onPressed: _isLoading ? null : _forceDataPopulation,
+            ),
+
+            const SizedBox(height: 16),
+
+            _buildActionButton(
+              icon: Icons.upgrade,
+              title: 'Migrate Inventory Records',
+              subtitle: 'Add orderRequestStatus field to existing inventory items',
+              color: Colors.indigo,
+              onPressed: _isLoading ? null : _migrateInventoryRecords,
             ),
 
             const SizedBox(height: 16),

@@ -5,7 +5,7 @@ import '../models/service_record.dart' as sr;
 import '../models/job_appointment.dart';
 import '../models/invoice.dart';
 import '../models/inventory_item.dart';
-import '../models/order_request.dart';
+import '../models/order_request.dart' as order_request_model;
 
 class SampleDataGenerator {
   static final Random _random = Random();
@@ -772,9 +772,9 @@ class SampleDataGenerator {
   }
 
   // Generate order requests
-  static List<OrderRequest> generateOrderRequests(
+  static List<order_request_model.OrderRequest> generateOrderRequests(
       List<InventoryItem> inventoryItems, int count) {
-    final orderRequests = <OrderRequest>[];
+    final orderRequests = <order_request_model.OrderRequest>[];
     final lowStockItems = inventoryItems
         .where((item) => item.currentStock < item.minStock)
         .toList();
@@ -785,7 +785,7 @@ class SampleDataGenerator {
       final unitPrice = item.unitPrice * 0.8; // Wholesale price
       final totalAmount = quantity * unitPrice;
 
-      final orderRequest = OrderRequest(
+      final orderRequest = order_request_model.OrderRequest(
         id: 'order_${i + 1}',
         itemId: item.id,
         itemName: item.name,
@@ -794,8 +794,8 @@ class SampleDataGenerator {
         unitPrice: unitPrice,
         totalAmount: totalAmount,
         status: [
-          OrderRequestStatus.pending,
-          OrderRequestStatus.approved
+          order_request_model.OrderRequestStatus.pending,
+          order_request_model.OrderRequestStatus.approved
         ][_random.nextInt(2)],
         requestDate:
             DateTime.now().subtract(Duration(days: _random.nextInt(14))),

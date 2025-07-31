@@ -112,11 +112,17 @@ class InventoryService {
   // Add new inventory item
   Future<String> addInventoryItem(InventoryItem item) async {
     try {
-      final docRef = await _inventoryRef.add(_inventoryItemToMap(item));
-      
+      final itemData = _inventoryItemToMap(item);
+      // Ensure orderRequestStatus field is always present
+      if (!itemData.containsKey('orderRequestStatus')) {
+        itemData['orderRequestStatus'] = null;
+      }
+
+      final docRef = await _inventoryRef.add(itemData);
+
       // Update the item with the generated ID
       await docRef.update({'id': docRef.id});
-      
+
       return docRef.id;
     } catch (e) {
       throw InventoryServiceException('Failed to add inventory item: ${e.toString()}');
@@ -126,7 +132,12 @@ class InventoryService {
   // Update inventory item
   Future<void> updateInventoryItem(InventoryItem item) async {
     try {
-      await _inventoryRef.doc(item.id).update(_inventoryItemToMap(item));
+      final itemData = _inventoryItemToMap(item);
+      // Ensure orderRequestStatus field is always present
+      if (!itemData.containsKey('orderRequestStatus')) {
+        itemData['orderRequestStatus'] = null;
+      }
+      await _inventoryRef.doc(item.id).update(itemData);
     } catch (e) {
       throw InventoryServiceException('Failed to update inventory item: ${e.toString()}');
     }
@@ -205,6 +216,177 @@ class InventoryService {
     }
   }
 
+  // Get items by order request status
+  Stream<List<InventoryItem>> getItemsByOrderRequestStatus(OrderRequestStatus? status) {
+    return _inventoryRef.snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return _mapToInventoryItem(data);
+      }).where((item) => item.orderRequestStatus == status).toList();
+    });
+  }
+
+  // Get items with no active order request
+  Stream<List<InventoryItem>> getItemsWithNoActiveRequest() {
+    return getItemsByOrderRequestStatus(null);
+  }
+
+  // Get items with pending order requests
+  Stream<List<InventoryItem>> getPendingOrderRequestItems() {
+    return getItemsByOrderRequestStatus(OrderRequestStatus.pending);
+  }
+
+  // Get items with approved order requests (waiting for restock)
+  Stream<List<InventoryItem>> getApprovedOrderRequestItems() {
+    return getItemsByOrderRequestStatus(OrderRequestStatus.approved);
+  }
+
+  // Get items with rejected order requests
+  Stream<List<InventoryItem>> getRejectedOrderRequestItems() {
+    return getItemsByOrderRequestStatus(OrderRequestStatus.rejected);
+  }
+
+  // Get items with completed order requests
+  Stream<List<InventoryItem>> getCompletedOrderRequestItems() {
+    return getItemsByOrderRequestStatus(OrderRequestStatus.completed);
+  }
+
+  // Update order request status
+  Future<void> updateOrderRequestStatus(String itemId, OrderRequestStatus? status) async {
+    try {
+      await _inventoryRef.doc(itemId).update({
+        'orderRequestStatus': status?.value,
+      });
+    } catch (e) {
+      throw InventoryServiceException('Failed to update order request status: ${e.toString()}');
+    }
+  }
+
+  // Create order request with status
+  Future<void> createOrderRequest(String itemId, String orderRequestId) async {
+    try {
+      await _inventoryRef.doc(itemId).update({
+        'pendingOrderRequest': true,
+        'orderRequestDate': Timestamp.now(),
+        'orderRequestId': orderRequestId,
+        'orderRequestStatus': OrderRequestStatus.pending.value,
+      });
+    } catch (e) {
+      throw InventoryServiceException('Failed to create order request: ${e.toString()}');
+    }
+  }
+
+  // Cancel order request - sets status back to null
+  Future<void> cancelOrderRequest(String itemId) async {
+    try {
+      await _inventoryRef.doc(itemId).update({
+        'pendingOrderRequest': false,
+        'orderRequestDate': null,
+        'orderRequestId': null,
+        'orderRequestStatus': null, // Set to null for no active request
+      });
+    } catch (e) {
+      throw InventoryServiceException('Failed to cancel order request: ${e.toString()}');
+    }
+  }
+
+  // Complete order request - increase stock and reset status
+  Future<void> completeOrderRequest(String itemId, int newStockLevel) async {
+    try {
+      await _inventoryRef.doc(itemId).update({
+        'currentStock': newStockLevel,
+        'lastRestocked': Timestamp.now(),
+        'pendingOrderRequest': false,
+        'orderRequestDate': null,
+        'orderRequestId': null,
+        'orderRequestStatus': null, // Reset to null after completion
+      });
+    } catch (e) {
+      throw InventoryServiceException('Failed to complete order request: ${e.toString()}');
+    }
+  }
+
+  // Listen for status changes from external systems
+  Stream<InventoryItem?> listenToItemStatusChanges(String itemId) {
+    return _inventoryRef.doc(itemId).snapshots().map((snapshot) {
+      if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
+        return _mapToInventoryItem(data);
+      }
+      return null;
+    });
+  }
+
+  // Data migration method to fix existing inventory records
+  Future<void> migrateExistingInventoryRecords() async {
+    try {
+      print('🔄 Starting inventory records migration...');
+
+      final snapshot = await _inventoryRef.get();
+      int updatedCount = 0;
+      int totalCount = snapshot.docs.length;
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+
+        // Always ensure orderRequestStatus field exists
+        bool needsUpdate = false;
+        String? orderRequestStatus;
+
+        if (!data.containsKey('orderRequestStatus')) {
+          needsUpdate = true;
+          final pendingOrderRequest = data['pendingOrderRequest'] == true;
+
+          // Determine correct status based on business logic
+          if (pendingOrderRequest) {
+            // If there's a pending request, set to pending
+            orderRequestStatus = 'pending';
+          } else {
+            // If no pending request, set to null (no active request)
+            orderRequestStatus = null;
+          }
+        } else {
+          // Field exists, but verify it's consistent with pendingOrderRequest
+          final pendingOrderRequest = data['pendingOrderRequest'] == true;
+          final currentStatus = data['orderRequestStatus'];
+
+          if (pendingOrderRequest && currentStatus == null) {
+            // Fix inconsistency: has pending request but null status
+            needsUpdate = true;
+            orderRequestStatus = 'pending';
+          } else if (!pendingOrderRequest && currentStatus == 'pending') {
+            // Fix inconsistency: no pending request but pending status
+            needsUpdate = true;
+            orderRequestStatus = null;
+          }
+        }
+
+        if (needsUpdate) {
+          // Update the document
+          await doc.reference.update({
+            'orderRequestStatus': orderRequestStatus,
+          });
+
+          updatedCount++;
+          print('✅ Updated ${doc.id}: orderRequestStatus = $orderRequestStatus');
+        }
+      }
+
+      print('🎉 Migration completed: $updatedCount/$totalCount records updated');
+    } catch (e) {
+      print('❌ Migration failed: $e');
+      throw InventoryServiceException('Failed to migrate inventory records: ${e.toString()}');
+    }
+  }
+
+  // Helper method to parse integer values safely
+  int _parseIntValue(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.round();
+    return int.tryParse(value.toString()) ?? 0;
+  }
+
   // Convert Firestore data to InventoryItem
   InventoryItem _mapToInventoryItem(Map<String, dynamic> data) {
     try {
@@ -258,6 +440,25 @@ class InventoryService {
         }
       }
 
+      // Determine the correct orderRequestStatus based on business logic
+      final pendingOrderRequest = data['pendingOrderRequest'] == true;
+      final rawOrderRequestStatus = data['orderRequestStatus']?.toString();
+
+      OrderRequestStatus? orderRequestStatus;
+      if (rawOrderRequestStatus != null) {
+        // Use existing status if present
+        orderRequestStatus = OrderRequestStatusExtension.fromString(rawOrderRequestStatus);
+      } else {
+        // For existing records without the field, determine status based on business logic
+        if (pendingOrderRequest) {
+          // If pendingOrderRequest is true, it should be pending
+          orderRequestStatus = OrderRequestStatus.pending;
+        } else {
+          // If no pending request, status should be null (no active request)
+          orderRequestStatus = null;
+        }
+      }
+
       return InventoryItem(
         id: data['id']?.toString() ?? '',
         name: data['name']?.toString() ?? '',
@@ -273,11 +474,12 @@ class InventoryService {
             ? (data['lastRestocked'] as Timestamp).toDate()
             : null,
         imageUrl: data['imageUrl']?.toString(),
-        pendingOrderRequest: data['pendingOrderRequest'] == true,
+        pendingOrderRequest: pendingOrderRequest,
         orderRequestDate: data['orderRequestDate'] != null
             ? (data['orderRequestDate'] as Timestamp).toDate()
             : null,
         orderRequestId: data['orderRequestId']?.toString(),
+        orderRequestStatus: orderRequestStatus,
       );
     } catch (e) {
       print('Error mapping item data: $e');
@@ -308,6 +510,7 @@ class InventoryService {
           ? Timestamp.fromDate(item.orderRequestDate!)
           : null,
       'orderRequestId': item.orderRequestId,
+      'orderRequestStatus': item.orderRequestStatus?.value,
     };
   }
 }
