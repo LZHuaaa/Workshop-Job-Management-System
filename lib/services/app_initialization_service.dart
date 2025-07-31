@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../firebase_options.dart';
 import 'firebase_data_populator_service.dart';
 import 'inventory_usage_data_populator.dart';
+import 'notification_manager.dart';
 
 class InitializationStatus {
   final bool isFirstRun;
@@ -52,6 +53,10 @@ class AppInitializationService {
 
       // Check if database is empty and populate if needed
       await dataPopulator.initializeIfEmpty();
+
+      // Initialize notification manager to start monitoring
+      final notificationManager = NotificationManager();
+      await notificationManager.initialize();
 
       _isInitialized = true;
       _initializationError = null;

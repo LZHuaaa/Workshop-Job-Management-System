@@ -20,6 +20,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   final InventoryService _inventoryService = InventoryService();
   String _selectedCategory = 'All';
   String _selectedSort = 'Name';
+  bool _sortAscending = true;
   bool _showUnavailable = true;
   List<String> _categories = ['All'];
 
@@ -75,6 +76,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       category: _selectedCategory,
       searchQuery: _searchController.text,
       sortBy: _selectedSort,
+      sortAscending: _sortAscending,
       showUnavailable: _showUnavailable,
     );
   }
@@ -368,6 +370,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             });
                           },
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Sort direction button
+                      IconButton(
+                        icon: Icon(
+                          _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                          color: AppColors.primaryPink,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _sortAscending = !_sortAscending;
+                          });
+                        },
+                        tooltip: _sortAscending ? 'Sort Ascending' : 'Sort Descending',
                       ),
                     ],
                   ),

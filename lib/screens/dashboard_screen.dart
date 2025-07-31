@@ -2,11 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/schedule_overview_card.dart';
 import '../widgets/management_hub_card.dart';
+import '../widgets/notification_badge.dart';
+import '../widgets/notification_panel.dart';
+import '../services/notification_service_factory.dart';
 import '../theme/app_colors.dart';
 import 'user_profile_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
+
+  void _showNotificationPanel(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => NotificationPanel(
+        onClose: () => Navigator.of(context).pop(),
+      ),
+    );
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -53,29 +69,8 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   Row(
                     children: [
-                      Stack(
-                        children: [
-                          IconButton(
-                            onPressed: () {},
-                            icon: Icon(
-                              Icons.notifications_outlined,
-                              color: AppColors.textDark,
-                              size: 24,
-                            ),
-                          ),
-                          Positioned(
-                            right: 8,
-                            top: 8,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryPink,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                        ],
+                      NotificationBadge(
+                        onTap: () => _showNotificationPanel(context),
                       ),
                       const SizedBox(width: 8),
                       GestureDetector(

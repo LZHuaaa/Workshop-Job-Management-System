@@ -21,5 +21,20 @@ service cloud.firestore {
     match /service_records/{recordId} {
       allow read, write: if true;
     }
+
+    // Specific rules for notifications collection
+    match /notifications/{notificationId} {
+      allow read, write: if true;
+    }
+
+    // Specific rules for inventory_items collection
+    match /inventory_items/{itemId} {
+      allow read, write: if true;
+    }
+
+    // Specific rules for inventory_usage collection
+    match /inventory_usage/{usageId} {
+      allow read, write: if true;
+    }
   }
 }

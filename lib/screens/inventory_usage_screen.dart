@@ -35,7 +35,7 @@ class _InventoryUsageScreenState extends State<InventoryUsageScreen> {
   List<String> _employees = ['All'];
 
   final List<String> _sortOptions = [
-    'Date', 'Item Name', 'Quantity', 'Cost'
+    'Date', 'Item Name', 'Quantity', 'Cost', 'Status'
   ];
 
   // Add keys to force StreamBuilder rebuild when search changes

@@ -43,6 +43,7 @@ class InventoryService {
     String? category,
     String? searchQuery,
     String? sortBy,
+    bool? sortAscending,
     bool? showUnavailable,
   }) {
     Query query = _inventoryRef;
@@ -75,18 +76,27 @@ class InventoryService {
 
       // Apply sorting
       if (sortBy != null) {
+        final ascending = sortAscending ?? true;
         switch (sortBy) {
           case 'Name':
-            items.sort((a, b) => a.name.compareTo(b.name));
+            items.sort((a, b) => ascending
+                ? a.name.compareTo(b.name)
+                : b.name.compareTo(a.name));
             break;
           case 'Stock Level':
-            items.sort((a, b) => a.currentStock.compareTo(b.currentStock));
+            items.sort((a, b) => ascending
+                ? a.currentStock.compareTo(b.currentStock)
+                : b.currentStock.compareTo(a.currentStock));
             break;
           case 'Price':
-            items.sort((a, b) => a.unitPrice.compareTo(b.unitPrice));
+            items.sort((a, b) => ascending
+                ? a.unitPrice.compareTo(b.unitPrice)
+                : b.unitPrice.compareTo(a.unitPrice));
             break;
           case 'Category':
-            items.sort((a, b) => a.category.compareTo(b.category));
+            items.sort((a, b) => ascending
+                ? a.category.compareTo(b.category)
+                : b.category.compareTo(a.category));
             break;
         }
       }
@@ -213,6 +223,21 @@ class InventoryService {
       return ['All', ...categories];
     } catch (e) {
       throw InventoryServiceException('Failed to get categories: ${e.toString()}');
+    }
+  }
+
+  // Get a single item by ID
+  Future<InventoryItem?> getItemById(String itemId) async {
+    try {
+      final doc = await _inventoryRef.doc(itemId).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        return _mapToInventoryItem(data);
+      }
+      return null;
+    } catch (e) {
+      print('❌ Failed to get item by ID: $e');
+      return null;
     }
   }
 

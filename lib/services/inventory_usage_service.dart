@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/inventory_usage.dart';
+import 'notification_service.dart';
 
 
 class InventoryUsageService {
@@ -9,6 +10,7 @@ class InventoryUsageService {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String _collection = 'inventory_usage';
+  final NotificationService _notificationService = NotificationService();
 
   // Get usage collection reference
   CollectionReference get _usageRef => _firestore.collection(_collection);
@@ -118,6 +120,31 @@ class InventoryUsageService {
                 ? a.totalCost.compareTo(b.totalCost)
                 : b.totalCost.compareTo(a.totalCost));
             break;
+          case 'Status':
+            usageRecords.sort((a, b) {
+              // Define status priority order for logical workflow sorting
+              // recorded (1) -> verified (2) -> disputed (3) -> cancelled (4)
+              int getStatusPriority(UsageStatus status) {
+                switch (status) {
+                  case UsageStatus.recorded:
+                    return 1;
+                  case UsageStatus.verified:
+                    return 2;
+                  case UsageStatus.disputed:
+                    return 3;
+                  case UsageStatus.cancelled:
+                    return 4;
+                }
+              }
+
+              int priorityA = getStatusPriority(a.status);
+              int priorityB = getStatusPriority(b.status);
+
+              return sortAscending
+                  ? priorityA.compareTo(priorityB)
+                  : priorityB.compareTo(priorityA);
+            });
+            break;
           default:
             // Default sort by date (newest first)
             usageRecords.sort((a, b) => b.usageDate.compareTo(a.usageDate));
@@ -138,6 +165,21 @@ class InventoryUsageService {
 
       // Update the usage with the generated ID
       await docRef.update({'id': docRef.id});
+
+      // Create notification for new usage record that needs verification
+      if (usage.status == UsageStatus.recorded) {
+        try {
+          await _notificationService.createUsageVerificationAlert(
+            usageId: docRef.id,
+            itemName: usage.itemName,
+            usedBy: usage.usedBy,
+            totalCost: usage.totalCost,
+          );
+        } catch (notificationError) {
+          // Don't fail the usage recording if notification fails
+          print('Warning: Failed to create usage verification notification: $notificationError');
+        }
+      }
 
       return docRef.id;
     } catch (e) {

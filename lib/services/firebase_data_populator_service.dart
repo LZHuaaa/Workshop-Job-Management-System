@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/customer.dart';
 import '../models/vehicle.dart';
 import '../models/service_record.dart' as sr;
@@ -419,20 +420,34 @@ class FirebaseDataPopulatorService {
       } else {
         print('Database already contains data, skipping population.');
 
-        // Check if we need to fix inventory usage data
-        print('🔧 Checking if inventory usage data needs fixing...');
-        try {
-          await InventoryUsageDataPopulator.forceRepopulateWithCorrectData(
-            usageRecordCount: 25,
-          );
-          print('✅ Inventory usage data fixed successfully!');
-        } catch (e) {
-          print('⚠️ Could not fix inventory usage data: $e');
-        }
+        // Only populate usage data if the usage collection is empty
+        await _initializeUsageDataIfEmpty();
       }
     } catch (e) {
       print('Error initializing sample data: $e');
       rethrow;
+    }
+  }
+
+  // Initialize usage data only if the collection is empty (first-time setup)
+  Future<void> _initializeUsageDataIfEmpty() async {
+    try {
+      final usageSnapshot = await FirebaseFirestore.instance
+          .collection('inventory_usage')
+          .limit(1)
+          .get();
+
+      if (usageSnapshot.docs.isEmpty) {
+        print('📝 Usage collection is empty, populating with initial data...');
+        await InventoryUsageDataPopulator.populateInventoryUsage(
+          usageRecordCount: 25,
+        );
+        print('✅ Initial usage data populated successfully!');
+      } else {
+        print('📝 Usage collection already has data, preserving existing records');
+      }
+    } catch (e) {
+      print('⚠️ Could not check/initialize usage data: $e');
     }
   }
 }
