@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'service_record.dart';
+import 'customer.dart';
 
 class Vehicle {
   final String id;
@@ -10,16 +11,18 @@ class Vehicle {
   final String vin;
   final String color;
   final int mileage;
-  final String customerId;
-  final String customerName;
-  final String customerPhone;
-  final String customerEmail;
+  final String customerId; // Reference to Customer - don't duplicate customer data
   final DateTime createdAt;
   final DateTime? lastServiceDate;
   final List<String> serviceHistoryIds;
   final List<ServiceRecord> serviceHistory;
   final List<String> photos;
   final String? notes;
+
+  // Temporary customer properties for creation/editing - not stored in database
+  final String? customerName;
+  final String? customerPhone;
+  final String? customerEmail;
 
   Vehicle({
     required this.id,
@@ -31,15 +34,15 @@ class Vehicle {
     required this.color,
     required this.mileage,
     required this.customerId,
-    required this.customerName,
-    required this.customerPhone,
-    required this.customerEmail,
     required this.createdAt,
     this.lastServiceDate,
     this.serviceHistoryIds = const [],
     this.serviceHistory = const [],
     this.photos = const [],
     this.notes,
+    this.customerName,
+    this.customerPhone,
+    this.customerEmail,
   });
 
   String get displayName => '$year $make $model';
@@ -67,14 +70,11 @@ class Vehicle {
       'vin': vin,
       'color': color,
       'mileage': mileage,
-      'customerId': customerId,
-      'customerName': customerName,
-      'customerPhone': customerPhone,
-      'customerEmail': customerEmail,
+      'customerId': customerId, // Only store customer reference
       'createdAt': createdAt.toIso8601String(),
       'lastServiceDate': lastServiceDate?.toIso8601String(),
-      'serviceHistory':
-          serviceHistory.map((service) => service.toMap()).toList(),
+      'serviceHistoryIds': serviceHistoryIds, // Add this line
+      'serviceHistory': serviceHistory.map((service) => service.toMap()).toList(),
       'photos': photos,
       'notes': notes,
     };
@@ -91,13 +91,11 @@ class Vehicle {
       color: map['color'] ?? '',
       mileage: map['mileage'] ?? 0,
       customerId: map['customerId'] ?? '',
-      customerName: map['customerName'] ?? '',
-      customerPhone: map['customerPhone'] ?? '',
-      customerEmail: map['customerEmail'] ?? '',
       createdAt: _parseDateTime(map['createdAt']),
       lastServiceDate: map['lastServiceDate'] != null
           ? _parseDateTime(map['lastServiceDate'])
           : null,
+      serviceHistoryIds: List<String>.from(map['serviceHistoryIds'] ?? []), // Add this line
       serviceHistory: (map['serviceHistory'] as List?)
               ?.map((service) => ServiceRecord.fromMap(service))
               .toList() ??
@@ -139,15 +137,15 @@ class Vehicle {
     String? color,
     int? mileage,
     String? customerId,
-    String? customerName,
-    String? customerPhone,
-    String? customerEmail,
     DateTime? createdAt,
     DateTime? lastServiceDate,
     List<String>? serviceHistoryIds,
     List<ServiceRecord>? serviceHistory,
     List<String>? photos,
     String? notes,
+    String? customerName,
+    String? customerPhone,
+    String? customerEmail,
   }) {
     return Vehicle(
       id: id ?? this.id,
@@ -159,15 +157,86 @@ class Vehicle {
       color: color ?? this.color,
       mileage: mileage ?? this.mileage,
       customerId: customerId ?? this.customerId,
-      customerName: customerName ?? this.customerName,
-      customerPhone: customerPhone ?? this.customerPhone,
-      customerEmail: customerEmail ?? this.customerEmail,
       createdAt: createdAt ?? this.createdAt,
       lastServiceDate: lastServiceDate ?? this.lastServiceDate,
       serviceHistoryIds: serviceHistoryIds ?? this.serviceHistoryIds,
       serviceHistory: serviceHistory ?? this.serviceHistory,
       photos: photos ?? this.photos,
       notes: notes ?? this.notes,
+      customerName: customerName ?? this.customerName,
+      customerPhone: customerPhone ?? this.customerPhone,
+      customerEmail: customerEmail ?? this.customerEmail,
+    );
+  }
+}
+
+// Extended Vehicle class for UI display that includes customer data
+class VehicleWithCustomer extends Vehicle {
+  final String customerName;
+  final String customerPhone;
+  final String customerEmail;
+
+  VehicleWithCustomer({
+    required String id,
+    required String make,
+    required String model,
+    required int year,
+    required String licensePlate,
+    required String vin,
+    required String color,
+    required int mileage,
+    required String customerId,
+    required DateTime createdAt,
+    DateTime? lastServiceDate,
+    List<String> serviceHistoryIds = const [],
+    List<ServiceRecord> serviceHistory = const [],
+    List<String> photos = const [],
+    String? notes,
+    required this.customerName,
+    required this.customerPhone,
+    required this.customerEmail,
+  }) : super(
+          id: id,
+          make: make,
+          model: model,
+          year: year,
+          licensePlate: licensePlate,
+          vin: vin,
+          color: color,
+          mileage: mileage,
+          customerId: customerId,
+          createdAt: createdAt,
+          lastServiceDate: lastServiceDate,
+          serviceHistoryIds: serviceHistoryIds,
+          serviceHistory: serviceHistory,
+          photos: photos,
+          notes: notes,
+        );
+
+  // Factory method to create VehicleWithCustomer from Vehicle and Customer
+  factory VehicleWithCustomer.fromVehicleAndCustomer(
+    Vehicle vehicle,
+    Customer customer,
+  ) {
+    return VehicleWithCustomer(
+      id: vehicle.id,
+      make: vehicle.make,
+      model: vehicle.model,
+      year: vehicle.year,
+      licensePlate: vehicle.licensePlate,
+      vin: vehicle.vin,
+      color: vehicle.color,
+      mileage: vehicle.mileage,
+      customerId: vehicle.customerId,
+      createdAt: vehicle.createdAt,
+      lastServiceDate: vehicle.lastServiceDate,
+      serviceHistoryIds: vehicle.serviceHistoryIds,
+      serviceHistory: vehicle.serviceHistory,
+      photos: vehicle.photos,
+      notes: vehicle.notes,
+      customerName: customer.fullName,
+      customerPhone: customer.phone,
+      customerEmail: customer.email,
     );
   }
 }

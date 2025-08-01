@@ -141,11 +141,13 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
       context: context,
       builder: (context) => EditVehicleDialog(
         vehicle: _currentVehicle,
-        onVehicleUpdated: (updatedVehicle) {
+        onVehicleUpdated: (updatedVehicle) async {
+          // Update local state
           setState(() {
             _currentVehicle = updatedVehicle;
           });
-          widget.onVehicleUpdated(updatedVehicle);
+          // Call parent callback
+          await widget.onVehicleUpdated(updatedVehicle);
         },
       ),
     );
@@ -379,7 +381,7 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            _currentVehicle.customerName,
+                            _currentVehicle.customerName ?? 'Unknown Customer',
                             style: GoogleFonts.poppins(
                               fontSize: 16,
                               color: Colors.white.withOpacity(0.9),
@@ -535,9 +537,9 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
             title: 'Customer Information',
             child: Column(
               children: [
-                _buildDetailRow('Name', _currentVehicle.customerName),
-                _buildDetailRow('Phone', _currentVehicle.customerPhone),
-                _buildDetailRow('Email', _currentVehicle.customerEmail),
+                _buildDetailRow('Name', _currentVehicle.customerName ?? 'Unknown'),
+                _buildDetailRow('Phone', _currentVehicle.customerPhone ?? 'Not provided'),
+                _buildDetailRow('Email', _currentVehicle.customerEmail ?? 'Not provided'),
                 _buildDetailRow('Customer Since',
                     DateFormat('MMM d, y').format(_currentVehicle.createdAt)),
               ],

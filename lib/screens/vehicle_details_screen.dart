@@ -47,7 +47,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
         .where((vehicle) =>
             vehicle.displayName.toLowerCase().contains(searchTerm) ||
             vehicle.licensePlate.toLowerCase().contains(searchTerm) ||
-            vehicle.customerName.toLowerCase().contains(searchTerm) ||
+            (vehicle.customerName?.toLowerCase().contains(searchTerm) ?? false) ||
             vehicle.vin.toLowerCase().contains(searchTerm))
         .toList();
   }
@@ -778,7 +778,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                     child: _buildInfoItem(
                       Icons.person,
                       'Owner',
-                      vehicle.customerName,
+                      vehicle.customerName ?? 'Unknown',
                     ),
                   ),
                   Expanded(
@@ -1116,7 +1116,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                     ),
                   ),
                   Text(
-                    vehicle.customerName,
+                    vehicle.customerName ?? 'Unknown',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       color: AppColors.textSecondary,
@@ -1270,8 +1270,8 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
       builder: (context) => EditVehicleDialog(
         vehicle: vehicle,
         onVehicleUpdated: (updatedVehicle) async {
-          Navigator.of(context).pop(); // Close dialog first
-          await _updateVehicle(updatedVehicle); // Then update
+          // Don't pop here - let the dialog handle its own navigation
+          await _updateVehicle(updatedVehicle); // Just update
         },
       ),
     );

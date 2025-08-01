@@ -24,9 +24,9 @@ class VehicleService {
       // If no customer ID provided, create or find customer
       if (actualCustomerId.isEmpty) {
         actualCustomerId = await _findOrCreateCustomer(
-          vehicle.customerName,
-          vehicle.customerPhone,
-          vehicle.customerEmail,
+          vehicle.customerName ?? '',
+          vehicle.customerPhone ?? '',
+          vehicle.customerEmail ?? '',
         );
       }
       
@@ -91,7 +91,11 @@ class VehicleService {
       final data = doc.data() as Map<String, dynamic>;
       data['id'] = doc.id; // Ensure ID is set
 
-      return Vehicle.fromMap(data);
+      final vehicle = Vehicle.fromMap(data);
+
+      // Enrich with customer information
+      final enrichedVehicles = await _enrichVehiclesWithCustomerInfo([vehicle]);
+      return enrichedVehicles.isNotEmpty ? enrichedVehicles.first : vehicle;
     } catch (e) {
       throw VehicleServiceException('Failed to get vehicle: ${e.toString()}');
     }
@@ -103,11 +107,14 @@ class VehicleService {
       final querySnapshot =
           await _vehiclesRef.orderBy('createdAt', descending: true).get();
 
-      return querySnapshot.docs.map((doc) {
+      final vehicles = querySnapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id; // Ensure ID is set
         return Vehicle.fromMap(data);
       }).toList();
+
+      // Enrich vehicles with customer information
+      return await _enrichVehiclesWithCustomerInfo(vehicles);
     } catch (e) {
       throw VehicleServiceException('Failed to get vehicles: ${e.toString()}');
     }
@@ -121,11 +128,14 @@ class VehicleService {
           .orderBy('createdAt', descending: true)
           .get();
 
-      return querySnapshot.docs.map((doc) {
+      final vehicles = querySnapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id; // Ensure ID is set
         return Vehicle.fromMap(data);
       }).toList();
+
+      // Enrich vehicles with customer information
+      return await _enrichVehiclesWithCustomerInfo(vehicles);
     } catch (e) {
       throw VehicleServiceException(
           'Failed to get customer vehicles: ${e.toString()}');
@@ -135,8 +145,29 @@ class VehicleService {
   // Update a vehicle
   Future<void> updateVehicle(Vehicle vehicle) async {
     try {
+      // Get the current vehicle to check if customer changed
+      final currentVehicle = await getVehicle(vehicle.id);
+      if (currentVehicle == null) {
+        throw VehicleServiceException('Vehicle not found');
+      }
+
+      // Handle customer relationship changes
+      if (currentVehicle.customerId != vehicle.customerId) {
+        // Remove vehicle from old customer
+        await _customerService.removeVehicleFromCustomer(
+            currentVehicle.customerId, vehicle.id);
+
+        // Add vehicle to new customer
+        await _customerService.addVehicleToCustomer(
+            vehicle.customerId, vehicle.id);
+      }
+
+      // Update the vehicle
       await _vehiclesRef.doc(vehicle.id).update(vehicle.toMap());
     } catch (e) {
+      if (e is VehicleServiceException) {
+        rethrow;
+      }
       throw VehicleServiceException(
           'Failed to update vehicle: ${e.toString()}');
     }
@@ -249,7 +280,7 @@ class VehicleService {
             vehicle.model.toLowerCase().contains(lowercaseQuery) ||
             vehicle.licensePlate.toLowerCase().contains(lowercaseQuery) ||
             vehicle.vin.toLowerCase().contains(lowercaseQuery) ||
-            vehicle.customerName.toLowerCase().contains(lowercaseQuery);
+            (vehicle.customerName?.toLowerCase().contains(lowercaseQuery) ?? false);
       }).toList();
     } catch (e) {
       throw VehicleServiceException(
@@ -445,6 +476,136 @@ class VehicleService {
     } catch (e) {
       throw VehicleServiceException(
           'Failed to check license plate uniqueness: ${e.toString()}');
+    }
+  }
+
+  // Validate customer-vehicle relationship
+  Future<bool> validateCustomerVehicleRelationship(String customerId, String vehicleId) async {
+    try {
+      final customer = await _customerService.getCustomer(customerId);
+      if (customer == null) {
+        return false;
+      }
+
+      final vehicle = await getVehicle(vehicleId);
+      if (vehicle == null) {
+        return false;
+      }
+
+      // Check if customer has this vehicle in their list
+      final customerHasVehicle = customer.vehicleIds.contains(vehicleId);
+
+      // Check if vehicle references this customer
+      final vehicleHasCustomer = vehicle.customerId == customerId;
+
+      return customerHasVehicle && vehicleHasCustomer;
+    } catch (e) {
+      throw VehicleServiceException(
+          'Failed to validate customer-vehicle relationship: ${e.toString()}');
+    }
+  }
+
+  // Repair customer-vehicle relationships (for data integrity maintenance)
+  Future<void> repairCustomerVehicleRelationships() async {
+    try {
+      final allVehicles = await getAllVehicles();
+
+      for (final vehicle in allVehicles) {
+        if (vehicle.customerId.isNotEmpty) {
+          final customer = await _customerService.getCustomer(vehicle.customerId);
+
+          if (customer != null) {
+            // Ensure customer has this vehicle in their list
+            if (!customer.vehicleIds.contains(vehicle.id)) {
+              await _customerService.addVehicleToCustomer(vehicle.customerId, vehicle.id);
+            }
+          } else {
+            // Customer doesn't exist, this is a data integrity issue
+            // For now, we'll log it but not automatically fix it
+            print('Warning: Vehicle ${vehicle.id} references non-existent customer ${vehicle.customerId}');
+          }
+        }
+      }
+    } catch (e) {
+      throw VehicleServiceException(
+          'Failed to repair customer-vehicle relationships: ${e.toString()}');
+    }
+  }
+
+  // Get orphaned vehicles (vehicles without valid customer references)
+  Future<List<Vehicle>> getOrphanedVehicles() async {
+    try {
+      final allVehicles = await getAllVehicles();
+      final orphanedVehicles = <Vehicle>[];
+
+      for (final vehicle in allVehicles) {
+        if (vehicle.customerId.isEmpty) {
+          orphanedVehicles.add(vehicle);
+        } else {
+          final customer = await _customerService.getCustomer(vehicle.customerId);
+          if (customer == null) {
+            orphanedVehicles.add(vehicle);
+          }
+        }
+      }
+
+      return orphanedVehicles;
+    } catch (e) {
+      throw VehicleServiceException(
+          'Failed to get orphaned vehicles: ${e.toString()}');
+    }
+  }
+
+  // Private method to enrich vehicles with customer information
+  Future<List<Vehicle>> _enrichVehiclesWithCustomerInfo(List<Vehicle> vehicles) async {
+    try {
+      if (vehicles.isEmpty) return vehicles;
+
+      // Collect unique customer IDs
+      final customerIds = vehicles
+          .where((vehicle) => vehicle.customerId.isNotEmpty)
+          .map((vehicle) => vehicle.customerId)
+          .toSet()
+          .toList();
+
+      // Batch fetch all customers in one query
+      final customersMap = <String, Customer>{};
+      if (customerIds.isNotEmpty) {
+        final customersQuery = await _firestore
+            .collection('customers')
+            .where(FieldPath.documentId, whereIn: customerIds)
+            .get();
+
+        for (final doc in customersQuery.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          data['id'] = doc.id;
+          final customer = Customer.fromMap(data);
+          customersMap[customer.id] = customer;
+        }
+      }
+
+      // Enrich vehicles with customer information
+      final enrichedVehicles = <Vehicle>[];
+      for (final vehicle in vehicles) {
+        if (vehicle.customerId.isNotEmpty && customersMap.containsKey(vehicle.customerId)) {
+          final customer = customersMap[vehicle.customerId]!;
+          final enrichedVehicle = vehicle.copyWith(
+            customerName: customer.fullName,
+            customerPhone: customer.phone,
+            customerEmail: customer.email,
+          );
+          enrichedVehicles.add(enrichedVehicle);
+        } else {
+          // No customer ID or customer not found, keep original vehicle
+          enrichedVehicles.add(vehicle);
+        }
+      }
+
+      return enrichedVehicles;
+    } catch (e) {
+      // If enrichment fails, return original vehicles to avoid breaking the app
+      print('Warning: Failed to enrich vehicles with customer info: $e');
+      return vehicles;
     }
   }
 }

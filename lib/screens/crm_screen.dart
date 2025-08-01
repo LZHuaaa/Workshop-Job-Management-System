@@ -914,7 +914,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                         backgroundColor:
                             AppColors.primaryPink.withValues(alpha: 0.1),
                         child: Text(
-                          customer.firstName[0] + customer.lastName[0],
+                          _getCustomerInitials(customer),
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -1551,7 +1551,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                         backgroundColor:
                             AppColors.primaryPink.withValues(alpha: 0.1),
                         child: Text(
-                          customer.firstName[0] + customer.lastName[0],
+                          _getCustomerInitials(customer),
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -1742,5 +1742,17 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
       default:
         return Icons.chat;
     }
+  }
+
+  // Helper method to safely get customer initials
+  String _getCustomerInitials(Customer customer) {
+    final firstInitial = customer.firstName.isNotEmpty ? customer.firstName[0].toUpperCase() : '';
+    final lastInitial = customer.lastName.isNotEmpty ? customer.lastName[0].toUpperCase() : '';
+
+    if (firstInitial.isEmpty && lastInitial.isEmpty) {
+      return '?'; // Fallback for customers with no name
+    }
+
+    return firstInitial + lastInitial;
   }
 }

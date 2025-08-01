@@ -654,7 +654,7 @@ class SampleDataGenerator {
         id: 'appointment_${i + 1}',
         vehicleInfo:
             '${vehicle.year} ${vehicle.make} ${vehicle.model} - ${vehicle.licensePlate}',
-        customerName: vehicle.customerName,
+        customerName: vehicle.customerName ?? 'Unknown Customer',
         mechanicName: mechanicName,
         startTime: startTime,
         endTime: endTime,

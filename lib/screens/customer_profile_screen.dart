@@ -123,8 +123,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
                       radius: 40,
                       backgroundColor: Colors.white.withValues(alpha: 0.2),
                       child: Text(
-                        _currentCustomer.firstName[0] +
-                            _currentCustomer.lastName[0],
+                        _getCustomerInitials(_currentCustomer),
                         style: GoogleFonts.poppins(
                           fontSize: 24,
                           fontWeight: FontWeight.w700,
@@ -934,5 +933,17 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
       );
     });
     widget.onCustomerUpdated(_currentCustomer);
+  }
+
+  // Helper method to safely get customer initials
+  String _getCustomerInitials(Customer customer) {
+    final firstInitial = customer.firstName.isNotEmpty ? customer.firstName[0].toUpperCase() : '';
+    final lastInitial = customer.lastName.isNotEmpty ? customer.lastName[0].toUpperCase() : '';
+
+    if (firstInitial.isEmpty && lastInitial.isEmpty) {
+      return '?'; // Fallback for customers with no name
+    }
+
+    return firstInitial + lastInitial;
   }
 }

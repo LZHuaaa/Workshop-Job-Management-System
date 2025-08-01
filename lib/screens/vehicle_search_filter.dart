@@ -482,7 +482,7 @@ class _VehicleSearchFilterState extends State<VehicleSearchFilter> {
       // General search
       if (_searchController.text.isNotEmpty) {
         final searchTerm = _searchController.text.toLowerCase();
-        if (!vehicle.customerName.toLowerCase().contains(searchTerm) &&
+        if (!(vehicle.customerName?.toLowerCase().contains(searchTerm) ?? false) &&
             !vehicle.licensePlate.toLowerCase().contains(searchTerm) &&
             !vehicle.vin.toLowerCase().contains(searchTerm) &&
             !vehicle.displayName.toLowerCase().contains(searchTerm)) {

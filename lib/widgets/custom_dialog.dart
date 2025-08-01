@@ -91,7 +91,7 @@ class CustomDialog extends StatelessWidget {
             // Actions
             if (actions != null && actions!.isNotEmpty)
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: AppColors.backgroundLight,
                   borderRadius: const BorderRadius.only(
@@ -101,12 +101,16 @@ class CustomDialog extends StatelessWidget {
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
-                  children: actions!
-                      .map((action) => Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: action,
-                          ))
-                      .toList(),
+                  children: actions!.map((action) {
+                    // Add spacing between buttons but not before the first one
+                    if (actions!.indexOf(action) == 0) {
+                      return Flexible(child: action);
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Flexible(child: action),
+                    );
+                  }).toList(),
                 ),
               ),
           ],
@@ -360,7 +364,7 @@ class PrimaryButton extends StatelessWidget {
         backgroundColor: backgroundColor ?? AppColors.primaryPink,
         foregroundColor: textColor ?? Colors.white,
         elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
@@ -379,7 +383,7 @@ class PrimaryButton extends StatelessWidget {
           : Text(
               text,
               style: GoogleFonts.poppins(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -406,7 +410,7 @@ class SecondaryButton extends StatelessWidget {
         side: BorderSide(
           color: AppColors.textSecondary.withOpacity(0.3),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
@@ -414,7 +418,7 @@ class SecondaryButton extends StatelessWidget {
       child: Text(
         text,
         style: GoogleFonts.poppins(
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: FontWeight.w500,
         ),
       ),
