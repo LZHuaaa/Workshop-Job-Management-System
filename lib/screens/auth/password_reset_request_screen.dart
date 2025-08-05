@@ -7,7 +7,12 @@ import '../../widgets/success_dialog.dart';
 import 'login_screen.dart';
 
 class PasswordResetRequestScreen extends StatefulWidget {
-  const PasswordResetRequestScreen({super.key});
+  final bool fromProfile;
+
+  const PasswordResetRequestScreen({
+    super.key,
+    this.fromProfile = false,
+  });
 
   @override
   State<PasswordResetRequestScreen> createState() => _PasswordResetRequestScreenState();
@@ -46,11 +51,17 @@ class _PasswordResetRequestScreenState extends State<PasswordResetRequestScreen>
             message: 'We\'ve sent a password reset link to ${_emailController.text.trim()}. Please check your email and follow the instructions.',
             icon: Icons.email_outlined,
             onOkPressed: () {
-              // Navigate back to login screen
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                (route) => false,
-              );
+              if (widget.fromProfile) {
+                // Navigate back to profile (pop twice - dialog and reset screen)
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); // Close reset screen
+              } else {
+                // Navigate back to login screen
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
             },
           );
         } else {
@@ -227,11 +238,11 @@ class _PasswordResetRequestScreenState extends State<PasswordResetRequestScreen>
                 
                 const SizedBox(height: 24),
                 
-                // Back to login
+                // Back button with context-aware text
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: Text(
-                    'Back to Login',
+                    widget.fromProfile ? 'Back to Profile' : 'Back to Login',
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       color: AppColors.textSecondary,

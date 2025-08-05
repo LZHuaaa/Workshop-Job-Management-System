@@ -4,6 +4,8 @@ import '../widgets/schedule_overview_card.dart';
 import '../widgets/management_hub_card.dart';
 import '../widgets/notification_badge.dart';
 import '../widgets/notification_panel.dart';
+import '../widgets/dynamic_greeting_widget.dart';
+import '../widgets/user_avatar_widget.dart';
 import '../services/notification_service_factory.dart';
 import '../theme/app_colors.dart';
 import 'user_profile_screen.dart';
@@ -47,25 +49,8 @@ class DashboardScreen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Hello, Sarah',
-                        style: GoogleFonts.poppins(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      Text(
-                        'Workshop Manager',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
+                  const DynamicGreetingWidget(
+                    subtitle: 'Workshop Manager',
                   ),
                   Row(
                     children: [
@@ -73,7 +58,8 @@ class DashboardScreen extends StatelessWidget {
                         onTap: () => _showNotificationPanel(context),
                       ),
                       const SizedBox(width: 8),
-                      GestureDetector(
+                      UserAvatarWidget(
+                        radius: 20,
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
@@ -81,17 +67,6 @@ class DashboardScreen extends StatelessWidget {
                             ),
                           );
                         },
-                        child: CircleAvatar(
-                          radius: 20,
-                          backgroundColor: AppColors.primaryPink.withOpacity(0.1),
-                          child: Text(
-                            'SM',
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryPink,
-                            ),
-                          ),
-                        ),
                       ),
                     ],
                   ),

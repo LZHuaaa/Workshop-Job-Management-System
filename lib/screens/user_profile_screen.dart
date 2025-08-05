@@ -3,8 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../services/admin_data_service.dart';
 import '../services/simple_auth_service.dart';
+import '../services/user_profile_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/hidden_admin_panel.dart';
+import '../widgets/user_avatar_widget.dart';
+import '../dialogs/edit_display_name_dialog.dart';
+import '../dialogs/edit_phone_dialog.dart';
+import '../dialogs/change_password_dialog.dart';
 import 'auth/login_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -16,16 +21,31 @@ class UserProfileScreen extends StatefulWidget {
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
   final _authService = SimpleAuthService();
+  final _profileService = UserProfileService();
   User? _currentUser;
+  Map<String, dynamic>? _userProfile;
   bool _isLoading = false;
-  bool _showOldPassword = false;
-  bool _showNewPassword = false;
-  bool _showConfirmPassword = false;
+  bool _isLoadingProfile = true;
 
   @override
   void initState() {
     super.initState();
     _currentUser = _authService.currentUser;
+    _loadUserProfile();
+  }
+
+
+
+  Future<void> _loadUserProfile() async {
+    if (_currentUser != null) {
+      final profile = await _profileService.getUserProfile(_currentUser!.uid);
+      if (mounted) {
+        setState(() {
+          _userProfile = profile;
+          _isLoadingProfile = false;
+        });
+      }
+    }
   }
 
   Future<void> _handleLogout() async {
@@ -68,6 +88,27 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingProfile) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        appBar: AppBar(
+          title: Text(
+            'User Profile',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          backgroundColor: Colors.white,
+          foregroundColor: AppColors.textDark,
+          elevation: 0,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
@@ -82,117 +123,93 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         foregroundColor: AppColors.textDark,
         elevation: 0,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Avatar Section
             Center(
-              child: Stack(
-                alignment: Alignment.bottomRight,
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      // Secret admin access - 7 taps on profile picture
-                      if (AdminDataService.checkAdminUnlock()) {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const HiddenAdminPanel(),
-                          ),
-                        );
-                      } else {
-                        // Show subtle feedback for remaining taps
-                        final remaining = AdminDataService.remainingTaps;
-                        if (remaining <= 3) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '$remaining more taps...',
-                                style: GoogleFonts.poppins(fontSize: 12),
-                              ),
-                              duration: const Duration(milliseconds: 500),
-                              backgroundColor:
-                                  AppColors.primaryPink.withOpacity(0.8),
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    child: CircleAvatar(
-                      radius: 40,
-                      backgroundColor: AppColors.primaryPink.withOpacity(0.1),
-                      backgroundImage: _currentUser?.photoURL != null
-                          ? NetworkImage(_currentUser!.photoURL!)
-                          : null,
-                      child: _currentUser?.photoURL == null
-                          ? Text(
-                              (_currentUser?.displayName?.isNotEmpty == true)
-                                  ? _currentUser!.displayName![0].toUpperCase()
-                                  : (_currentUser?.email?.isNotEmpty == true)
-                                      ? _currentUser!.email![0].toUpperCase()
-                                      : 'U',
-                              style: GoogleFonts.poppins(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primaryPink,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: GestureDetector(
-                      onTap: () {
-                        // TODO: Implement photo edit logic
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Edit photo clicked',
-                                style: GoogleFonts.poppins()),
-                            backgroundColor: AppColors.primaryPink,
-                          ),
-                        );
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(4),
-                        child: Icon(Icons.edit,
-                            color: AppColors.primaryPink, size: 20),
+              child: UserAvatarWidget(
+                radius: 50,
+                fontSize: 36,
+                onTap: () {
+                  // Secret admin access - 7 taps on profile picture
+                  if (AdminDataService.checkAdminUnlock()) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const HiddenAdminPanel(),
                       ),
-                    ),
-                  ),
-                ],
+                    );
+                  } else {
+                    // Show subtle feedback for remaining taps
+                    final remaining = AdminDataService.remainingTaps;
+                    if (remaining <= 3) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '$remaining more taps...',
+                            style: GoogleFonts.poppins(fontSize: 12),
+                          ),
+                          duration: const Duration(milliseconds: 500),
+                          backgroundColor:
+                              AppColors.primaryPink.withOpacity(0.8),
+                        ),
+                      );
+                    }
+                  }
+                },
               ),
             ),
             const SizedBox(height: 32),
-            _buildInfoRow('Display Name', _currentUser?.displayName ?? 'Not set', Icons.person),
+
+            // Profile Information Section
+            _buildSectionTitle('Profile Information'),
             const SizedBox(height: 16),
-            _buildInfoRow('Email', _currentUser?.email ?? 'Not set', Icons.email),
+            _buildEditableInfoCard(
+              'Username',
+              _currentUser?.displayName ?? 'Not set',
+              Icons.person,
+              () => _editDisplayName(),
+            ),
+            const SizedBox(height: 12),
+            _buildEditableInfoCard(
+              'Email Address',
+              _currentUser?.email ?? 'Not set',
+              Icons.email,
+              () {}, // Empty callback - not used since showEditButton is false
+              showEditButton: false, // Hide the edit button for email field
+            ),
+            const SizedBox(height: 12),
+            _buildEditableInfoCard(
+              'Phone Number',
+              _getPhoneNumber(),
+              Icons.phone,
+              () => _editPhone(),
+              isSetNow: _getPhoneNumber() == 'Not set',
+            ),
+            const SizedBox(height: 24),
+
+            // Security Section
+            _buildSectionTitle('Security'),
             const SizedBox(height: 16),
-            _buildInfoRow('Auth Provider', _getAuthProviderText(), Icons.security),
-            const SizedBox(height: 16),
-            if (_currentUser?.phoneNumber != null) ...[
-              _buildInfoRow('Phone Number', _currentUser!.phoneNumber!, Icons.phone),
-              const SizedBox(height: 16),
-            ],
-            const Spacer(),
+            _buildEditableInfoCard(
+              'Password',
+              '••••••••',
+              Icons.lock,
+              () => _changePassword(),
+              actionText: 'Change',
+            ),
+
+            const SizedBox(height: 32),
+
+            // Logout Button
             Center(
               child: ElevatedButton.icon(
                 onPressed: _isLoading ? null : _handleLogout,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.errorRed,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -213,58 +230,233 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
 
-  String _getAuthProviderText() {
-    if (_currentUser == null) return 'Unknown';
 
-    // For Firebase Auth, we can check the provider data
-    if (_currentUser!.providerData.isNotEmpty) {
-      final providerId = _currentUser!.providerData.first.providerId;
-      switch (providerId) {
-        case 'password':
-          return 'Email/Password';
-        case 'google.com':
-          return 'Google';
-        case 'facebook.com':
-          return 'Facebook';
-        default:
-          return 'Email/Password';
-      }
+
+  // Edit display name
+  Future<void> _editDisplayName() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => EditDisplayNameDialog(
+        currentDisplayName: _currentUser?.displayName ?? '',
+      ),
+    );
+
+    if (result == true) {
+      await _currentUser?.reload();
+      setState(() {
+        _currentUser = _authService.currentUser;
+      });
+      await _loadUserProfile();
     }
-
-    return 'Email/Password';
   }
 
-  Widget _buildInfoRow(String label, String value, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, color: AppColors.primaryPink, size: 20),
-        const SizedBox(width: 12),
-        Text(
-          label + ':',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textDark,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
+
+
+  // Edit phone
+  Future<void> _editPhone() async {
+    final originalPhone = _getPhoneNumber() != 'Not set' ? _getPhoneNumber() : null;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => EditPhoneDialog(
+        currentPhone: originalPhone,
+      ),
+    );
+
+    if (result == true) {
+      // Phone number is updated immediately, just refresh the UI
+      await _loadUserProfile();
+    }
+  }
+
+  // Change password
+  Future<void> _changePassword() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => const ChangePasswordDialog(),
+    );
+
+    if (result == true) {
+      // Password change successful, no need to reload user data
+    }
+  }
+
+  // Helper methods
+  String _getPhoneNumber() {
+    return _userProfile?['phoneNumber'] ?? 'Not set';
+  }
+
+
+
+
+
+
+
+  // UI Building methods
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: GoogleFonts.poppins(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textDark,
+      ),
     );
   }
+
+  Widget _buildEditableInfoCard(
+    String label,
+    String value,
+    IconData icon,
+    VoidCallback onEdit, {
+    String? subtitle,
+    bool isSetNow = false,
+    String actionText = 'Edit',
+    bool showEditButton = true,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primaryPink.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: AppColors.primaryPink, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: value == 'Not set' ? AppColors.textSecondary : AppColors.textDark,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.warningOrange,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (showEditButton)
+            TextButton(
+              onPressed: onEdit,
+              style: TextButton.styleFrom(
+                backgroundColor: isSetNow ? AppColors.primaryPink : AppColors.primaryPink.withOpacity(0.1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              ),
+              child: Text(
+                isSetNow ? 'Set Now' : actionText,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: isSetNow ? Colors.white : AppColors.primaryPink,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primaryPink.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: AppColors.primaryPink, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
 }
