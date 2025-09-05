@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../models/job_appointment.dart';
-import '../dialogs/add_appointment_dialog.dart';
+import 'job_details_screen.dart';
+
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({super.key});
@@ -21,36 +23,42 @@ class _ScheduleScreenState extends State<ScheduleScreen>
   DateTime _focusedDay = DateTime.now();
   CalendarFormat _calendarFormat = CalendarFormat.month;
 
-  // Sample data
-  final Map<DateTime, List<JobAppointment>> _appointments = {
-    DateTime.now(): [
-      JobAppointment(
-        id: '1',
-        vehicleInfo: 'Honda Civic - WXY 1234',
-        customerName: 'John Doe',
-        mechanicName: 'Mike Johnson',
-        startTime: DateTime.now().copyWith(hour: 9, minute: 0),
-        endTime: DateTime.now().copyWith(hour: 11, minute: 0),
-        serviceType: 'Oil Change',
-        status: JobStatus.scheduled,
-      ),
-      JobAppointment(
-        id: '2',
-        vehicleInfo: 'Toyota Camry - ABC 5678',
-        customerName: 'Jane Smith',
-        mechanicName: 'Sarah Wilson',
-        startTime: DateTime.now().copyWith(hour: 14, minute: 0),
-        endTime: DateTime.now().copyWith(hour: 16, minute: 30),
-        serviceType: 'Brake Inspection',
-        status: JobStatus.inProgress,
-      ),
-    ],
-  };
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  List<JobAppointment> _allAppointments = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadAppointments();
+  }
+
+  void _loadAppointments() {
+    _firestore.collection('appointments')
+        .orderBy('startTime', descending: false)
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted) {
+        setState(() {
+          _allAppointments = snapshot.docs.map((doc) {
+            final data = doc.data();
+            data['id'] = doc.id;
+
+            // Handle Firestore Timestamp conversion
+            if (data['startTime'] is Timestamp) {
+              data['startTime'] = (data['startTime'] as Timestamp).toDate();
+            }
+            if (data['endTime'] is Timestamp) {
+              data['endTime'] = (data['endTime'] as Timestamp).toDate();
+            }
+
+            return JobAppointment.fromMap(data);
+          }).toList();
+          _isLoading = false;
+        });
+      }
+    });
   }
 
   @override
@@ -60,26 +68,45 @@ class _ScheduleScreenState extends State<ScheduleScreen>
   }
 
   List<JobAppointment> _getAppointmentsForDay(DateTime day) {
-    return _appointments[DateTime(day.year, day.month, day.day)] ?? [];
+    return _allAppointments.where((appointment) {
+      return isSameDay(appointment.startTime, day);
+    }).toList();
   }
 
-  void _addAppointment(JobAppointment appointment) {
-    final dateKey = DateTime(
-      appointment.startTime.year,
-      appointment.startTime.month,
-      appointment.startTime.day,
+  void _navigateToJobDetails(JobAppointment appointment) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => JobDetailsScreen(
+          job: appointment,
+          onJobUpdated: (updatedJob) {
+            // Update the appointment in the local list
+            setState(() {
+              final index = _allAppointments.indexWhere((job) => job.id == updatedJob.id);
+              if (index != -1) {
+                _allAppointments[index] = updatedJob;
+              }
+            });
+          },
+        ),
+      ),
     );
-
-    setState(() {
-      if (_appointments[dateKey] == null) {
-        _appointments[dateKey] = [];
-      }
-      _appointments[dateKey]!.add(appointment);
-    });
   }
+
+
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        body: const Center(
+          child: CircularProgressIndicator(
+            color: AppColors.primaryPink,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: SafeArea(
@@ -121,29 +148,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                       ),
                     ],
                   ),
-                  ElevatedButton.icon(
-                    onPressed: () => _showAddAppointmentDialog(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: Text(
-                      'New',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryPink,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
+
                 ],
               ),
             ),
@@ -516,123 +521,21 @@ class _ScheduleScreenState extends State<ScheduleScreen>
   Widget _buildAppointmentCard(JobAppointment appointment) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _getStatusColor(appointment.status).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _getStatusColor(appointment.status).withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  appointment.vehicleInfo,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(appointment.status),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  appointment.status.name.toUpperCase(),
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${appointment.customerName} • ${appointment.mechanicName}',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${DateFormat('h:mm a').format(appointment.startTime)} - ${DateFormat('h:mm a').format(appointment.endTime)}',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryPink,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDayAppointmentCard(JobAppointment appointment) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Time Column
-          SizedBox(
-            width: 80,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  DateFormat('h:mm a').format(appointment.startTime),
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryPink,
-                  ),
-                ),
-                Text(
-                  DateFormat('h:mm a').format(appointment.endTime),
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Divider
-          Container(
-            width: 2,
-            height: 50,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _navigateToJobDetails(appointment),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _getStatusColor(appointment.status),
-              borderRadius: BorderRadius.circular(1),
+              color: _getStatusColor(appointment.status).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _getStatusColor(appointment.status).withOpacity(0.3),
+                width: 1,
+              ),
             ),
-          ),
-
-          // Content
-          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -642,15 +545,14 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                       child: Text(
                         appointment.vehicleInfo,
                         style: GoogleFonts.poppins(
-                          fontSize: 16,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textDark,
                         ),
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: _getStatusColor(appointment.status),
                         borderRadius: BorderRadius.circular(12),
@@ -668,24 +570,165 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  appointment.serviceType,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
                   '${appointment.customerName} • ${appointment.mechanicName}',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
                 ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${DateFormat('h:mm a').format(appointment.startTime)} - ${DateFormat('h:mm a').format(appointment.endTime)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.primaryPink,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDayAppointmentCard(JobAppointment appointment) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _navigateToJobDetails(appointment),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              // Time Column
+              SizedBox(
+                width: 80,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      DateFormat('h:mm a').format(appointment.startTime),
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryPink,
+                      ),
+                    ),
+                    Text(
+                      DateFormat('h:mm a').format(appointment.endTime),
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Divider
+              Container(
+                width: 2,
+                height: 50,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(appointment.status),
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            appointment.vehicleInfo,
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(appointment.status),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            appointment.status.name.toUpperCase(),
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      appointment.serviceType,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${appointment.customerName} • ${appointment.mechanicName}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -703,13 +746,5 @@ class _ScheduleScreenState extends State<ScheduleScreen>
     }
   }
 
-  void _showAddAppointmentDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AddAppointmentDialog(
-        selectedDate: _selectedDay,
-        onAppointmentCreated: _addAppointment,
-      ),
-    );
-  }
+
 }

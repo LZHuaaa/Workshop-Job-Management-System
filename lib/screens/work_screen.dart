@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import 'schedule_screen.dart';
 import 'jobs_screen.dart';
-import 'invoice_management_screen.dart';
+import 'workload_monitoring_screen.dart';
 
 class WorkScreen extends StatefulWidget {
   const WorkScreen({super.key});
@@ -28,10 +28,7 @@ class _WorkScreenState extends State<WorkScreen> {
           preferredSize: const Size.fromHeight(48),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: ConstrainedBox(
@@ -43,7 +40,7 @@ class _WorkScreenState extends State<WorkScreen> {
                   children: [
                     _buildTabButton(0, 'Calendar', Icons.calendar_today),
                     _buildTabButton(1, 'Jobs', Icons.build),
-                    _buildTabButton(2, 'Workload Monitoring', Icons.receipt),
+                    _buildTabButton(2, 'Workload', Icons.analytics),
                   ],
                 ),
               ),
@@ -56,7 +53,7 @@ class _WorkScreenState extends State<WorkScreen> {
         children: const [
           ScheduleScreen(),
           JobsScreen(),
-          InvoiceManagementScreen(),
+          WorkloadMonitoringScreen(),
         ],
       ),
       floatingActionButton: _buildFloatingActionButton(),
@@ -99,32 +96,14 @@ class _WorkScreenState extends State<WorkScreen> {
 
   Widget? _buildFloatingActionButton() {
     switch (_selectedView) {
-      case 0: // Calendar
-        return FloatingActionButton(
-          onPressed: () {
-            // Show add appointment dialog
-          },
-          backgroundColor: AppColors.primaryPink,
-          child: const Icon(Icons.add, color: Colors.white),
-        );
-      case 1: // Jobs
-        return FloatingActionButton(
-          onPressed: () {
-            // Show add job dialog
-          },
-          backgroundColor: AppColors.primaryPink,
-          child: const Icon(Icons.add, color: Colors.white),
-        );
-      case 2: // Invoices
-        return FloatingActionButton(
-          onPressed: () {
-            // Show create invoice dialog
-          },
-          backgroundColor: AppColors.primaryPink,
-          child: const Icon(Icons.add, color: Colors.white),
-        );
+      case 0: // Calendar - No button for calendar
+        return null;
+      case 1: // Jobs - No button for jobs
+        return null;
+      case 2: // Workload Monitoring - No button for workload monitoring
+        return null;
       default:
         return null;
     }
   }
-}
+} 

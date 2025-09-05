@@ -5,7 +5,9 @@ import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../models/job_appointment.dart';
 import '../screens/job_details_screen.dart';
-import '../dialogs/new_job_dialog.dart';
+
+import '../dialogs/edit_job_dialog.dart';
+import '../services/job_appointment_service.dart';
 
 class JobsScreen extends StatefulWidget {
   const JobsScreen({super.key});
@@ -17,6 +19,7 @@ class JobsScreen extends StatefulWidget {
 class _JobsScreenState extends State<JobsScreen> {
   String _selectedFilter = 'All';
   final TextEditingController _searchController = TextEditingController();
+  final JobAppointmentService _jobService = JobAppointmentService();
 
   final List<String> _filterOptions = [
     'All',
@@ -26,49 +29,24 @@ class _JobsScreenState extends State<JobsScreen> {
     'Overdue',
   ];
 
-  // Sample job data
-  final List<JobAppointment> _allJobs = [
-    JobAppointment(
-      id: '1',
-      vehicleInfo: 'Proton Saga - WA 1234 A',
-      customerName: 'Ahmad bin Abdullah',
-      mechanicName: 'Lim Wei Ming',
-      startTime: DateTime.now().copyWith(hour: 9, minute: 0),
-      endTime: DateTime.now().copyWith(hour: 11, minute: 0),
-      serviceType: 'Oil Change & Filter',
-      status: JobStatus.inProgress,
-      estimatedCost: 89.99,
-      partsNeeded: ['Oil Filter', 'Engine Oil'],
-      notes: 'Customer requested synthetic oil',
-    ),
-    JobAppointment(
-      id: '2',
-      vehicleInfo: 'Perodua Myvi - KL 5678 B',
-      customerName: 'Tan Mei Ling',
-      mechanicName: 'Siti Nurhaliza binti Hassan',
-      startTime: DateTime.now().copyWith(hour: 14, minute: 0),
-      endTime: DateTime.now().copyWith(hour: 16, minute: 30),
-      serviceType: 'Brake Inspection & Repair',
-      status: JobStatus.scheduled,
-      estimatedCost: 245.50,
-      partsNeeded: ['Brake Pads', 'Brake Fluid'],
-    ),
-    JobAppointment(
-      id: '3',
-      vehicleInfo: 'Honda City - JB 9012 C',
-      customerName: 'Priya d/o Raman',
-      mechanicName: 'Raj Kumar a/l Suresh',
-      startTime: DateTime.now()
-          .subtract(const Duration(days: 1))
-          .copyWith(hour: 10, minute: 0),
-      endTime: DateTime.now()
-          .subtract(const Duration(days: 1))
-          .copyWith(hour: 12, minute: 0),
-      serviceType: 'Transmission Service',
-      status: JobStatus.completed,
-      estimatedCost: 189.99,
-    ),
-  ];
+  List<JobAppointment> _allJobs = [];
+  bool _isLoading = true;
+  @override
+  void initState() {
+    super.initState();
+    _loadJobs();
+  }
+
+  void _loadJobs() {
+    _jobService.getAppointmentsStream().listen((jobs) {
+      if (mounted) {
+        setState(() {
+          _allJobs = jobs;
+          _isLoading = false;
+        });
+      }
+    });
+  }
 
   List<JobAppointment> get _filteredJobs {
     List<JobAppointment> filtered = _allJobs;
@@ -102,23 +80,124 @@ class _JobsScreenState extends State<JobsScreen> {
     return filtered;
   }
 
-  void _addJob(JobAppointment job) {
-    setState(() {
-      _allJobs.add(job);
-    });
+
+
+  Future<void> _updateJob(JobAppointment updatedJob) async {
+    try {
+      await _jobService.updateAppointment(updatedJob);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Job updated successfully!',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update job: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
   }
 
-  void _updateJob(JobAppointment updatedJob) {
-    setState(() {
-      final index = _allJobs.indexWhere((job) => job.id == updatedJob.id);
-      if (index != -1) {
-        _allJobs[index] = updatedJob;
+  Future<void> _deleteJob(JobAppointment job) async {
+    // Show confirmation dialog
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Delete Job',
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete this job for ${job.customerName}? This action cannot be undone.',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.poppins(
+                color: AppColors.errorRed,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _jobService.deleteAppointment(job.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Job deleted successfully!',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: AppColors.successGreen,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to delete job: ${e.toString()}',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: AppColors.errorRed,
+            ),
+          );
+        }
       }
-    });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        body: const Center(
+          child: CircularProgressIndicator(
+            color: AppColors.primaryPink,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: SafeArea(
@@ -149,29 +228,6 @@ class _JobsScreenState extends State<JobsScreen> {
                           fontSize: 24,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textDark,
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () => _showCreateJobDialog(),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: Text(
-                          'New Job',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryPink,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
                         ),
                       ),
                     ],
@@ -419,6 +475,83 @@ class _JobsScreenState extends State<JobsScreen> {
                       .toList(),
                 ),
               ],
+
+              // Edit and Delete buttons
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Edit button
+                  GestureDetector(
+                    onTap: () => _showEditJobDialog(job),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryPink.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.primaryPink.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.edit,
+                            size: 16,
+                            color: AppColors.primaryPink,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Edit',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.primaryPink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
+
+                  // Delete button
+                  GestureDetector(
+                    onTap: () => _deleteJob(job),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorRed.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.errorRed.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.delete,
+                            size: 16,
+                            color: AppColors.errorRed,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Delete',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.errorRed,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -450,11 +583,14 @@ class _JobsScreenState extends State<JobsScreen> {
     );
   }
 
-  void _showCreateJobDialog() {
+
+
+  void _showEditJobDialog(JobAppointment job) {
     showDialog(
       context: context,
-      builder: (context) => NewJobDialog(
-        onJobCreated: _addJob,
+      builder: (context) => EditJobDialog(
+        job: job,
+        onJobUpdated: _updateJob,
       ),
     );
   }

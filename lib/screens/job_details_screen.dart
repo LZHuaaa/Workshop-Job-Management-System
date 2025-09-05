@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../models/job_appointment.dart';
+import '../dialogs/edit_job_dialog.dart';
+import '../services/job_appointment_service.dart';
 
 class JobDetailsScreen extends StatefulWidget {
   final JobAppointment job;
@@ -22,6 +24,7 @@ class JobDetailsScreen extends StatefulWidget {
 class _JobDetailsScreenState extends State<JobDetailsScreen> {
   late JobAppointment _currentJob;
   bool _isUpdating = false;
+  final JobAppointmentService _jobService = JobAppointmentService();
 
   @override
   void initState() {
@@ -89,6 +92,21 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
           icon: Icon(Icons.arrow_back, color: AppColors.textDark),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          // Edit button
+          IconButton(
+            icon: Icon(Icons.edit, color: AppColors.primaryPink),
+            onPressed: () => _showEditJobDialog(),
+            tooltip: 'Edit Job',
+          ),
+          // Delete button
+          IconButton(
+            icon: Icon(Icons.delete, color: AppColors.errorRed),
+            onPressed: () => _deleteJob(),
+            tooltip: 'Delete Job',
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -403,5 +421,123 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
         ),
       ),
     );
+  }
+
+  void _showEditJobDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => EditJobDialog(
+        job: _currentJob,
+        onJobUpdated: (updatedJob) async {
+          try {
+            await _jobService.updateAppointment(updatedJob);
+            setState(() {
+              _currentJob = updatedJob;
+            });
+            widget.onJobUpdated(updatedJob);
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Job updated successfully!',
+                    style: GoogleFonts.poppins(),
+                  ),
+                  backgroundColor: AppColors.successGreen,
+                ),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Failed to update job: ${e.toString()}',
+                    style: GoogleFonts.poppins(),
+                  ),
+                  backgroundColor: AppColors.errorRed,
+                ),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _deleteJob() async {
+    // Show confirmation dialog
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Delete Job',
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete this job for ${_currentJob.customerName}? This action cannot be undone.',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.poppins(
+                color: AppColors.errorRed,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _jobService.deleteAppointment(_currentJob.id);
+
+        if (mounted) {
+          Navigator.of(context).pop(); // Go back to jobs list
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Job deleted successfully!',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: AppColors.successGreen,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to delete job: ${e.toString()}',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: AppColors.errorRed,
+            ),
+          );
+        }
+      }
+    }
   }
 }

@@ -72,4 +72,47 @@ class JobAppointment {
   bool get isOverdue {
     return endTime.isBefore(DateTime.now()) && status != JobStatus.completed;
   }
+
+  // Convert from Firestore map
+  factory JobAppointment.fromMap(Map<String, dynamic> map) {
+    return JobAppointment(
+      id: map['id'] ?? '',
+      vehicleInfo: map['vehicleInfo'] ?? '',
+      customerName: map['customerName'] ?? '',
+      mechanicName: map['mechanicName'] ?? '',
+      startTime: map['startTime'] is DateTime
+          ? map['startTime']
+          : DateTime.parse(map['startTime'].toString()),
+      endTime: map['endTime'] is DateTime
+          ? map['endTime']
+          : DateTime.parse(map['endTime'].toString()),
+      serviceType: map['serviceType'] ?? '',
+      status: JobStatus.values.firstWhere(
+        (e) => e.name == map['status'],
+        orElse: () => JobStatus.scheduled,
+      ),
+      notes: map['notes'],
+      partsNeeded: map['partsNeeded'] != null
+          ? List<String>.from(map['partsNeeded'])
+          : null,
+      estimatedCost: map['estimatedCost']?.toDouble(),
+    );
+  }
+
+  // Convert to Firestore map
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'vehicleInfo': vehicleInfo,
+      'customerName': customerName,
+      'mechanicName': mechanicName,
+      'startTime': startTime.toIso8601String(),
+      'endTime': endTime.toIso8601String(),
+      'serviceType': serviceType,
+      'status': status.name,
+      'notes': notes,
+      'partsNeeded': partsNeeded,
+      'estimatedCost': estimatedCost,
+    };
+  }
 }
