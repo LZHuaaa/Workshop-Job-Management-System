@@ -5,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../models/job_appointment.dart';
 import '../dialogs/edit_job_dialog.dart';
+import '../dialogs/new_service_record_dialog.dart';
 import '../services/job_appointment_service.dart';
 
 class JobDetailsScreen extends StatefulWidget {
@@ -37,27 +38,55 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
       _isUpdating = true;
     });
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      final updatedJob = _currentJob.copyWith(status: newStatus);
+      
+      // Update job in Firebase
+      await _jobService.updateAppointment(updatedJob);
+      
+      setState(() {
+        _currentJob = updatedJob;
+      });
 
-    final updatedJob = _currentJob.copyWith(status: newStatus);
+      widget.onJobUpdated(updatedJob);
 
-    setState(() {
-      _currentJob = updatedJob;
-      _isUpdating = false;
-    });
+      // If job is completed, show service record dialog
+      if (newStatus == JobStatus.completed && mounted) {
+        await showDialog(
+          context: context,
+          builder: (context) => NewServiceRecordDialog(job: _currentJob),
+          barrierDismissible: false,
+        );
+      }
 
-    widget.onJobUpdated(updatedJob);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Job status updated to ${newStatus.name.toUpperCase()}',
-          style: GoogleFonts.poppins(),
-        ),
-        backgroundColor: AppColors.successGreen,
-      ),
-    );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Job status updated to ${newStatus.name.toUpperCase()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update job status: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isUpdating = false;
+      });
+    }
   }
 
   Color _getStatusColor(JobStatus status) {

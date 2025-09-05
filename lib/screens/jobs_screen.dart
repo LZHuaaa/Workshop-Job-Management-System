@@ -5,7 +5,7 @@ import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../models/job_appointment.dart';
 import '../screens/job_details_screen.dart';
-
+import '../dialogs/new_job_dialog.dart';
 import '../dialogs/edit_job_dialog.dart';
 import '../services/job_appointment_service.dart';
 
@@ -188,9 +188,9 @@ class _JobsScreenState extends State<JobsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
+      return const Scaffold(
         backgroundColor: AppColors.backgroundLight,
-        body: const Center(
+        body: Center(
           child: CircularProgressIndicator(
             color: AppColors.primaryPink,
           ),
@@ -228,6 +228,72 @@ class _JobsScreenState extends State<JobsScreen> {
                           fontSize: 24,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textDark,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => NewJobDialog(
+                              onJobCreated: (job) async {
+                                try {
+                                  await _jobService.addAppointment(job);
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Job created successfully!',
+                                          style: GoogleFonts.poppins(),
+                                        ),
+                                        backgroundColor: AppColors.successGreen,
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Failed to create job: ${e.toString()}',
+                                          style: GoogleFonts.poppins(),
+                                        ),
+                                        backgroundColor: AppColors.errorRed,
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryPink.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: AppColors.primaryPink.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.add,
+                                size: 18,
+                                color: AppColors.primaryPink,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'New Job',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: AppColors.primaryPink,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],

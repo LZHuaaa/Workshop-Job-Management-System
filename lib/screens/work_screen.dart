@@ -95,15 +95,6 @@ class _WorkScreenState extends State<WorkScreen> {
   }
 
   Widget? _buildFloatingActionButton() {
-    switch (_selectedView) {
-      case 0: // Calendar - No button for calendar
-        return null;
-      case 1: // Jobs - No button for jobs
-        return null;
-      case 2: // Workload Monitoring - No button for workload monitoring
-        return null;
-      default:
-        return null;
-    }
+    return null; // We're not using the floating action button
   }
 } 

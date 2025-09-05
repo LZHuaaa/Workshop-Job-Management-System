@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../dialogs/new_job_dialog.dart';
+import '../dialogs/new_service_record_dialog.dart';
 import '../models/job_appointment.dart';
+import '../screens/job_details_screen.dart';
 
-class ScheduleOverviewCard extends StatelessWidget {
+class ScheduleOverviewCard extends StatefulWidget {
   final Function(JobAppointment)? onJobCreated;
 
   const ScheduleOverviewCard({
@@ -14,13 +18,84 @@ class ScheduleOverviewCard extends StatelessWidget {
     this.onJobCreated,
   });
 
+  @override
+  State<ScheduleOverviewCard> createState() => _ScheduleOverviewCardState();
+}
+
+class _ScheduleOverviewCardState extends State<ScheduleOverviewCard> {
+  List<JobAppointment> _todayAppointments = [];
+  bool _isLoading = true;
+  Map<JobStatus, int> _statusCounts = {
+    JobStatus.scheduled: 0,
+    JobStatus.inProgress: 0,
+    JobStatus.completed: 0,
+    JobStatus.cancelled: 0,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTodayAppointments();
+  }
+
+  void _loadTodayAppointments() {
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    FirebaseFirestore.instance
+        .collection('appointments')
+        .where('startTime', isGreaterThanOrEqualTo: startOfDay)
+        .where('startTime', isLessThan: endOfDay)
+        .orderBy('startTime')
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted) {
+        final appointments = snapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id;
+
+          if (data['startTime'] is Timestamp) {
+            data['startTime'] = (data['startTime'] as Timestamp).toDate();
+          }
+          if (data['endTime'] is Timestamp) {
+            data['endTime'] = (data['endTime'] as Timestamp).toDate();
+          }
+
+          return JobAppointment.fromMap(data);
+        }).toList();
+
+        // Sort by start time
+        appointments.sort((a, b) => a.startTime.compareTo(b.startTime));
+
+        // Update status counts
+        final counts = {
+          JobStatus.scheduled: 0,
+          JobStatus.inProgress: 0,
+          JobStatus.completed: 0,
+          JobStatus.cancelled: 0,
+        };
+
+        for (var appointment in appointments) {
+          counts[appointment.status] = counts[appointment.status]! + 1;
+        }
+
+        setState(() {
+          _todayAppointments = appointments;
+          _statusCounts = counts;
+          _isLoading = false;
+        });
+      }
+    });
+  }
+
   void _showNewJobDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => NewJobDialog(
         onJobCreated: (job) {
-          if (onJobCreated != null) {
-            onJobCreated!(job);
+          if (widget.onJobCreated != null) {
+            widget.onJobCreated!(job);
           }
         },
       ),
@@ -87,7 +162,7 @@ class ScheduleOverviewCard extends StatelessWidget {
                     x: 0,
                     barRods: [
                       BarChartRodData(
-                        toY: 5,
+                        toY: _statusCounts[JobStatus.scheduled]!.toDouble(),
                         color: AppColors.accentPink,
                         width: 40,
                         borderRadius: BorderRadius.circular(4),
@@ -98,7 +173,7 @@ class ScheduleOverviewCard extends StatelessWidget {
                     x: 1,
                     barRods: [
                       BarChartRodData(
-                        toY: 3,
+                        toY: _statusCounts[JobStatus.inProgress]!.toDouble(),
                         color: AppColors.primaryPink,
                         width: 40,
                         borderRadius: BorderRadius.circular(4),
@@ -109,7 +184,7 @@ class ScheduleOverviewCard extends StatelessWidget {
                     x: 2,
                     barRods: [
                       BarChartRodData(
-                        toY: 7,
+                        toY: _statusCounts[JobStatus.completed]!.toDouble(),
                         color: AppColors.lightPink,
                         width: 40,
                         borderRadius: BorderRadius.circular(4),
@@ -125,7 +200,7 @@ class ScheduleOverviewCard extends StatelessWidget {
 
           // Summary Text
           Text(
-            '3 Jobs In Progress, 5 Awaiting Start',
+            '${_statusCounts[JobStatus.inProgress]} Jobs In Progress, ${_statusCounts[JobStatus.scheduled]} Awaiting Start',
             style: GoogleFonts.poppins(
               fontSize: 14,
               color: AppColors.textSecondary,
@@ -136,28 +211,54 @@ class ScheduleOverviewCard extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Upcoming Jobs List
-          Column(
-            children: [
-              _buildJobItem(
-                vehicle: 'Honda Civic - WXY 1234',
-                mechanic: 'John Smith',
-                time: '10:30 AM',
+          if (_isLoading)
+            const Center(
+              child: CircularProgressIndicator(
+                color: AppColors.primaryPink,
               ),
-              const SizedBox(height: 12),
-              _buildJobItem(
-                vehicle: 'Toyota Camry - ABC 5678',
-                mechanic: 'Mike Johnson',
-                time: '11:15 AM',
+            )
+          else if (_todayAppointments.isEmpty)
+            Center(
+              child: Text(
+                'No jobs scheduled for today',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-              const SizedBox(height: 12),
-              _buildJobItem(
-                vehicle: 'Ford Focus - DEF 9012',
-                mechanic: 'Sarah Wilson',
-                time: '2:00 PM',
-              ),
-            ],
-          ),
+            )
+          else
+            Column(
+              children: _todayAppointments.map((appointment) {
+                return Column(
+                  children: [
+                    _buildJobItem(
+                      vehicle: appointment.vehicleInfo,
+                      mechanic: appointment.mechanicName,
+                      time: DateFormat('h:mm a').format(appointment.startTime),
+                      appointment: appointment,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                );
+              }).toList(),
+            ),
         ],
+      ),
+    );
+  }
+
+  void _navigateToJobDetails(BuildContext context, JobAppointment appointment) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => JobDetailsScreen(
+          job: appointment,
+          onJobUpdated: (updatedJob) {
+            // The schedule will automatically update through Firebase listener
+          },
+        ),
       ),
     );
   }
@@ -166,14 +267,18 @@ class ScheduleOverviewCard extends StatelessWidget {
     required String vehicle,
     required String mechanic,
     required String time,
+    required JobAppointment appointment,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.softPink,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
+    return InkWell(
+      onTap: () => _navigateToJobDetails(context, appointment),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.softPink,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
         children: [
           Container(
             width: 40,
@@ -220,6 +325,7 @@ class ScheduleOverviewCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

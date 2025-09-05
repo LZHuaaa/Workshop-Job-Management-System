@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_colors.dart';
 import '../widgets/custom_dialog.dart';
 import '../models/job_appointment.dart';
+import 'new_service_record_dialog.dart';
 
 class NewJobDialog extends StatefulWidget {
   final Function(JobAppointment) onJobCreated;
+  final String? vehicleInfo;
+  final String? customerName;
+  final String? phoneNumber;
+  final String? initialMechanic;
 
   const NewJobDialog({
     super.key,
     required this.onJobCreated,
+    this.vehicleInfo,
+    this.customerName,
+    this.phoneNumber,
+    this.initialMechanic,
   });
 
   @override
@@ -33,11 +43,14 @@ class _NewJobDialogState extends State<NewJobDialog> {
   JobStatus _selectedStatus = JobStatus.scheduled;
 
   final List<String> _mechanics = [
-    'Mike Johnson',
-    'Sarah Wilson',
-    'Tom Davis',
-    'Lisa Chen',
-    'Robert Brown',
+    'Lee Chong Wei',
+    'Priya a/p Devi',
+    'Ravi a/l Kumar',
+    'Ahmad bin Razak',
+    'Salmah binti Inrahim',
+    'Wong Ah Beng',
+    'Zainab binti Omar',
+    'Chen Wei Liang',
   ];
 
   final List<String> _serviceTypes = [
@@ -54,6 +67,23 @@ class _NewJobDialogState extends State<NewJobDialog> {
   ];
 
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.vehicleInfo != null) {
+      _vehicleController.text = widget.vehicleInfo!;
+    }
+    if (widget.customerName != null) {
+      _customerController.text = widget.customerName!;
+    }
+    if (widget.phoneNumber != null) {
+      _phoneController.text = widget.phoneNumber!;
+    }
+    if (widget.initialMechanic != null) {
+      _selectedMechanic = widget.initialMechanic!;
+    }
+  }
 
   @override
   void dispose() {
@@ -134,57 +164,94 @@ class _NewJobDialogState extends State<NewJobDialog> {
       _isLoading = true;
     });
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 1));
-
-    final startDateTime = DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-      _startTime.hour,
-      _startTime.minute,
-    );
-
-    final endDateTime = DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-      _endTime.hour,
-      _endTime.minute,
-    );
-
-    final newJob = JobAppointment(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      vehicleInfo: _vehicleController.text,
-      customerName: _customerController.text,
-      mechanicName: _selectedMechanic!,
-      startTime: startDateTime,
-      endTime: endDateTime,
-      serviceType: _serviceTypeController.text,
-      status: _selectedStatus,
-      notes: _notesController.text.isEmpty ? null : _notesController.text,
-      estimatedCost: _estimatedCostController.text.isEmpty
-          ? null
-          : double.tryParse(_estimatedCostController.text),
-    );
-
-    widget.onJobCreated(newJob);
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (mounted) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Job created successfully!',
-            style: GoogleFonts.poppins(),
-          ),
-          backgroundColor: AppColors.successGreen,
-        ),
+    try {
+      final startDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _startTime.hour,
+        _startTime.minute,
       );
+
+      final endDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _endTime.hour,
+        _endTime.minute,
+      );
+
+      // Create job in Firestore
+      final docRef = await FirebaseFirestore.instance.collection('appointments').add({
+        'vehicleInfo': _vehicleController.text,
+        'customerName': _customerController.text,
+        'mechanicName': _selectedMechanic!,
+        'startTime': Timestamp.fromDate(startDateTime),
+        'endTime': Timestamp.fromDate(endDateTime),
+        'serviceType': _serviceTypeController.text,
+        'status': _selectedStatus.name,
+        'notes': _notesController.text.isEmpty ? null : _notesController.text,
+        'estimatedCost': _estimatedCostController.text.isEmpty
+            ? null
+            : double.tryParse(_estimatedCostController.text),
+      });
+
+      // Update with the document ID
+      await docRef.update({'id': docRef.id});
+
+      final newJob = JobAppointment(
+        id: docRef.id,
+        vehicleInfo: _vehicleController.text,
+        customerName: _customerController.text,
+        mechanicName: _selectedMechanic!,
+        startTime: startDateTime,
+        endTime: endDateTime,
+        serviceType: _serviceTypeController.text,
+        status: _selectedStatus,
+        notes: _notesController.text.isEmpty ? null : _notesController.text,
+        estimatedCost: _estimatedCostController.text.isEmpty
+            ? null
+            : double.tryParse(_estimatedCostController.text),
+      );
+
+      widget.onJobCreated(newJob);
+
+      // If the status is completed, show service record dialog
+      if (_selectedStatus == JobStatus.completed && mounted) {
+        await showDialog(
+          context: context,
+          builder: (context) => NewServiceRecordDialog(job: newJob),
+        );
+      }
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Job created successfully!',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error creating job: $e',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 

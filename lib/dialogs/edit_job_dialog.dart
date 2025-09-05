@@ -35,11 +35,27 @@ class _EditJobDialogState extends State<EditJobDialog> {
   bool _isLoading = false;
 
   final List<String> _mechanics = [
-    'Lim Wei Ming',
-    'Ahmad Rashid',
-    'Sarah Wilson',
-    'Mike Johnson',
-    'David Chen',
+    'Lee Chong Wei',
+    'Priya a/p Devi',
+    'Ravi a/l Kumar',
+    'Ahmad bin Razak',
+    'Salmah binti Inrahim',
+    'Wong Ah Beng',
+    'Zainab binti Omar',
+    'Chen Wei Liang',
+  ];
+
+  final List<String> _serviceTypes = [
+    'Oil Change',
+    'Brake Service',
+    'Transmission Service',
+    'Engine Repair',
+    'Tire Replacement',
+    'Battery Replacement',
+    'Air Conditioning',
+    'Electrical Repair',
+    'Suspension Repair',
+    'General Inspection',
   ];
 
   @override
@@ -148,6 +164,51 @@ class _EditJobDialogState extends State<EditJobDialog> {
   Future<void> _updateJob() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Show confirmation dialog
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Update Job',
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to update this job?',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Update',
+              style: GoogleFonts.poppins(
+                color: AppColors.primaryPink,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     setState(() {
       _isLoading = true;
     });
@@ -254,58 +315,60 @@ class _EditJobDialogState extends State<EditJobDialog> {
             
             const SizedBox(height: 16),
 
-            CustomTextField(
-              label: 'Service Type',
-              hint: 'e.g., Oil Change, Brake Service',
-              controller: _serviceTypeController,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter service type';
-                }
-                return null;
-              },
-            ),
-
             const SizedBox(height: 16),
 
-            // Mechanic Dropdown
-            DropdownButtonFormField<String>(
-              value: _selectedMechanic,
-              decoration: InputDecoration(
-                labelText: 'Assigned Mechanic',
-                labelStyle: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.borderLight),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.primaryPink),
-                ),
-              ),
-              items: _mechanics.map((mechanic) {
-                return DropdownMenuItem(
-                  value: mechanic,
-                  child: Text(
-                    mechanic,
-                    style: GoogleFonts.poppins(fontSize: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: CustomDropdown<String>(
+                    label: 'Service Type',
+                    value: _serviceTypeController.text.isEmpty
+                        ? null
+                        : _serviceTypeController.text,
+                    items: _serviceTypes.map((type) {
+                      return DropdownMenuItem(
+                        value: type,
+                        child: Text(type),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _serviceTypeController.text = value ?? '';
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please select service type';
+                      }
+                      return null;
+                    },
                   ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedMechanic = value;
-                });
-              },
-              validator: (value) {
-                if (value == null) {
-                  return 'Please select a mechanic';
-                }
-                return null;
-              },
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: CustomDropdown<String>(
+                    label: 'Assigned Mechanic',
+                    value: _selectedMechanic,
+                    items: _mechanics.map((mechanic) {
+                      return DropdownMenuItem(
+                        value: mechanic,
+                        child: Text(mechanic),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedMechanic = value;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null) {
+                        return 'Please select mechanic';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+              ],
             ),
 
             const SizedBox(height: 16),
