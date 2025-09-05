@@ -11,6 +11,7 @@ import '../dialogs/edit_vehicle_dialog.dart';
 import '../services/vehicle_photo_service.dart';
 import '../services/service_record_service.dart';
 import 'enhanced_vehicle_photo_manager.dart';
+import 'service_record_details_screen.dart';
 
 class VehicleProfileScreen extends StatefulWidget {
   final Vehicle vehicle;
@@ -80,7 +81,10 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
     });
 
     try {
+      print('Loading service records for vehicle: ${_currentVehicle.id}');
       final serviceRecords = await _serviceRecordService.getServiceRecordsByVehicle(_currentVehicle.id);
+      print('Found ${serviceRecords.length} service records');
+      
       if (mounted) {
         setState(() {
           _serviceRecords = serviceRecords;
@@ -434,7 +438,7 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
                     Expanded(
                       child: _buildHeaderStat(
                         'Services',
-                        '${_currentVehicle.serviceHistory.length}',
+                        '${_serviceRecords.length}',
                         Icons.history,
                       ),
                     ),
@@ -987,11 +991,24 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
   }
 
   Widget _buildServiceCard(ServiceRecord service) {
-    return DashboardCard(
-      title: service.serviceType,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return GestureDetector(
+      onTap: () => _showServiceRecordDetails(service),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: DashboardCard(
+          title: service.serviceType,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           Row(
             children: [
               Expanded(
@@ -1011,6 +1028,12 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
                   fontWeight: FontWeight.w600,
                   color: AppColors.textDark,
                 ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: AppColors.textSecondary,
               ),
             ],
           ),
@@ -1056,6 +1079,18 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
             ),
           ],
         ],
+      ),
+    ),
+  ),
+);
+  }
+
+  void _showServiceRecordDetails(ServiceRecord serviceRecord) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ServiceRecordDetailsScreen(
+          serviceRecord: serviceRecord,
+        ),
       ),
     );
   }

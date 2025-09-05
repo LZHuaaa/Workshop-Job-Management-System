@@ -353,9 +353,8 @@ class FirebaseDataPopulator {
       'lastServiceDate': vehicle.lastServiceDate != null
           ? Timestamp.fromDate(vehicle.lastServiceDate!)
           : null,
-      'serviceHistory': vehicle.serviceHistory
-          .map((service) => _serviceRecordToMap(service))
-          .toList(),
+      'serviceHistoryIds': vehicle.serviceHistoryIds,
+      'serviceHistory': [], // Service history is now stored separately in service_records collection
       'photos': vehicle.photos,
       'notes': vehicle.notes,
     };

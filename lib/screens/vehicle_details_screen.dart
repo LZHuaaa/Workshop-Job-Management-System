@@ -13,6 +13,7 @@ import 'vehicle_analytics_screen.dart';
 import '../services/vehicle_service.dart';
 import '../services/vehicle_data_service.dart';
 import '../services/maintenance_notification_service.dart';
+import '../services/service_record_service.dart';
 
 class VehicleDetailsScreen extends StatefulWidget {
   const VehicleDetailsScreen({super.key});
@@ -29,6 +30,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
   final VehicleDataService _dataService = VehicleDataService(); // For export functionality
   final MaintenanceNotificationService _notificationService =
       MaintenanceNotificationService();
+  final ServiceRecordService _serviceRecordService = ServiceRecordService();
 
   List<Vehicle> _allVehicles = [];
   List<Vehicle> _filteredVehicles = [];
@@ -36,8 +38,25 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
   bool _isLoading = true;
   String? _errorMessage;
   bool _isUpdating = false;
-
-
+  Map<String, List<ServiceRecord>> _vehicleServiceRecords = {};
+  Map<String, int> _vehicleServiceCounts = {};
+  Map<String, DateTime?> _vehicleLastServiceDates = {};
+  bool _serviceDataLoaded = false; // Track if service data has been loaded
+  
+  // Quick sort state
+  String _selectedSort = 'Name';
+  bool _sortAscending = true;
+  SortOption _currentSortOption = SortOption.alphabetical;
+  SortOrder _currentSortOrder = SortOrder.ascending;
+  
+  final List<String> _sortOptions = [
+    'Name',
+    'Year',
+    'Mileage',
+    'Service Date',
+    'Service Count',
+    'Customer Name',
+  ];
 
   List<Vehicle> get _currentFilteredVehicles {
     if (_searchController.text.isEmpty) return _filteredVehicles;
@@ -50,6 +69,15 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
             (vehicle.customerName?.toLowerCase().contains(searchTerm) ?? false) ||
             vehicle.vin.toLowerCase().contains(searchTerm))
         .toList();
+  }
+
+  // Check if vehicle needs service based on last service date from service records
+  bool _needsService(Vehicle vehicle) {
+    final lastServiceDate = _vehicleLastServiceDates[vehicle.id];
+    if (lastServiceDate == null) return true;
+    
+    final daysSinceService = DateTime.now().difference(lastServiceDate).inDays;
+    return daysSinceService > 90; // Needs service every 3 months
   }
 
 
@@ -74,32 +102,93 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
     }
   }
 
-  // Load vehicles from Firebase
+  // Load vehicles from Firebase - OPTIMIZED
   Future<void> _loadVehicles() async {
+    if (_isUpdating) return;
+    
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
     try {
-      if (!mounted) return;
-
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-
+      print('🔄 Loading vehicles...');
+      
+      // Load vehicles first
       final vehicles = await _vehicleService.getAllVehicles();
+      print('📊 Loaded ${vehicles.length} vehicles');
 
       if (!mounted) return;
 
       setState(() {
         _allVehicles = vehicles;
-        _filteredVehicles = vehicles;
+        _filteredVehicles = List.from(vehicles);
         _isLoading = false;
       });
+
+      // Apply current sorting
+      _applySorting();
+
+      // Load service data in background - don't block UI
+      if (!_serviceDataLoaded) {
+        _loadServiceDataInBackground();
+      }
+      
     } catch (e) {
+      print('❌ Error loading vehicles: $e');
       if (mounted) {
         setState(() {
+          _errorMessage = 'Failed to load vehicles: $e';
           _isLoading = false;
-          _errorMessage = 'Failed to load vehicles: ${e.toString()}';
         });
       }
+    }
+  }
+
+  // Load service records for all vehicles - OPTIMIZED BACKGROUND LOADING
+  Future<void> _loadServiceDataInBackground() async {
+    try {
+      print('🔄 Loading service data in background...');
+      
+      // Get all service records at once
+      final allServiceRecords = await _serviceRecordService.getAllServiceRecords();
+      print('📊 Loaded ${allServiceRecords.length} service records');
+
+      // Group by vehicle ID
+      final serviceRecordsByVehicle = <String, List<ServiceRecord>>{};
+      final serviceCountsByVehicle = <String, int>{};
+      final lastServiceDatesByVehicle = <String, DateTime?>{};
+
+      for (final record in allServiceRecords) {
+        final vehicleId = record.vehicleId;
+        
+        // Group records
+        serviceRecordsByVehicle.putIfAbsent(vehicleId, () => []).add(record);
+        
+        // Count records
+        serviceCountsByVehicle[vehicleId] = (serviceCountsByVehicle[vehicleId] ?? 0) + 1;
+        
+        // Track most recent service date
+        final currentLastDate = lastServiceDatesByVehicle[vehicleId];
+        if (currentLastDate == null || record.serviceDate.isAfter(currentLastDate)) {
+          lastServiceDatesByVehicle[vehicleId] = record.serviceDate;
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _vehicleServiceRecords = serviceRecordsByVehicle;
+        _vehicleServiceCounts = serviceCountsByVehicle;
+        _vehicleLastServiceDates = lastServiceDatesByVehicle;
+        _serviceDataLoaded = true; // Mark as loaded
+      });
+
+      print('✅ Service data loaded successfully');
+      
+    } catch (e) {
+      print('❌ Error loading service data: $e');
+      // Don't show error for background loading
     }
   }
 
@@ -490,7 +579,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Filter & Sort',
+                                  'Filtering',
                                   style: GoogleFonts.poppins(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -548,6 +637,9 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                 ],
               ),
             ),
+
+            // Quick Sort Buttons
+            if (_allVehicles.isNotEmpty) _buildQuickSortButtons(),
 
             // Tab Bar
             Container(
@@ -644,7 +736,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
 
   Widget _buildServiceDueTab() {
     final serviceDueVehicles =
-        _filteredVehicles.where((v) => v.needsService).toList();
+        _filteredVehicles.where((v) => _needsService(v)).toList();
 
     if (serviceDueVehicles.isEmpty) {
       return Center(
@@ -752,7 +844,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                       ],
                     ),
                   ),
-                  if (showServiceAlert || vehicle.needsService)
+                  if (showServiceAlert || _needsService(vehicle))
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
@@ -804,15 +896,15 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                     child: _buildInfoItem(
                       Icons.calendar_today,
                       'Last Service',
-                      vehicle.lastServiceDate != null
+                      _vehicleLastServiceDates[vehicle.id] != null
                           ? DateFormat('MMM d, y')
-                              .format(vehicle.lastServiceDate!)
+                              .format(_vehicleLastServiceDates[vehicle.id]!)
                           : 'Never',
                     ),
                   ),
                 ],
               ),
-              if (vehicle.serviceHistory.isNotEmpty) ...[
+              if (_vehicleServiceCounts[vehicle.id] != null && _vehicleServiceCounts[vehicle.id]! > 0) ...[
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -829,7 +921,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '${vehicle.serviceHistory.length} service record${vehicle.serviceHistory.length != 1 ? 's' : ''}',
+                        '${_vehicleServiceCounts[vehicle.id]} service record${_vehicleServiceCounts[vehicle.id] != 1 ? 's' : ''}',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           color: AppColors.primaryPink,
@@ -1152,6 +1244,8 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
       MaterialPageRoute(
         builder: (context) => VehicleSearchFilter(
           vehicles: _allVehicles,
+          vehicleServiceCounts: _vehicleServiceCounts,
+          vehicleLastServiceDates: _vehicleLastServiceDates,
           onFilterApplied: (filteredVehicles) {
             setState(() {
               _filteredVehicles = filteredVehicles;
@@ -1183,6 +1277,45 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
         ),
       );
     }
+  }
+
+  void _applySorting() {
+    if (_filteredVehicles.isEmpty) return;
+
+    setState(() {
+      _filteredVehicles.sort((a, b) {
+        int comparison = 0;
+
+        switch (_selectedSort) {
+          case 'Name':
+            comparison = a.displayName.compareTo(b.displayName);
+            break;
+          case 'Year':
+            comparison = a.year.compareTo(b.year);
+            break;
+          case 'Mileage':
+            comparison = a.mileage.compareTo(b.mileage);
+            break;
+          case 'Service Date':
+            final aDate = _vehicleLastServiceDates[a.id] ?? DateTime(1900);
+            final bDate = _vehicleLastServiceDates[b.id] ?? DateTime(1900);
+            comparison = aDate.compareTo(bDate);
+            break;
+          case 'Service Count':
+            final aCount = _vehicleServiceCounts[a.id] ?? 0;
+            final bCount = _vehicleServiceCounts[b.id] ?? 0;
+            comparison = aCount.compareTo(bCount);
+            break;
+          case 'Customer':
+            final aCustomer = a.customerName ?? '';
+            final bCustomer = b.customerName ?? '';
+            comparison = aCustomer.compareTo(bCustomer);
+            break;
+        }
+
+        return _sortAscending ? comparison : -comparison;
+      });
+    });
   }
 
   void _handleMenuAction(String action) async {
@@ -1279,5 +1412,148 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
 
   void _deleteVehicleFromCard(Vehicle vehicle) {
     _deleteVehicle(vehicle);
+  }
+
+    // Quick Sort UI
+  Widget _buildQuickSortButtons() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      color: Colors.white,
+      child: Row(
+        children: [
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: _selectedSort,
+              decoration: InputDecoration(
+                labelText: 'Sort by',
+                labelStyle: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: AppColors.textSecondary.withOpacity(0.3),
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+              ),
+              items: _sortOptions.map((sort) {
+                return DropdownMenuItem(
+                  value: sort,
+                  child: Text(
+                    sort,
+                    style: GoogleFonts.poppins(fontSize: 14),
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedSort = value!;
+                  _applySorting();
+                });
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Sort direction button
+          IconButton(
+            icon: Icon(
+              _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+              color: AppColors.primaryPink,
+            ),
+            onPressed: () {
+              setState(() {
+                _sortAscending = !_sortAscending;
+                _applySorting();
+              });
+            },
+            tooltip: _sortAscending ? 'Sort Ascending' : 'Sort Descending',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickSortButton(
+    String label,
+    SortOption sortOption,
+    SortOrder sortOrder,
+    IconData icon,
+  ) {
+    final isActive = _currentSortOption == sortOption && _currentSortOrder == sortOrder;
+    
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: () => _applyQuickSort(sortOption, sortOrder),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.primaryPink : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isActive ? AppColors.primaryPink : AppColors.backgroundLight,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isActive ? Colors.white : AppColors.textSecondary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: isActive ? Colors.white : AppColors.textDark,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _applyQuickSort(SortOption sortOption, SortOrder sortOrder) {
+    setState(() {
+      _currentSortOption = sortOption;
+      _currentSortOrder = sortOrder;
+      
+      // Update the selected sort for compatibility with existing sorting
+      switch (sortOption) {
+        case SortOption.alphabetical:
+          _selectedSort = 'Name';
+          break;
+        case SortOption.year:
+          _selectedSort = 'Year';
+          break;
+        case SortOption.mileage:
+          _selectedSort = 'Mileage';
+          break;
+        case SortOption.serviceDate:
+          _selectedSort = 'Service Date';
+          break;
+        case SortOption.serviceCount:
+          _selectedSort = 'Service Count';
+          break;
+        case SortOption.customerName:
+          _selectedSort = 'Customer';
+          break;
+      }
+      
+      _sortAscending = sortOrder == SortOrder.ascending;
+      
+      // Apply sorting using existing method
+      _applySorting();
+    });
   }
 }

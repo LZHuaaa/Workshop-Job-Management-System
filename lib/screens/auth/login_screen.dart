@@ -145,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Image.asset(
-                    'assets/logo.png',
+                    'assets/logo1.png',
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -167,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Sign in to continue to PinkDrive',
+                      'Sign in to continue',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
                         fontSize: 16,

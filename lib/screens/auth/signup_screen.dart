@@ -253,7 +253,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Sign up to join PinkDrive',
+                      'Sign up to join GreenStem',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
                         fontSize: 16,

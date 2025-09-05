@@ -15,7 +15,6 @@ class Vehicle {
   final DateTime createdAt;
   final DateTime? lastServiceDate;
   final List<String> serviceHistoryIds;
-  final List<ServiceRecord> serviceHistory;
   final List<String> photos;
   final String? notes;
 
@@ -37,7 +36,6 @@ class Vehicle {
     required this.createdAt,
     this.lastServiceDate,
     this.serviceHistoryIds = const [],
-    this.serviceHistory = const [],
     this.photos = const [],
     this.notes,
     this.customerName,
@@ -73,8 +71,7 @@ class Vehicle {
       'customerId': customerId, // Only store customer reference
       'createdAt': createdAt.toIso8601String(),
       'lastServiceDate': lastServiceDate?.toIso8601String(),
-      'serviceHistoryIds': serviceHistoryIds, // Add this line
-      'serviceHistory': serviceHistory.map((service) => service.toMap()).toList(),
+      'serviceHistoryIds': serviceHistoryIds,
       'photos': photos,
       'notes': notes,
     };
@@ -95,11 +92,7 @@ class Vehicle {
       lastServiceDate: map['lastServiceDate'] != null
           ? _parseDateTime(map['lastServiceDate'])
           : null,
-      serviceHistoryIds: List<String>.from(map['serviceHistoryIds'] ?? []), // Add this line
-      serviceHistory: (map['serviceHistory'] as List?)
-              ?.map((service) => ServiceRecord.fromMap(service))
-              .toList() ??
-          [],
+      serviceHistoryIds: List<String>.from(map['serviceHistoryIds'] ?? []),
       photos: List<String>.from(map['photos'] ?? []),
       notes: map['notes'],
     );
@@ -140,7 +133,6 @@ class Vehicle {
     DateTime? createdAt,
     DateTime? lastServiceDate,
     List<String>? serviceHistoryIds,
-    List<ServiceRecord>? serviceHistory,
     List<String>? photos,
     String? notes,
     String? customerName,
@@ -160,7 +152,6 @@ class Vehicle {
       createdAt: createdAt ?? this.createdAt,
       lastServiceDate: lastServiceDate ?? this.lastServiceDate,
       serviceHistoryIds: serviceHistoryIds ?? this.serviceHistoryIds,
-      serviceHistory: serviceHistory ?? this.serviceHistory,
       photos: photos ?? this.photos,
       notes: notes ?? this.notes,
       customerName: customerName ?? this.customerName,
@@ -189,7 +180,6 @@ class VehicleWithCustomer extends Vehicle {
     required DateTime createdAt,
     DateTime? lastServiceDate,
     List<String> serviceHistoryIds = const [],
-    List<ServiceRecord> serviceHistory = const [],
     List<String> photos = const [],
     String? notes,
     required this.customerName,
@@ -206,10 +196,9 @@ class VehicleWithCustomer extends Vehicle {
           mileage: mileage,
           customerId: customerId,
           createdAt: createdAt,
-          lastServiceDate: lastServiceDate,
-          serviceHistoryIds: serviceHistoryIds,
-          serviceHistory: serviceHistory,
-          photos: photos,
+                lastServiceDate: lastServiceDate,
+      serviceHistoryIds: serviceHistoryIds,
+      photos: photos,
           notes: notes,
         );
 
@@ -231,7 +220,6 @@ class VehicleWithCustomer extends Vehicle {
       createdAt: vehicle.createdAt,
       lastServiceDate: vehicle.lastServiceDate,
       serviceHistoryIds: vehicle.serviceHistoryIds,
-      serviceHistory: vehicle.serviceHistory,
       photos: vehicle.photos,
       notes: vehicle.notes,
       customerName: customer.fullName,

@@ -540,7 +540,7 @@ class SampleDataGenerator {
           lastServiceDate: _random.nextBool()
               ? DateTime.now().subtract(Duration(days: _random.nextInt(180)))
               : null,
-          serviceHistory: [], // Will be populated separately
+          serviceHistoryIds: [], // Will be populated separately
           photos: [], // Empty for now
           notes: _random.nextBool()
               ? 'Customer notes: ${_random.nextBool() ? "Prefers original parts" : "Budget-conscious"}'

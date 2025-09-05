@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/service_record.dart';
 import 'customer_service.dart';
-import 'vehicle_service.dart';
 
 class ServiceRecordService {
   static final ServiceRecordService _instance =
@@ -12,7 +11,6 @@ class ServiceRecordService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String _collection = 'service_records';
   final CustomerService _customerService = CustomerService();
-  final VehicleService _vehicleService = VehicleService();
 
   // Get service records collection reference
   CollectionReference get _serviceRecordsRef =>
@@ -30,9 +28,10 @@ class ServiceRecordService {
       await _customerService.updateCustomerStats(
           serviceRecord.customerId, serviceRecord.cost);
 
-      // Update vehicle's last service date
-      await _vehicleService.updateVehicleServiceDate(
-          serviceRecord.vehicleId, serviceRecord.serviceDate);
+      // Update vehicle's last service date directly
+      await _firestore.collection('vehicles').doc(serviceRecord.vehicleId).update({
+        'lastServiceDate': serviceRecord.serviceDate,
+      });
 
       return docRef.id;
     } catch (e) {
@@ -432,6 +431,53 @@ class ServiceRecordService {
     } catch (e) {
       throw ServiceRecordServiceException(
           'Failed to get recent service records: ${e.toString()}');
+    }
+  }
+
+  // Get the most recent service record for a vehicle
+  Future<ServiceRecord?> getMostRecentServiceRecord(String vehicleId) async {
+    try {
+      final querySnapshot = await _serviceRecordsRef
+          .where('vehicleId', isEqualTo: vehicleId)
+          .orderBy('serviceDate', descending: true)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        return null;
+      }
+
+      final doc = querySnapshot.docs.first;
+      final data = doc.data() as Map<String, dynamic>;
+      data['id'] = doc.id; // Ensure ID is set
+      return ServiceRecord.fromMap(data);
+    } catch (e) {
+      throw ServiceRecordServiceException(
+          'Failed to get most recent service record: ${e.toString()}');
+    }
+  }
+
+  // Get the last service date for a vehicle
+  Future<DateTime?> getLastServiceDate(String vehicleId) async {
+    try {
+      final mostRecentRecord = await getMostRecentServiceRecord(vehicleId);
+      return mostRecentRecord?.serviceDate;
+    } catch (e) {
+      throw ServiceRecordServiceException(
+          'Failed to get last service date: ${e.toString()}');
+    }
+  }
+
+  // Get service record count for a vehicle
+  Future<int> getServiceRecordCount(String vehicleId) async {
+    try {
+      final querySnapshot = await _serviceRecordsRef
+          .where('vehicleId', isEqualTo: vehicleId)
+          .get();
+      return querySnapshot.docs.length;
+    } catch (e) {
+      throw ServiceRecordServiceException(
+          'Failed to get service record count: ${e.toString()}');
     }
   }
 }

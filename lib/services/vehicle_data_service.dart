@@ -57,7 +57,7 @@ class VehicleDataService {
         vehicle.lastServiceDate != null
             ? DateFormat('yyyy-MM-dd HH:mm:ss').format(vehicle.lastServiceDate!)
             : '',
-        vehicle.serviceHistory.length,
+        vehicle.serviceHistoryIds.length,
         vehicle.photos.length,
         vehicle.notes ?? '',
         vehicle.needsService ? 'Yes' : 'No',
@@ -98,24 +98,8 @@ class VehicleDataService {
         'customerEmail': vehicle.customerEmail,
         'createdAt': vehicle.createdAt.toIso8601String(),
         'lastServiceDate': vehicle.lastServiceDate?.toIso8601String(),
-        'serviceHistory': vehicle.serviceHistory
-            .map((service) => {
-                  'id': service.id,
-                  'customerId': service.customerId,
-                  'vehicleId': service.vehicleId,
-                  'serviceDate': service.serviceDate.toIso8601String(),
-                  'mileage': service.mileage,
-                  'serviceType': service.serviceType,
-                  'description': service.description,
-                  'servicesPerformed': service.servicesPerformed,
-                  'partsReplaced': service.partsReplaced,
-                  'cost': service.cost,
-                  'mechanicName': service.mechanicName,
-                  'status': service.status.name,
-                  'nextServiceDue': service.nextServiceDue?.toIso8601String(),
-                  'notes': service.notes,
-                })
-            .toList(),
+        'serviceHistoryIds': vehicle.serviceHistoryIds,
+        'serviceHistory': [], // Service history is now stored separately in service_records collection
         'photos': vehicle.photos,
         'notes': vehicle.notes,
       });
@@ -191,7 +175,7 @@ class VehicleDataService {
           customerEmail: row[11].toString(),
           createdAt: _parseDateTime(row[12].toString()) ?? DateTime.now(),
           lastServiceDate: _parseDateTime(row[13].toString()),
-          serviceHistory: [], // Service history would need separate import
+          serviceHistoryIds: [], // Service history would need separate import
           photos: [], // Photos would need separate handling
           notes: row[16].toString().isEmpty ? null : row[16].toString(),
         );
@@ -228,42 +212,11 @@ class VehicleDataService {
       try {
         final data = vehicleData as Map<String, dynamic>;
 
-        // Parse service history
-        final List<ServiceRecord> serviceHistory = [];
-        if (data.containsKey('serviceHistory') &&
-            data['serviceHistory'] is List) {
-          for (final serviceData in data['serviceHistory'] as List<dynamic>) {
-            final service = serviceData as Map<String, dynamic>;
-            serviceHistory.add(ServiceRecord(
-              id: service['id'].toString(),
-              customerId: service['customerId']?.toString() ?? '',
-              vehicleId: service['vehicleId']?.toString() ?? '',
-              serviceDate: DateTime.parse(service['serviceDate']?.toString() ??
-                  service['date']?.toString() ??
-                  DateTime.now().toIso8601String()),
-              mileage: service['mileage'] as int? ?? 0,
-              serviceType: service['serviceType'].toString(),
-              description: service['description'].toString(),
-              servicesPerformed: List<String>.from(
-                  service['servicesPerformed'] as List? ?? []),
-              partsReplaced: List<String>.from(
-                  service['partsReplaced'] as List? ??
-                      service['partsUsed'] as List? ??
-                      []),
-              cost: (service['cost'] as num?)?.toDouble() ??
-                  (service['totalCost'] as num?)?.toDouble() ??
-                  0.0,
-              mechanicName: service['mechanicName'].toString(),
-              status: ServiceStatus.values.firstWhere(
-                (e) => e.name == service['status'],
-                orElse: () => ServiceStatus.completed,
-              ),
-              nextServiceDue: service['nextServiceDue'] != null
-                  ? DateTime.parse(service['nextServiceDue'].toString())
-                  : null,
-              notes: service['notes']?.toString() ?? '',
-            ));
-          }
+        // Parse service history IDs (service records are now stored separately)
+        final List<String> serviceHistoryIds = [];
+        if (data.containsKey('serviceHistoryIds') &&
+            data['serviceHistoryIds'] is List) {
+          serviceHistoryIds.addAll(List<String>.from(data['serviceHistoryIds']));
         }
 
         final vehicle = Vehicle(
@@ -283,7 +236,7 @@ class VehicleDataService {
           lastServiceDate: data['lastServiceDate'] != null
               ? DateTime.parse(data['lastServiceDate'].toString())
               : null,
-          serviceHistory: serviceHistory,
+          serviceHistoryIds: serviceHistoryIds,
           photos: List<String>.from(data['photos'] as List? ?? []),
           notes: data['notes']?.toString(),
         );

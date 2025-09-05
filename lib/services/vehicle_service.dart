@@ -556,10 +556,111 @@ class VehicleService {
     }
   }
 
-  // Private method to enrich vehicles with customer information
+  // Get service records for a vehicle
+  Future<List<sr.ServiceRecord>> getServiceRecordsForVehicle(String vehicleId) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('service_records')
+          .where('vehicleId', isEqualTo: vehicleId)
+          .orderBy('serviceDate', descending: true)
+          .get();
+
+      return querySnapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return sr.ServiceRecord.fromMap(data);
+      }).toList();
+    } catch (e) {
+      throw VehicleServiceException(
+          'Failed to get service records for vehicle: ${e.toString()}');
+    }
+  }
+
+  // Get the most recent service record for a vehicle
+  Future<sr.ServiceRecord?> getMostRecentServiceRecord(String vehicleId) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('service_records')
+          .where('vehicleId', isEqualTo: vehicleId)
+          .orderBy('serviceDate', descending: true)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final doc = querySnapshot.docs.first;
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return sr.ServiceRecord.fromMap(data);
+      }
+      
+      return null;
+    } catch (e) {
+      throw VehicleServiceException(
+          'Failed to get most recent service record: ${e.toString()}');
+    }
+  }
+
+  // Get the last service date for a vehicle
+  Future<DateTime?> getLastServiceDate(String vehicleId) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('service_records')
+          .where('vehicleId', isEqualTo: vehicleId)
+          .orderBy('serviceDate', descending: true)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final data = querySnapshot.docs.first.data() as Map<String, dynamic>;
+        final serviceRecord = sr.ServiceRecord.fromMap({...data, 'id': querySnapshot.docs.first.id});
+        return serviceRecord.serviceDate;
+      }
+      
+      return null;
+    } catch (e) {
+      throw VehicleServiceException(
+          'Failed to get last service date: ${e.toString()}');
+    }
+  }
+
+  // Get service record count for a vehicle
+  Future<int> getServiceRecordCount(String vehicleId) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('service_records')
+          .where('vehicleId', isEqualTo: vehicleId)
+          .get();
+
+      return querySnapshot.docs.length;
+    } catch (e) {
+      throw VehicleServiceException(
+          'Failed to get service record count: ${e.toString()}');
+    }
+  }
+
+  // Update vehicle with calculated last service date
+  Future<Vehicle> updateVehicleWithServiceInfo(Vehicle vehicle) async {
+    try {
+      final lastServiceDate = await getLastServiceDate(vehicle.id);
+      final serviceRecordCount = await getServiceRecordCount(vehicle.id);
+      
+      return vehicle.copyWith(
+        lastServiceDate: lastServiceDate,
+        serviceHistoryIds: List.generate(serviceRecordCount, (index) => 'service_$index'), // Placeholder IDs
+      );
+    } catch (e) {
+      // If we can't get service info, return the original vehicle
+      print('Warning: Failed to update vehicle with service info: $e');
+      return vehicle;
+    }
+  }
+
+  // Private method to enrich vehicles with customer information - OPTIMIZED
   Future<List<Vehicle>> _enrichVehiclesWithCustomerInfo(List<Vehicle> vehicles) async {
     try {
       if (vehicles.isEmpty) return vehicles;
+
+      print('🔄 Enriching ${vehicles.length} vehicles with customer info...');
 
       // Collect unique customer IDs
       final customerIds = vehicles
@@ -568,43 +669,57 @@ class VehicleService {
           .toSet()
           .toList();
 
-      // Batch fetch all customers in one query
-      final customersMap = <String, Customer>{};
-      if (customerIds.isNotEmpty) {
-        final customersQuery = await _firestore
-            .collection('customers')
-            .where(FieldPath.documentId, whereIn: customerIds)
-            .get();
+      print('📊 Found ${customerIds.length} unique customers to fetch');
 
-        for (final doc in customersQuery.docs) {
-          final data = doc.data() as Map<String, dynamic>;
-          data['id'] = doc.id;
-          final customer = Customer.fromMap(data);
-          customersMap[customer.id] = customer;
+      // Batch fetch customers more efficiently
+      final customersMap = <String, Customer>{};
+      
+      if (customerIds.isNotEmpty) {
+        // Split into batches of 10 (Firestore 'whereIn' limit)
+        const batchSize = 10;
+        for (int i = 0; i < customerIds.length; i += batchSize) {
+          final batch = customerIds.skip(i).take(batchSize).toList();
+          
+          try {
+            final customersQuery = await _firestore
+                .collection('customers')
+                .where(FieldPath.documentId, whereIn: batch)
+                .get();
+
+            for (final doc in customersQuery.docs) {
+              final data = doc.data() as Map<String, dynamic>;
+              data['id'] = doc.id;
+              final customer = Customer.fromMap(data);
+              customersMap[customer.id] = customer;
+            }
+          } catch (e) {
+            print('⚠️ Failed to fetch customer batch: $e');
+            // Continue with other batches
+          }
         }
       }
 
+      print('✅ Fetched ${customersMap.length} customers');
+
       // Enrich vehicles with customer information
-      final enrichedVehicles = <Vehicle>[];
-      for (final vehicle in vehicles) {
+      final enrichedVehicles = vehicles.map((vehicle) {
         if (vehicle.customerId.isNotEmpty && customersMap.containsKey(vehicle.customerId)) {
           final customer = customersMap[vehicle.customerId]!;
-          final enrichedVehicle = vehicle.copyWith(
+          return vehicle.copyWith(
             customerName: customer.fullName,
             customerPhone: customer.phone,
             customerEmail: customer.email,
           );
-          enrichedVehicles.add(enrichedVehicle);
-        } else {
-          // No customer ID or customer not found, keep original vehicle
-          enrichedVehicles.add(vehicle);
         }
-      }
+        return vehicle;
+      }).toList();
 
+      print('✅ Enriched vehicles with customer info');
       return enrichedVehicles;
+      
     } catch (e) {
       // If enrichment fails, return original vehicles to avoid breaking the app
-      print('Warning: Failed to enrich vehicles with customer info: $e');
+      print('❌ Failed to enrich vehicles with customer info: $e');
       return vehicles;
     }
   }

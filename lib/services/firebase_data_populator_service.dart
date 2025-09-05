@@ -15,9 +15,10 @@ class FirebaseDataPopulatorService {
   factory FirebaseDataPopulatorService() => _instance;
   FirebaseDataPopulatorService._internal();
 
-  final CustomerService _customerService = CustomerService();
-  final VehicleService _vehicleService = VehicleService();
-  final ServiceRecordService _serviceRecordService = ServiceRecordService();
+  // Use lazy initialization to avoid circular dependencies
+  CustomerService get _customerService => CustomerService();
+  VehicleService get _vehicleService => VehicleService();
+  ServiceRecordService get _serviceRecordService => ServiceRecordService();
   final Random _random = Random();
 
   // Malaysian sample data

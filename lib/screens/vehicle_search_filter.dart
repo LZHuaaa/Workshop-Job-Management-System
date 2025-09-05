@@ -3,14 +3,32 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../models/vehicle.dart';
 
+enum SortOption {
+  alphabetical,
+  year,
+  mileage,
+  serviceDate,
+  serviceCount,
+  customerName,
+}
+
+enum SortOrder {
+  ascending,
+  descending,
+}
+
 class VehicleSearchFilter extends StatefulWidget {
   final List<Vehicle> vehicles;
   final Function(List<Vehicle>) onFilterApplied;
+  final Map<String, int> vehicleServiceCounts;
+  final Map<String, DateTime?> vehicleLastServiceDates;
 
   const VehicleSearchFilter({
     super.key,
     required this.vehicles,
     required this.onFilterApplied,
+    this.vehicleServiceCounts = const {},
+    this.vehicleLastServiceDates = const {},
   });
 
   @override
@@ -370,8 +388,9 @@ class _VehicleSearchFilterState extends State<VehicleSearchFilter> {
     String label,
     String? value,
     List<String> items,
-    Function(String?) onChanged,
-  ) {
+    Function(String?) onChanged, {
+    Map<String, String>? displayNames,
+  }) {
     return DropdownButtonFormField<String>(
       value: value,
       decoration: InputDecoration(
@@ -390,7 +409,10 @@ class _VehicleSearchFilterState extends State<VehicleSearchFilter> {
         ),
         ...items.map((item) => DropdownMenuItem<String>(
               value: item,
-              child: Text(item, style: GoogleFonts.poppins()),
+              child: Text(
+                displayNames?[item] ?? item, 
+                style: GoogleFonts.poppins()
+              ),
             )),
       ],
       onChanged: onChanged,
