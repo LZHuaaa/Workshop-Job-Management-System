@@ -10,6 +10,7 @@ import '../dialogs/add_appointment_dialog.dart';
 import '../dialogs/edit_vehicle_dialog.dart';
 import '../services/vehicle_photo_service.dart';
 import '../services/service_record_service.dart';
+import '../services/vehicle_service.dart';
 import 'enhanced_vehicle_photo_manager.dart';
 import 'service_record_details_screen.dart';
 
@@ -36,6 +37,7 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
   List<ServiceRecord> _serviceRecords = [];
   bool _isLoadingServiceRecords = false;
   final ServiceRecordService _serviceRecordService = ServiceRecordService();
+  final VehicleService _vehicleService = VehicleService();
 
   @override
   void initState() {
@@ -264,20 +266,76 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
     );
   }
 
-  void _deleteVehicle() {
-    // TODO: Implement actual delete functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Vehicle "${_currentVehicle.displayName}" deleted successfully',
-          style: GoogleFonts.poppins(),
+  void _deleteVehicle() async {
+    try {
+      // Show loading state
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'Deleting vehicle...',
+                style: GoogleFonts.poppins(),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.primaryPink,
+          duration: const Duration(seconds: 30), // Long duration since we'll dismiss it manually
         ),
-        backgroundColor: AppColors.successGreen,
-      ),
-    );
+      );
 
-    // Navigate back to previous screen
-    Navigator.pop(context);
+      // Attempt to delete the vehicle
+      await _vehicleService.deleteVehicle(_currentVehicle.id);
+
+      // Dismiss the loading snackbar
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Vehicle "${_currentVehicle.displayName}" deleted successfully',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: AppColors.successGreen,
+        ),
+      );
+
+      // Navigate back and refresh the parent
+      Navigator.pop(context, true); // Return true to indicate deletion
+    } catch (e) {
+      // Dismiss the loading snackbar
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      String errorMessage = 'Failed to delete vehicle';
+      if (e.toString().contains('service records')) {
+        errorMessage = 'Cannot delete vehicle with existing service records. Please remove all service records first.';
+      } else if (e.toString().contains('not found')) {
+        errorMessage = 'Vehicle no longer exists';
+      } else {
+        errorMessage = 'Failed to delete vehicle: ${e.toString()}';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            errorMessage,
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: AppColors.errorRed,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
   }
 
   @override

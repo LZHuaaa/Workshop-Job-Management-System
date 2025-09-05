@@ -505,26 +505,7 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
           Row(
             children: [
               Expanded(
-                child: CustomDropdown<String>(
-                  label: 'Make',
-                  value: _makeController.text.isEmpty
-                      ? null
-                      : _makeController.text,
-                  items: _makes.map((make) {
-                    return DropdownMenuItem(
-                      value: make,
-                      child: Text(make),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _makeController.text = value ?? '';
-                      // Clear model when make changes
-                      _modelController.clear();
-                    });
-                  },
-                  validator: (value) => ValidationUtils.validateRequired(value, 'make'),
-                ),
+                child: _buildMakeField(),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -786,6 +767,8 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
     final suggestedModels = _makeController.text.isNotEmpty
         ? VinDecoderService.getSuggestedModels(_makeController.text)
         : <String>[];
+    
+    bool _modelSelected = _modelController.text.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -802,9 +785,11 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
                     color: AppColors.primaryPink,
                   ),
                   onSelected: (value) {
-                    setState(() {
-                      _modelController.text = value;
-                    });
+                    if (mounted) {
+                      setState(() {
+                        _modelController.text = value;
+                      });
+                    }
                   },
                   itemBuilder: (context) => suggestedModels
                       .map((model) => PopupMenuItem(
@@ -815,38 +800,44 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
                 )
               : null,
         ),
-        if (suggestedModels.isNotEmpty) ...[
+        if (suggestedModels.isNotEmpty && !_modelSelected) ...[
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: suggestedModels.take(6).map((model) {
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _modelController.text = model;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryPink.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.primaryPink.withOpacity(0.3),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: suggestedModels.take(4).map((model) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () {
+                      if (mounted) {
+                        setState(() {
+                          _modelController.text = model;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryPink.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.primaryPink.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Text(
+                        model,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppColors.primaryPink,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    model,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppColors.primaryPink,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
+                );
+              }).toList(),
+            ),
           ),
         ],
       ],
@@ -975,5 +966,130 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
     };
 
     return makeModels[make] ?? [];
+  }
+
+  Widget _buildMakeField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CustomTextField(
+          label: 'Make',
+          hint: 'e.g., Honda, Toyota, or enter custom',
+          controller: _makeController,
+          validator: (value) => ValidationUtils.validateRequired(value, 'make'),
+          onChanged: (value) {
+            if (mounted) {
+              setState(() {
+                // Clear model when make changes
+                if (_modelController.text.isNotEmpty) {
+                  _modelController.clear();
+                }
+              });
+            }
+          },
+          suffixIcon: PopupMenuButton<String>(
+            icon: Icon(
+              Icons.arrow_drop_down,
+              color: AppColors.primaryPink,
+            ),
+            tooltip: 'Select from common makes',
+            onSelected: (value) {
+              if (mounted) {
+                setState(() {
+                  _makeController.text = value;
+                  // Clear model when make changes
+                  _modelController.clear();
+                });
+              }
+            },
+            itemBuilder: (context) => _makes
+                .map((make) => PopupMenuItem(
+                      value: make,
+                      child: Text(make),
+                    ))
+                .toList(),
+          ),
+        ),
+        // Show custom make indicator when user enters a non-standard make
+        if (_makeController.text.isNotEmpty && !_makes.contains(_makeController.text)) ...[
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primaryPink.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: AppColors.primaryPink,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Custom make: "${_makeController.text}"',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.primaryPink,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        // Show popular makes as horizontal chips only when field is empty  
+        if (_makeController.text.isEmpty) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _makes.take(4).map((make) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: GestureDetector(
+                          onTap: () {
+                            if (mounted) {
+                              setState(() {
+                                _makeController.text = make;
+                                _modelController.clear();
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryPink.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppColors.primaryPink.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Text(
+                              make,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: AppColors.primaryPink,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
   }
 }

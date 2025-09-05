@@ -4,6 +4,8 @@ import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import '../models/vehicle.dart';
 import '../models/service_record.dart';
 
@@ -252,36 +254,18 @@ class VehicleDataService {
     return vehicles;
   }
 
-  // Generate vehicle report
+  // Generate vehicle report as PDF
   Future<String> generateVehicleReport(List<Vehicle> vehicles) async {
-    final buffer = StringBuffer();
+    final pdf = pw.Document();
     final now = DateTime.now();
     final formatter = DateFormat('MMMM dd, yyyy');
 
-    // Report header
-    buffer.writeln('VEHICLE FLEET REPORT');
-    buffer.writeln('Generated on: ${formatter.format(now)}');
-    buffer.writeln('=' * 50);
-    buffer.writeln();
-
-    // Summary statistics
-    buffer.writeln('FLEET SUMMARY');
-    buffer.writeln('-' * 20);
-    buffer.writeln('Total Vehicles: ${vehicles.length}');
-
+    // Calculate statistics
     final serviceDueCount = vehicles.where((v) => v.needsService).length;
-    buffer.writeln('Vehicles Needing Service: $serviceDueCount');
-
     final averageAge = vehicles.isNotEmpty
-        ? vehicles.fold(0, (sum, v) => sum + (now.year - v.year)) /
-            vehicles.length
+        ? vehicles.fold(0, (sum, v) => sum + (now.year - v.year)) / vehicles.length
         : 0;
-    buffer.writeln('Average Fleet Age: ${averageAge.toStringAsFixed(1)} years');
-
     final totalMileage = vehicles.fold(0, (sum, v) => sum + v.mileage);
-    buffer.writeln(
-        'Total Fleet Mileage: ${NumberFormat('#,###').format(totalMileage)} miles');
-    buffer.writeln();
 
     // Vehicle breakdown by make
     final makeCount = <String, int>{};
@@ -289,51 +273,217 @@ class VehicleDataService {
       makeCount[vehicle.make] = (makeCount[vehicle.make] ?? 0) + 1;
     }
 
-    buffer.writeln('VEHICLES BY MAKE');
-    buffer.writeln('-' * 20);
-    for (final entry in makeCount.entries) {
-      buffer.writeln('${entry.key}: ${entry.value}');
-    }
-    buffer.writeln();
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (pw.Context context) {
+          return [
+            // Header
+            pw.Header(
+              level: 0,
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'VEHICLE FLEET REPORT',
+                    style: pw.TextStyle(
+                      fontSize: 24,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Text(
+                    'Generated: ${formatter.format(now)}',
+                    style: const pw.TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
 
-    // Service due vehicles
-    if (serviceDueCount > 0) {
-      buffer.writeln('VEHICLES REQUIRING SERVICE');
-      buffer.writeln('-' * 30);
-      for (final vehicle in vehicles.where((v) => v.needsService)) {
-        final daysSinceService = vehicle.lastServiceDate != null
-            ? now.difference(vehicle.lastServiceDate!).inDays
-            : 365;
-        buffer.writeln(
-            '${vehicle.displayName} (${vehicle.licensePlate}) - $daysSinceService days overdue');
-      }
-      buffer.writeln();
-    }
+            // Summary Statistics
+            pw.Container(
+              padding: const pw.EdgeInsets.all(16),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey300),
+                borderRadius: pw.BorderRadius.circular(8),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'FLEET SUMMARY',
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.SizedBox(height: 10),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('Total Vehicles: ${vehicles.length}'),
+                          pw.Text('Vehicles Needing Service: $serviceDueCount'),
+                        ],
+                      ),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('Average Fleet Age: ${averageAge.toStringAsFixed(1)} years'),
+                          pw.Text('Total Fleet Mileage: ${NumberFormat('#,###').format(totalMileage)} miles'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
 
-    // Detailed vehicle list
-    buffer.writeln('DETAILED VEHICLE LIST');
-    buffer.writeln('-' * 25);
-    for (final vehicle in vehicles) {
-      buffer.writeln(vehicle.displayName);
-      buffer.writeln('  License Plate: ${vehicle.licensePlate}');
-      buffer.writeln('  VIN: ${vehicle.vin}');
-      buffer.writeln('  Customer: ${vehicle.customerName}');
-      buffer.writeln(
-          '  Mileage: ${NumberFormat('#,###').format(vehicle.mileage)} miles');
-      buffer.writeln(
-          '  Last Service: ${vehicle.lastServiceDate != null ? formatter.format(vehicle.lastServiceDate!) : 'Never'}');
-      buffer.writeln(
-          '  Service Status: ${vehicle.needsService ? 'DUE' : 'Up to Date'}');
-      buffer.writeln();
-    }
+            // Vehicles by Make
+            pw.Text(
+              'VEHICLES BY MAKE',
+              style: pw.TextStyle(
+                fontSize: 16,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 10),
+            pw.Table.fromTextArray(
+              headers: ['Make', 'Count', 'Percentage'],
+              data: makeCount.entries.map((entry) {
+                final percentage = (entry.value / vehicles.length * 100).toStringAsFixed(1);
+                return [entry.key, entry.value.toString(), '$percentage%'];
+              }).toList(),
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              cellHeight: 25,
+              cellAlignments: {
+                0: pw.Alignment.centerLeft,
+                1: pw.Alignment.center,
+                2: pw.Alignment.center,
+              },
+            ),
+            pw.SizedBox(height: 20),
 
-    // Save report to file
+            // Service Due Vehicles
+            if (serviceDueCount > 0) ...[
+              pw.Text(
+                'VEHICLES REQUIRING SERVICE',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.red,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Table.fromTextArray(
+                headers: ['Vehicle', 'License Plate', 'Days Overdue', 'Customer'],
+                data: vehicles.where((v) => v.needsService).map((vehicle) {
+                  final daysSinceService = vehicle.lastServiceDate != null
+                      ? now.difference(vehicle.lastServiceDate!).inDays
+                      : 365;
+                  return [
+                    vehicle.displayName,
+                    vehicle.licensePlate,
+                    daysSinceService.toString(),
+                    vehicle.customerName ?? 'Unknown',
+                  ];
+                }).toList(),
+                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                cellHeight: 25,
+              ),
+              pw.SizedBox(height: 20),
+            ],
+
+            // Detailed Vehicle List
+            pw.Text(
+              'DETAILED VEHICLE LIST',
+              style: pw.TextStyle(
+                fontSize: 16,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 10),
+            ...vehicles.map((vehicle) => pw.Container(
+              margin: const pw.EdgeInsets.only(bottom: 15),
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey300),
+                borderRadius: pw.BorderRadius.circular(4),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(
+                        vehicle.displayName,
+                        style: pw.TextStyle(
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: pw.BoxDecoration(
+                          color: vehicle.needsService ? PdfColors.red100 : PdfColors.green100,
+                          borderRadius: pw.BorderRadius.circular(12),
+                        ),
+                        child: pw.Text(
+                          vehicle.needsService ? 'SERVICE DUE' : 'UP TO DATE',
+                          style: pw.TextStyle(
+                            fontSize: 10,
+                            color: vehicle.needsService ? PdfColors.red : PdfColors.green,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Row(
+                    children: [
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('License: ${vehicle.licensePlate}', style: const pw.TextStyle(fontSize: 12)),
+                            pw.Text('VIN: ${vehicle.vin}', style: const pw.TextStyle(fontSize: 12)),
+                            pw.Text('Customer: ${vehicle.customerName ?? 'Unknown'}', style: const pw.TextStyle(fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('Mileage: ${NumberFormat('#,###').format(vehicle.mileage)} miles', style: const pw.TextStyle(fontSize: 12)),
+                            pw.Text('Last Service: ${vehicle.lastServiceDate != null ? formatter.format(vehicle.lastServiceDate!) : 'Never'}', style: const pw.TextStyle(fontSize: 12)),
+                            pw.Text('Color: ${vehicle.color}', style: const pw.TextStyle(fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            )).toList(),
+          ];
+        },
+      ),
+    );
+
+    // Save PDF to file
     final directory = await getApplicationDocumentsDirectory();
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(now);
-    final fileName = 'vehicle_report_$timestamp.txt';
+    final fileName = 'vehicle_report_$timestamp.pdf';
     final file = File('${directory.path}/$fileName');
 
-    await file.writeAsString(buffer.toString());
+    await file.writeAsBytes(await pdf.save());
 
     return file.path;
   }

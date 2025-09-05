@@ -141,30 +141,38 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
   }
 
   void _onCreateNewCustomer() {
-    setState(() {
-      _isCreatingCustomer = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isCreatingCustomer = true;
+      });
+    }
   }
 
   void _onCustomerCreated(Customer customer) async {
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       final customerId = await _customerService.createCustomer(customer);
       final createdCustomer = customer.copyWith(id: customerId);
 
-      setState(() {
-        _selectedCustomer = createdCustomer;
-        _isCreatingCustomer = false;
-        _isLoading = false;
-        _currentStep = AddVehicleStep.vehicleInformation;
-      });
+      if (mounted) {
+        setState(() {
+          _selectedCustomer = createdCustomer;
+          _isCreatingCustomer = false;
+          _isLoading = false;
+          _currentStep = AddVehicleStep.vehicleInformation;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -178,9 +186,11 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
   }
 
   void _onCancelCustomerCreation() {
-    setState(() {
-      _isCreatingCustomer = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isCreatingCustomer = false;
+      });
+    }
   }
 
   void _scanVIN() {
@@ -235,9 +245,11 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
   Future<void> _addVehicle() async {
     if (_selectedCustomer == null) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       final newVehicle = Vehicle(
@@ -267,9 +279,11 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
         ),
       );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -375,26 +389,7 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: CustomDropdown<String>(
-                      label: 'Make',
-                      value: _makeController.text.isEmpty
-                          ? null
-                          : _makeController.text,
-                      items: _makes.map((make) {
-                        return DropdownMenuItem(
-                          value: make,
-                          child: Text(make),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _makeController.text = value ?? '';
-                          // Clear model when make changes
-                          _modelController.clear();
-                        });
-                      },
-                      validator: (value) => ValidationUtils.validateRequired(value, 'make'),
-                    ),
+                    child: _buildMakeField(),
                   ),
                   const SizedBox(width: 20),
                   Expanded(
@@ -751,6 +746,8 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
     final suggestedModels = _makeController.text.isNotEmpty
         ? VinDecoderService.getSuggestedModels(_makeController.text)
         : <String>[];
+    
+    bool _modelSelected = _modelController.text.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -767,9 +764,11 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
                     color: AppColors.primaryPink,
                   ),
                   onSelected: (value) {
-                    setState(() {
-                      _modelController.text = value;
-                    });
+                    if (mounted) {
+                      setState(() {
+                        _modelController.text = value;
+                      });
+                    }
                   },
                   itemBuilder: (context) => suggestedModels
                       .map((model) => PopupMenuItem(
@@ -780,38 +779,131 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
                 )
               : null,
         ),
-        if (suggestedModels.isNotEmpty) ...[
+        if (suggestedModels.isNotEmpty && !_modelSelected) ...[
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: suggestedModels.take(6).map((model) {
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _modelController.text = model;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryPink.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.primaryPink.withOpacity(0.3),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: suggestedModels.take(4).map((model) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () {
+                      if (mounted) {
+                        setState(() {
+                          _modelController.text = model;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryPink.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.primaryPink.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Text(
+                        model,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppColors.primaryPink,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    model,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppColors.primaryPink,
-                      fontWeight: FontWeight.w500,
-                    ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMakeField() {
+    bool _makeSelected = _makeController.text.isNotEmpty;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CustomTextField(
+          label: 'Make',
+          hint: 'e.g., Honda, Toyota, or enter custom',
+          controller: _makeController,
+          validator: (value) => ValidationUtils.validateRequired(value, 'make'),
+          onChanged: (value) {
+            if (mounted) {
+              setState(() {
+                // Clear model when make changes
+                _modelController.clear();
+              });
+            }
+          },
+          suffixIcon: _makes.contains(_makeController.text)
+              ? null
+              : PopupMenuButton<String>(
+                  icon: Icon(
+                    Icons.arrow_drop_down,
+                    color: AppColors.primaryPink,
                   ),
+                  onSelected: (value) {
+                    if (mounted) {
+                      setState(() {
+                        _makeController.text = value;
+                        _modelController.clear();
+                      });
+                    }
+                  },
+                  itemBuilder: (context) => _makes
+                      .map((make) => PopupMenuItem(
+                            value: make,
+                            child: Text(make),
+                          ))
+                      .toList(),
                 ),
-              );
-            }).toList(),
+        ),
+        if (!_makeSelected) ...[
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _makes.take(4).map((make) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () {
+                      if (mounted) {
+                        setState(() {
+                          _makeController.text = make;
+                          _modelController.clear();
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryPink.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.primaryPink.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Text(
+                        make,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppColors.primaryPink,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
           ),
         ],
       ],

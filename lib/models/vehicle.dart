@@ -47,7 +47,12 @@ class Vehicle {
   String get fullDisplayName => '$year $make $model - $licensePlate';
 
   bool get needsService {
-    if (lastServiceDate == null) return true;
+    if (lastServiceDate == null) {
+      // For new vehicles, give them a grace period of 30 days from creation date
+      // before marking them as needing service
+      final daysSinceCreation = DateTime.now().difference(createdAt).inDays;
+      return daysSinceCreation > 30; // Grace period for new vehicles
+    }
     final daysSinceService = DateTime.now().difference(lastServiceDate!).inDays;
     return daysSinceService > 90; // Needs service every 3 months
   }

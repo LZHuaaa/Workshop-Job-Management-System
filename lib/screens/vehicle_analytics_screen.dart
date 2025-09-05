@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../theme/app_colors.dart';
 import '../models/vehicle.dart';
+import '../models/service_record.dart';
+import '../services/service_record_service.dart';
 import '../widgets/dashboard_card.dart';
 
 class VehicleAnalyticsScreen extends StatefulWidget {
@@ -18,19 +20,128 @@ class VehicleAnalyticsScreen extends StatefulWidget {
 }
 
 class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
+  List<ServiceRecord> _allServiceRecords = [];
+  bool _isLoadingServiceRecords = false;
+  final ServiceRecordService _serviceRecordService = ServiceRecordService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServiceRecords();
+  }
+
+  Future<void> _loadServiceRecords() async {
+    if (widget.vehicles.isEmpty) return;
+
+    setState(() {
+      _isLoadingServiceRecords = true;
+    });
+
+    try {
+      // Load service records in batches to improve performance
+      List<ServiceRecord> allRecords = [];
+      const batchSize = 5; // Process 5 vehicles at a time
+      
+      for (int i = 0; i < widget.vehicles.length; i += batchSize) {
+        final batch = widget.vehicles.skip(i).take(batchSize);
+        final futures = batch.map((vehicle) => 
+          _serviceRecordService.getServiceRecordsByVehicle(vehicle.id)
+        ).toList();
+        
+        final batchResults = await Future.wait(futures);
+        for (final vehicleRecords in batchResults) {
+          allRecords.addAll(vehicleRecords);
+        }
+
+        // Update UI after each batch to show progress
+        if (mounted) {
+          setState(() {
+            _allServiceRecords = allRecords;
+          });
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _allServiceRecords = allRecords;
+          _isLoadingServiceRecords = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading service records for analytics: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingServiceRecords = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingServiceRecords && widget.vehicles.isNotEmpty) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                color: AppColors.primaryPink,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Loading Analytics...',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Processing ${widget.vehicles.length} vehicles and service records',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
     return _buildAnalyticsContent();
   }
 
   Widget _buildAnalyticsContent() {
+    if (_isLoadingServiceRecords) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: AppColors.primaryPink),
+            const SizedBox(height: 16),
+            Text(
+              'Loading service data for enhanced analytics...',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final totalVehicles = widget.vehicles.length;
     final serviceDueCount = widget.vehicles.where((v) => v.needsService).length;
     final averageAge = _calculateAverageAge();
-    final mostCommonMake = _getMostCommonMake();
     final averageMileage = _calculateAverageMileage();
     final totalFleetValue = _calculateEstimatedFleetValue();
+    final totalServiceRevenue = _calculateTotalServiceRevenue();
+    final averageServiceCost = _calculateAverageServiceCost();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -58,40 +169,32 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
               ),
             ],
           ),
+        
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildSummaryCard(
-                  'Avg Age',
-                  '${averageAge.toStringAsFixed(1)} years',
-                  Icons.access_time,
-                  AppColors.successGreen,
+          if (!_isLoadingServiceRecords && _allServiceRecords.isNotEmpty) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSummaryCard(
+                    'Service Revenue',
+                    'RM ${(totalServiceRevenue / 1000).toStringAsFixed(1)}k',
+                    Icons.trending_up,
+                    AppColors.primaryBlue,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildSummaryCard(
-                  'Fleet Value',
-                  'RM ${(totalFleetValue / 1000).toStringAsFixed(0)}k',
-                  Icons.attach_money,
-                  AppColors.primaryBlue,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildSummaryCard(
+                    'Avg Service Cost',
+                    'RM ${averageServiceCost.toStringAsFixed(0)}',
+                    Icons.build,
+                    AppColors.successGreen,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Fleet Brand Analysis (More meaningful than just distribution)
-          DashboardCard(
-            title: 'Fleet Brand Analysis',
-            subtitle: 'Vehicle count by manufacturer - helps with parts procurement',
-            child: SizedBox(
-              height: 200,
-              child: _buildMakeDistributionChart(),
+              ],
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 16),
+          ],
 
           // Vehicle Age Analysis
           DashboardCard(
@@ -110,7 +213,9 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
             subtitle: 'Vehicles requiring immediate attention vs. up-to-date',
             child: SizedBox(
               height: 200,
-              child: _buildServiceStatusChart(),
+              child: _isLoadingServiceRecords 
+                ? const Center(child: CircularProgressIndicator())
+                : _buildServiceStatusChart(),
             ),
           ),
           const SizedBox(height: 24),
@@ -144,7 +249,6 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
     final totalVehicles = widget.vehicles.length;
     final serviceDueCount = widget.vehicles.where((v) => v.needsService).length;
     final averageAge = _calculateAverageAge();
-    final mostCommonMake = _getMostCommonMake();
     final averageMileage = _calculateAverageMileage();
     final newestVehicle = _getNewestVehicle();
     final oldestVehicle = _getOldestVehicle();
@@ -190,10 +294,10 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
               const SizedBox(width: 16),
               Expanded(
                 child: _buildSummaryCard(
-                  'Top Make',
-                  mostCommonMake,
-                  Icons.star,
-                  AppColors.accentPink,
+                  'Fleet Value',
+                  'RM ${(totalFleetValue / 1000).toStringAsFixed(0)}k',
+                  Icons.attach_money,
+                  AppColors.primaryBlue,
                 ),
               ),
             ],
@@ -205,9 +309,9 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
               Expanded(
                 child: _buildSummaryCard(
                   'Avg Mileage',
-                  '${(averageMileage / 1000).toStringAsFixed(0)}k km',
+                  '${(averageMileage / 1000).toStringAsFixed(0)}k mi',
                   Icons.speed,
-                  AppColors.primaryBlue,
+                  AppColors.accentPink,
                 ),
               ),
               const SizedBox(width: 16),
@@ -243,16 +347,6 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 24),
-
-          // Vehicle Distribution by Make
-          DashboardCard(
-            title: 'Vehicle Distribution by Make',
-            child: SizedBox(
-              height: 200,
-              child: _buildMakeDistributionChart(),
-            ),
           ),
           const SizedBox(height: 24),
           
@@ -380,39 +474,6 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
             textAlign: TextAlign.center,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMakeDistributionChart() {
-    final makeData = _getMakeDistribution();
-    
-    return PieChart(
-      PieChartData(
-        sections: makeData.entries.map((entry) {
-          final index = makeData.keys.toList().indexOf(entry.key);
-          final colors = [
-            AppColors.primaryPink,
-            AppColors.accentPink,
-            AppColors.successGreen,
-            AppColors.warningOrange,
-            AppColors.textSecondary,
-          ];
-          
-          return PieChartSectionData(
-            value: entry.value.toDouble(),
-            title: '${entry.value}',
-            color: colors[index % colors.length],
-            radius: 60,
-            titleStyle: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          );
-        }).toList(),
-        centerSpaceRadius: 40,
-        sectionsSpace: 2,
       ),
     );
   }
@@ -872,24 +933,6 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
     final totalAge = widget.vehicles.fold(0, (sum, vehicle) => sum + (currentYear - vehicle.year));
     return totalAge / widget.vehicles.length;
   }
-
-  String _getMostCommonMake() {
-    if (widget.vehicles.isEmpty) return 'N/A';
-    final makeCount = <String, int>{};
-    for (final vehicle in widget.vehicles) {
-      makeCount[vehicle.make] = (makeCount[vehicle.make] ?? 0) + 1;
-    }
-    return makeCount.entries.reduce((a, b) => a.value > b.value ? a : b).key;
-  }
-
-  Map<String, int> _getMakeDistribution() {
-    final makeCount = <String, int>{};
-    for (final vehicle in widget.vehicles) {
-      makeCount[vehicle.make] = (makeCount[vehicle.make] ?? 0) + 1;
-    }
-    return makeCount;
-  }
-
   Map<String, int> _getAgeDistribution() {
     final currentYear = DateTime.now().year;
     final ageRanges = <String, int>{
@@ -995,6 +1038,17 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
     return totalValue;
   }
 
+  double _calculateTotalServiceRevenue() {
+    if (_allServiceRecords.isEmpty) return 0;
+    return _allServiceRecords.fold(0, (sum, record) => sum + record.cost);
+  }
+
+  double _calculateAverageServiceCost() {
+    if (_allServiceRecords.isEmpty) return 0;
+    final totalCost = _allServiceRecords.fold(0.0, (sum, record) => sum + record.cost);
+    return totalCost / _allServiceRecords.length;
+  }
+
   Map<String, int> _getServiceStatusDistribution() {
     final statusCount = <String, int>{
       'Up to Date': 0,
@@ -1006,12 +1060,28 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
       if (vehicle.needsService) {
         statusCount['Overdue'] = statusCount['Overdue']! + 1;
       } else {
-        // Simple logic - in real app you'd check actual service dates
-        final random = vehicle.mileage % 3;
-        if (random == 0) {
-          statusCount['Due Soon'] = statusCount['Due Soon']! + 1;
+        // Check if service is due soon (within 30 days or 3000 miles)
+        final vehicleRecords = _allServiceRecords.where((r) => r.vehicleId == vehicle.id).toList();
+        if (vehicleRecords.isNotEmpty) {
+          vehicleRecords.sort((a, b) => b.serviceDate.compareTo(a.serviceDate));
+          final lastService = vehicleRecords.first;
+          final daysSinceService = DateTime.now().difference(lastService.serviceDate).inDays;
+          final milesSinceService = vehicle.mileage - lastService.mileage;
+          
+          // Due soon if it's been 150+ days or 4500+ miles since last service
+          if (daysSinceService >= 150 || milesSinceService >= 4500) {
+            statusCount['Due Soon'] = statusCount['Due Soon']! + 1;
+          } else {
+            statusCount['Up to Date'] = statusCount['Up to Date']! + 1;
+          }
         } else {
-          statusCount['Up to Date'] = statusCount['Up to Date']! + 1;
+          // No service records, consider it due soon if it's an older vehicle
+          final age = DateTime.now().year - vehicle.year;
+          if (age > 2) {
+            statusCount['Due Soon'] = statusCount['Due Soon']! + 1;
+          } else {
+            statusCount['Up to Date'] = statusCount['Up to Date']! + 1;
+          }
         }
       }
     }
@@ -1110,21 +1180,44 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
   Map<String, double> _getMaintenanceCostByMake() {
     final makeCosts = <String, List<double>>{};
 
+    // If we have real service record data, use it
+    if (_allServiceRecords.isNotEmpty) {
+      for (final record in _allServiceRecords) {
+        final vehicle = widget.vehicles.where((v) => v.id == record.vehicleId).firstOrNull;
+        if (vehicle != null) {
+          if (!makeCosts.containsKey(vehicle.make)) {
+            makeCosts[vehicle.make] = [];
+          }
+          makeCosts[vehicle.make]!.add(record.cost);
+        }
+      }
+    }
+
+    // For makes without service records, provide estimated costs
     for (final vehicle in widget.vehicles) {
       if (!makeCosts.containsKey(vehicle.make)) {
         makeCosts[vehicle.make] = [];
       }
-      // Estimated maintenance cost based on age and mileage
-      final age = DateTime.now().year - vehicle.year;
-      final estimatedCost = (age * 500) + (vehicle.mileage * 0.05);
-      makeCosts[vehicle.make]!.add(estimatedCost);
+      
+      // If no real data, estimate based on age and mileage
+      if (makeCosts[vehicle.make]!.isEmpty) {
+        final age = DateTime.now().year - vehicle.year;
+        final estimatedCost = (age * 500) + (vehicle.mileage * 0.05);
+        makeCosts[vehicle.make]!.add(estimatedCost);
+      }
     }
 
     final averageCosts = <String, double>{};
     makeCosts.forEach((make, costs) {
-      averageCosts[make] = costs.reduce((a, b) => a + b) / costs.length;
+      if (costs.isNotEmpty) {
+        averageCosts[make] = costs.reduce((a, b) => a + b) / costs.length;
+      }
     });
 
     return averageCosts;
+  }
+
+  double _calculateTotalRevenue() {
+    return _allServiceRecords.fold(0.0, (sum, record) => sum + record.cost);
   }
 }

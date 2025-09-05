@@ -44,13 +44,13 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
   bool _serviceDataLoaded = false; // Track if service data has been loaded
   
   // Quick sort state
-  String _selectedSort = 'Name';
+  String _selectedSort = 'None';
   bool _sortAscending = true;
   SortOption _currentSortOption = SortOption.alphabetical;
   SortOrder _currentSortOrder = SortOrder.ascending;
   
   final List<String> _sortOptions = [
-    'Name',
+    'None',
     'Year',
     'Mileage',
     'Service Date',
@@ -74,7 +74,12 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
   // Check if vehicle needs service based on last service date from service records
   bool _needsService(Vehicle vehicle) {
     final lastServiceDate = _vehicleLastServiceDates[vehicle.id];
-    if (lastServiceDate == null) return true;
+    if (lastServiceDate == null) {
+      // For new vehicles, give them a grace period of 30 days from creation date
+      // before marking them as needing service
+      final daysSinceCreation = DateTime.now().difference(vehicle.createdAt).inDays;
+      return daysSinceCreation > 30; // Grace period for new vehicles
+    }
     
     final daysSinceService = DateTime.now().difference(lastServiceDate).inDays;
     return daysSinceService > 90; // Needs service every 3 months
@@ -1031,8 +1036,8 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
     );
   }
 
-  void _showVehicleDetails(Vehicle vehicle) {
-    Navigator.of(context).push(
+  void _showVehicleDetails(Vehicle vehicle) async {
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => VehicleProfileScreen(
           vehicle: vehicle,
@@ -1040,6 +1045,11 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
         ),
       ),
     );
+
+    // If vehicle was deleted, refresh the list
+    if (result == true) {
+      await _loadVehicles();
+    }
   }
 
   Widget _buildAnalyticsTab() {
@@ -1280,7 +1290,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
   }
 
   void _applySorting() {
-    if (_filteredVehicles.isEmpty) return;
+    if (_filteredVehicles.isEmpty || _selectedSort == 'None') return;
 
     setState(() {
       _filteredVehicles.sort((a, b) {
@@ -1382,13 +1392,13 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
 
   Future<void> _generateReport() async {
     final filePath = await _dataService.generateVehicleReport(_allVehicles);
-    await _dataService.shareExportedFile(filePath, 'Report');
+    await _dataService.shareExportedFile(filePath, 'PDF Report');
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Vehicle report generated',
+            'Vehicle PDF report generated',
             style: GoogleFonts.poppins(),
           ),
           backgroundColor: AppColors.successGreen,
