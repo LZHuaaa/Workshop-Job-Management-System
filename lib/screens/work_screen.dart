@@ -28,7 +28,10 @@ class _WorkScreenState extends State<WorkScreen> {
           preferredSize: const Size.fromHeight(48),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: ConstrainedBox(
@@ -40,7 +43,7 @@ class _WorkScreenState extends State<WorkScreen> {
                   children: [
                     _buildTabButton(0, 'Calendar', Icons.calendar_today),
                     _buildTabButton(1, 'Jobs', Icons.build),
-                    _buildTabButton(2, 'Invoices', Icons.receipt),
+                    _buildTabButton(2, 'Workload Monitoring', Icons.receipt),
                   ],
                 ),
               ),
@@ -124,4 +127,4 @@ class _WorkScreenState extends State<WorkScreen> {
         return null;
     }
   }
-} 
+}
