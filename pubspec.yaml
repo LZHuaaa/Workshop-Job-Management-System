@@ -51,6 +51,7 @@ dependencies:
   csv: ^6.0.0
   share_plus: ^7.2.2
   pdf: ^3.11.1
+  printing: ^5.12.0
   # Permission handling
   permission_handler: ^11.3.0
   # Firebase

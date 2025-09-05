@@ -108,31 +108,12 @@ class _NewServiceRecordDialogState extends State<NewServiceRecordDialog> {
             initialMechanic: widget.job.mechanicName,
             onJobCreated: (job) async {
               try {
-                // First save the new appointment
-                final nextAppointmentRef = await FirebaseFirestore.instance.collection('appointments').add({
-                  'vehicleInfo': job.vehicleInfo,
-                  'customerName': job.customerName,
-                  'mechanicName': job.mechanicName,
-                  'startTime': Timestamp.fromDate(job.startTime),
-                  'endTime': Timestamp.fromDate(job.endTime),
-                  'serviceType': job.serviceType,
-                  'status': job.status.name,
-                  'notes': job.notes,
-                  'estimatedCost': job.estimatedCost,
-                  'id': DateTime.now().millisecondsSinceEpoch.toString(),
-                  'isNextService': true,
-                  'previousServiceId': widget.job.id, // Link to previous service
-                });
-
-                final nextAppointmentId = nextAppointmentRef.id;
-                await nextAppointmentRef.update({'id': nextAppointmentId});
-
-                // Update service record with next appointment reference
+                // Update service record with next service due date
+                // The job is already saved by the NewJobDialog
                 await FirebaseFirestore.instance
                     .collection('service_records')
-                    .doc(serviceRecordId) // We'll define this variable
+                    .doc(serviceRecordId)
                     .update({
-                  'nextAppointmentId': nextAppointmentId,
                   'nextServiceDue': Timestamp.fromDate(job.startTime),
                 });
 

@@ -7,6 +7,7 @@ import '../models/job_appointment.dart';
 import '../dialogs/edit_job_dialog.dart';
 import '../dialogs/new_service_record_dialog.dart';
 import '../services/job_appointment_service.dart';
+import 'invoice_preview_screen.dart';
 
 class JobDetailsScreen extends StatefulWidget {
   final JobAppointment job;
@@ -99,6 +100,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
         return AppColors.successGreen;
       case JobStatus.cancelled:
         return AppColors.textSecondary;
+      case JobStatus.overdue:
+        return AppColors.errorRed;
     }
   }
 
@@ -122,6 +125,13 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          // View Invoice button
+          if (_currentJob.status == JobStatus.completed)
+            IconButton(
+              icon: Icon(Icons.receipt_long, color: AppColors.primaryPink),
+              onPressed: () => _viewInvoice(context),
+              tooltip: 'View Invoice',
+            ),
           // Edit button
           IconButton(
             icon: Icon(Icons.edit, color: AppColors.primaryPink),
@@ -494,6 +504,15 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     );
   }
 
+  void _viewInvoice(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => InvoicePreviewScreen(job: _currentJob),
+      ),
+    );
+  }
+
   Future<void> _deleteJob() async {
     // Show confirmation dialog
     final bool? confirmed = await showDialog<bool>(
@@ -508,7 +527,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
           ),
         ),
         content: Text(
-          'Are you sure you want to delete this job for ${_currentJob.customerName}? This action cannot be undone.',
+          'Are you sure you want to delete this job for ${_currentJob.customerName}?',
           style: GoogleFonts.poppins(
             fontSize: 14,
             color: AppColors.textSecondary,

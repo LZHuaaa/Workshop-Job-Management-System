@@ -743,6 +743,8 @@ class _ScheduleScreenState extends State<ScheduleScreen>
         return AppColors.successGreen;
       case JobStatus.cancelled:
         return AppColors.textSecondary;
+      case JobStatus.overdue:
+        return AppColors.errorRed;
     }
   }
 

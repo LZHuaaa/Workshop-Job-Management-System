@@ -295,7 +295,7 @@ class _NewJobDialogState extends State<NewJobDialog> {
                 Expanded(
                   child: CustomTextField(
                     label: 'Phone Number',
-                    hint: '(555) 123-4567',
+                    hint: '0123456789',
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                   ),

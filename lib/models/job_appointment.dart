@@ -3,6 +3,7 @@ enum JobStatus {
   inProgress,
   completed,
   cancelled,
+  overdue,
 }
 
 class JobAppointment {

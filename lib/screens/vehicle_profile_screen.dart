@@ -6,7 +6,7 @@ import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../models/vehicle.dart';
 import '../models/service_record.dart';
-import '../dialogs/add_appointment_dialog.dart';
+import '../dialogs/new_job_dialog.dart';
 import '../dialogs/edit_vehicle_dialog.dart';
 import '../services/vehicle_photo_service.dart';
 import '../services/service_record_service.dart';
@@ -106,9 +106,10 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
   void _scheduleService() {
     showDialog(
       context: context,
-      builder: (context) => AddAppointmentDialog(
-        selectedDate: DateTime.now(),
-        onAppointmentCreated: (appointment) {
+      builder: (context) => NewJobDialog(
+        vehicleInfo: _currentVehicle.fullDisplayName,
+        customerName: _currentVehicle.customerName,
+        onJobCreated: (appointment) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(

@@ -65,7 +65,13 @@ class _EditJobDialogState extends State<EditJobDialog> {
     // Initialize controllers with existing job data
     _vehicleController = TextEditingController(text: widget.job.vehicleInfo);
     _customerController = TextEditingController(text: widget.job.customerName);
-    _serviceTypeController = TextEditingController(text: widget.job.serviceType);
+    
+    // Ensure service type is in the list
+    final serviceType = _serviceTypes.contains(widget.job.serviceType) 
+        ? widget.job.serviceType 
+        : _serviceTypes.isNotEmpty ? _serviceTypes.first : '';
+    _serviceTypeController = TextEditingController(text: serviceType);
+    
     _notesController = TextEditingController(text: widget.job.notes ?? '');
     _estimatedCostController = TextEditingController(
       text: widget.job.estimatedCost?.toStringAsFixed(2) ?? ''
@@ -322,9 +328,9 @@ class _EditJobDialogState extends State<EditJobDialog> {
                 Expanded(
                   child: CustomDropdown<String>(
                     label: 'Service Type',
-                    value: _serviceTypeController.text.isEmpty
-                        ? null
-                        : _serviceTypeController.text,
+                    value: _serviceTypes.contains(_serviceTypeController.text)
+                        ? _serviceTypeController.text
+                        : null,
                     items: _serviceTypes.map((type) {
                       return DropdownMenuItem(
                         value: type,

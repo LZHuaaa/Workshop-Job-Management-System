@@ -235,32 +235,19 @@ class _JobsScreenState extends State<JobsScreen> {
                           showDialog(
                             context: context,
                             builder: (context) => NewJobDialog(
-                              onJobCreated: (job) async {
-                                try {
-                                  await _jobService.addAppointment(job);
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Job created successfully!',
-                                          style: GoogleFonts.poppins(),
-                                        ),
-                                        backgroundColor: AppColors.successGreen,
+                              onJobCreated: (job) {
+                                // The job is already saved in the dialog
+                                // Just show success message
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Job created successfully!',
+                                        style: GoogleFonts.poppins(),
                                       ),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Failed to create job: ${e.toString()}',
-                                          style: GoogleFonts.poppins(),
-                                        ),
-                                        backgroundColor: AppColors.errorRed,
-                                      ),
-                                    );
-                                  }
+                                      backgroundColor: AppColors.successGreen,
+                                    ),
+                                  );
                                 }
                               },
                             ),
@@ -635,6 +622,8 @@ class _JobsScreenState extends State<JobsScreen> {
         return AppColors.successGreen;
       case JobStatus.cancelled:
         return AppColors.textSecondary;
+      case JobStatus.overdue:
+        return AppColors.errorRed;
     }
   }
 

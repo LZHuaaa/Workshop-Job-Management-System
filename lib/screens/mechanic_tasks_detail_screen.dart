@@ -356,6 +356,8 @@ class _MechanicTasksDetailScreenState extends State<MechanicTasksDetailScreen> {
       case JobStatus.completed:
         return AppColors.successGreen;
       case JobStatus.cancelled:
+        return AppColors.textSecondary;
+      case JobStatus.overdue:
         return AppColors.errorRed;
     }
   }

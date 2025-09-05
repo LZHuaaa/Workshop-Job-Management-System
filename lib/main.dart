@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'screens/auth/simple_auth_wrapper.dart';
 import 'theme/app_colors.dart';
 import 'services/app_initialization_service.dart';
+import 'utils/app_initializer.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +52,7 @@ class GreenstemWorkshopApp extends StatelessWidget {
       ),
       home: const SimpleAuthWrapper(),
       builder: (context, child) {
+        AppInitializer.initializeApp(context);
         return MediaQuery(
           data: MediaQuery.of(context)
               .copyWith(textScaler: const TextScaler.linear(1.0)),

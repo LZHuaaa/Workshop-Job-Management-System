@@ -339,18 +339,13 @@ class _WorkloadMonitoringScreenState extends State<WorkloadMonitoringScreen> {
     );
   }
 
-  Color _getStatusColor(JobStatus status) {
-    switch (status) {
-      case JobStatus.scheduled:
-        return Colors.blue;
-      case JobStatus.inProgress:
-        return Colors.orange;
-      case JobStatus.completed:
-        return AppColors.successGreen;
-      case JobStatus.cancelled:
-        return AppColors.errorRed;
-    }
-  }
+  Color _getStatusColor(JobStatus status) => switch (status) {
+    JobStatus.scheduled => Colors.blue,
+    JobStatus.inProgress => Colors.orange,
+    JobStatus.completed => AppColors.successGreen,
+    JobStatus.cancelled => AppColors.textSecondary,
+    JobStatus.overdue => AppColors.errorRed,
+  };
 
   String _getCapacityLabel(int jobCount) {
     if (jobCount <= 2) return 'Available';
