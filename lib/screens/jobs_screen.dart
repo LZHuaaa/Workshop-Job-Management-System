@@ -31,6 +31,7 @@ class _JobsScreenState extends State<JobsScreen> {
 
   List<JobAppointment> _allJobs = [];
   bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +43,10 @@ class _JobsScreenState extends State<JobsScreen> {
       if (mounted) {
         setState(() {
           _allJobs = jobs;
+
+          // ✅ Always sort jobs by latest startTime first
+          _allJobs.sort((a, b) => b.startTime.compareTo(a.startTime));
+
           _isLoading = false;
         });
       }
@@ -51,21 +56,19 @@ class _JobsScreenState extends State<JobsScreen> {
   List<JobAppointment> get _filteredJobs {
     List<JobAppointment> filtered = _allJobs;
 
-    // Apply status filter
     if (_selectedFilter != 'All') {
       if (_selectedFilter == 'Overdue') {
         filtered = filtered.where((job) => job.isOverdue).toList();
       } else {
         final status = JobStatus.values.firstWhere(
-          (s) =>
-              s.name.toLowerCase() ==
+          (s) => s.name.toLowerCase() ==
               _selectedFilter.toLowerCase().replaceAll(' ', ''),
         );
-        filtered = filtered.where((job) => job.status == status).toList();
+        filtered =
+            filtered.where((job) => job.status == status && !job.isOverdue).toList();
       }
     }
 
-    // Apply search filter
     if (_searchController.text.isNotEmpty) {
       final searchTerm = _searchController.text.toLowerCase();
       filtered = filtered
@@ -79,8 +82,6 @@ class _JobsScreenState extends State<JobsScreen> {
 
     return filtered;
   }
-
-
 
   Future<void> _updateJob(JobAppointment updatedJob) async {
     try {
@@ -112,7 +113,6 @@ class _JobsScreenState extends State<JobsScreen> {
   }
 
   Future<void> _deleteJob(JobAppointment job) async {
-    // Show confirmation dialog
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -236,8 +236,6 @@ class _JobsScreenState extends State<JobsScreen> {
                             context: context,
                             builder: (context) => NewJobDialog(
                               onJobCreated: (job) {
-                                // The job is already saved in the dialog
-                                // Just show success message
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -265,11 +263,8 @@ class _JobsScreenState extends State<JobsScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.add,
-                                size: 18,
-                                color: AppColors.primaryPink,
-                              ),
+                              Icon(Icons.add,
+                                  size: 18, color: AppColors.primaryPink),
                               const SizedBox(width: 4),
                               Text(
                                 'New Job',
@@ -287,7 +282,7 @@ class _JobsScreenState extends State<JobsScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Search Bar
+                  // Search
                   Container(
                     decoration: BoxDecoration(
                       color: AppColors.backgroundLight,
@@ -302,10 +297,8 @@ class _JobsScreenState extends State<JobsScreen> {
                           color: AppColors.textSecondary,
                           fontSize: 14,
                         ),
-                        prefixIcon: Icon(
-                          Icons.search,
-                          color: AppColors.textSecondary,
-                        ),
+                        prefixIcon:
+                            Icon(Icons.search, color: AppColors.textSecondary),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.all(16),
                       ),
@@ -314,7 +307,7 @@ class _JobsScreenState extends State<JobsScreen> {
 
                   const SizedBox(height: 16),
 
-                  // Filter Chips
+                  // Filter chips
                   SizedBox(
                     height: 40,
                     child: ListView.builder(
@@ -324,11 +317,17 @@ class _JobsScreenState extends State<JobsScreen> {
                         final filter = _filterOptions[index];
                         final isSelected = filter == _selectedFilter;
 
+                        // ✅ Show count only for All
+                        String label = filter;
+                        if (filter == 'All') {
+                          label = 'All (${_allJobs.length})';
+                        }
+
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: FilterChip(
                             label: Text(
-                              filter,
+                              label,
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -360,7 +359,7 @@ class _JobsScreenState extends State<JobsScreen> {
               ),
             ),
 
-            // Jobs List
+            // Jobs list
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.all(20),
@@ -381,6 +380,12 @@ class _JobsScreenState extends State<JobsScreen> {
   }
 
   Widget _buildJobCard(JobAppointment job) {
+    final now = DateTime.now();
+    final isOverdue =
+        job.startTime.isBefore(now) && job.status != JobStatus.completed;
+    final isOvertime =
+        job.status == JobStatus.inProgress && job.endTime.isBefore(now);
+
     return GestureDetector(
       onTap: () => _showJobDetails(job),
       child: Container(
@@ -443,14 +448,34 @@ class _JobsScreenState extends State<JobsScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+
+              const SizedBox(height: 12),
+
+              if (isOverdue) ...[
+                Text(
+                  "⚠️ This job is overdue. Please reschedule, complete, or cancel.",
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: AppColors.errorRed,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ] else if (isOvertime) ...[
+                Text(
+                  "⏳ This job is in progress but past its expected time.",
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.orange,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+
               Row(
                 children: [
-                  Icon(
-                    Icons.person,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
+                  Icon(Icons.person, size: 16, color: AppColors.textSecondary),
                   const SizedBox(width: 8),
                   Text(
                     job.customerName,
@@ -460,11 +485,7 @@ class _JobsScreenState extends State<JobsScreen> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  Icon(
-                    Icons.build,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
+                  Icon(Icons.build, size: 16, color: AppColors.textSecondary),
                   const SizedBox(width: 8),
                   Text(
                     job.mechanicName,
@@ -478,11 +499,7 @@ class _JobsScreenState extends State<JobsScreen> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(
-                    Icons.schedule,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
+                  Icon(Icons.schedule, size: 16, color: AppColors.textSecondary),
                   const SizedBox(width: 8),
                   Text(
                     '${DateFormat('MMM d, h:mm a').format(job.startTime)} - ${DateFormat('h:mm a').format(job.endTime)}',
@@ -529,16 +546,15 @@ class _JobsScreenState extends State<JobsScreen> {
                 ),
               ],
 
-              // Edit and Delete buttons
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // Edit button
                   GestureDetector(
                     onTap: () => _showEditJobDialog(job),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: AppColors.primaryPink.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -549,11 +565,8 @@ class _JobsScreenState extends State<JobsScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.edit,
-                            size: 16,
-                            color: AppColors.primaryPink,
-                          ),
+                          Icon(Icons.edit,
+                              size: 16, color: AppColors.primaryPink),
                           const SizedBox(width: 4),
                           Text(
                             'Edit',
@@ -567,14 +580,12 @@ class _JobsScreenState extends State<JobsScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 8),
-
-                  // Delete button
                   GestureDetector(
                     onTap: () => _deleteJob(job),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: AppColors.errorRed.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -585,11 +596,8 @@ class _JobsScreenState extends State<JobsScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.delete,
-                            size: 16,
-                            color: AppColors.errorRed,
-                          ),
+                          Icon(Icons.delete,
+                              size: 16, color: AppColors.errorRed),
                           const SizedBox(width: 4),
                           Text(
                             'Delete',
@@ -637,8 +645,6 @@ class _JobsScreenState extends State<JobsScreen> {
       ),
     );
   }
-
-
 
   void _showEditJobDialog(JobAppointment job) {
     showDialog(

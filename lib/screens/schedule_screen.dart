@@ -8,7 +8,6 @@ import '../widgets/dashboard_card.dart';
 import '../models/job_appointment.dart';
 import 'job_details_screen.dart';
 
-
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({super.key});
 
@@ -35,7 +34,8 @@ class _ScheduleScreenState extends State<ScheduleScreen>
   }
 
   void _loadAppointments() {
-    _firestore.collection('appointments')
+    _firestore
+        .collection('appointments')
         .orderBy('startTime', descending: false)
         .snapshots()
         .listen((snapshot) {
@@ -81,7 +81,8 @@ class _ScheduleScreenState extends State<ScheduleScreen>
           onJobUpdated: (updatedJob) {
             // Update the appointment in the local list
             setState(() {
-              final index = _allAppointments.indexWhere((job) => job.id == updatedJob.id);
+              final index =
+                  _allAppointments.indexWhere((job) => job.id == updatedJob.id);
               if (index != -1) {
                 _allAppointments[index] = updatedJob;
               }
@@ -91,8 +92,6 @@ class _ScheduleScreenState extends State<ScheduleScreen>
       ),
     );
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +147,6 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                       ),
                     ],
                   ),
-
                 ],
               ),
             ),
@@ -519,6 +517,15 @@ class _ScheduleScreenState extends State<ScheduleScreen>
   }
 
   Widget _buildAppointmentCard(JobAppointment appointment) {
+    final now = DateTime.now();
+
+    final isOverdue = appointment.startTime.isBefore(now) &&
+        appointment.status != JobStatus.completed &&
+        appointment.status != JobStatus.cancelled;
+
+    final isOvertime = appointment.status == JobStatus.inProgress &&
+        appointment.endTime.isBefore(now);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -552,7 +559,8 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: _getStatusColor(appointment.status),
                         borderRadius: BorderRadius.circular(12),
@@ -569,6 +577,8 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                   ],
                 ),
                 const SizedBox(height: 8),
+
+                // Customer and mechanic
                 Text(
                   '${appointment.customerName} • ${appointment.mechanicName}',
                   style: GoogleFonts.poppins(
@@ -577,6 +587,8 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                   ),
                 ),
                 const SizedBox(height: 4),
+
+                // Time row
                 Row(
                   children: [
                     Expanded(
@@ -596,6 +608,27 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                     ),
                   ],
                 ),
+
+                // Warning messages (overdue / overtime)
+                const SizedBox(height: 8),
+                if (isOverdue)
+                  Text(
+                    "⚠️ This job is overdue. Please reschedule, complete, or cancel.",
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.errorRed,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                else if (isOvertime)
+                  Text(
+                    "⏳ This job is in progress but past its expected end time. Consider extending or finishing.",
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.orange,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -605,6 +638,15 @@ class _ScheduleScreenState extends State<ScheduleScreen>
   }
 
   Widget _buildDayAppointmentCard(JobAppointment appointment) {
+    final now = DateTime.now();
+
+    final isOverdue = appointment.startTime.isBefore(now) &&
+        appointment.status != JobStatus.completed &&
+        appointment.status != JobStatus.cancelled;
+
+    final isOvertime = appointment.status == JobStatus.inProgress &&
+        appointment.endTime.isBefore(now);
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -723,6 +765,27 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                         ),
                       ],
                     ),
+
+                    // Warning messages
+                    const SizedBox(height: 8),
+                    if (isOverdue)
+                      Text(
+                        "⚠️ This appointment is overdue. Please reschedule, complete, or cancel.",
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: AppColors.errorRed,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )
+                    else if (isOvertime)
+                      Text(
+                        "⏳ This appointment is in progress but past its expected end time. Consider extending or finishing.",
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Colors.orange,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -747,6 +810,4 @@ class _ScheduleScreenState extends State<ScheduleScreen>
         return AppColors.errorRed;
     }
   }
-
-
 }

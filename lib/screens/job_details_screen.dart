@@ -41,10 +41,10 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
 
     try {
       final updatedJob = _currentJob.copyWith(status: newStatus);
-      
+
       // Update job in Firebase
       await _jobService.updateAppointment(updatedJob);
-      
+
       setState(() {
         _currentJob = updatedJob;
       });
@@ -90,6 +90,26 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     }
   }
 
+  /// Check if job is overdue or in-progress overtime
+  String? _checkSpecialConditions() {
+    final now = DateTime.now();
+
+    // Overdue: scheduled before today and not completed/cancelled
+    if (_currentJob.endTime.isBefore(now) &&
+        (_currentJob.status == JobStatus.scheduled ||
+            _currentJob.status == JobStatus.overdue)) {
+      return "⚠️ This job is overdue. Please reschedule, cancel, or complete it.";
+    }
+
+    // In progress but overtime
+    if (_currentJob.status == JobStatus.inProgress &&
+        _currentJob.endTime.isBefore(now)) {
+      return "⏳ This job is in progress but past its expected time. Consider extending, finishing, or pausing.";
+    }
+
+    return null;
+  }
+
   Color _getStatusColor(JobStatus status) {
     switch (status) {
       case JobStatus.scheduled:
@@ -107,6 +127,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final specialMessage = _checkSpecialConditions();
+
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
@@ -125,20 +147,17 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
-          // View Invoice button
           if (_currentJob.status == JobStatus.completed)
             IconButton(
               icon: Icon(Icons.receipt_long, color: AppColors.primaryPink),
               onPressed: () => _viewInvoice(context),
               tooltip: 'View Invoice',
             ),
-          // Edit button
           IconButton(
             icon: Icon(Icons.edit, color: AppColors.primaryPink),
             onPressed: () => _showEditJobDialog(),
             tooltip: 'Edit Job',
           ),
-          // Delete button
           IconButton(
             icon: Icon(Icons.delete, color: AppColors.errorRed),
             onPressed: () => _deleteJob(),
@@ -151,7 +170,6 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // Job Header Card
             DashboardCard(
               title: 'Job Information',
               child: Column(
@@ -170,8 +188,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: _getStatusColor(_currentJob.status),
                           borderRadius: BorderRadius.circular(12),
@@ -188,14 +206,11 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildInfoRow(
-                      Icons.build, 'Service Type', _currentJob.serviceType),
+                  _buildInfoRow(Icons.build, 'Service Type', _currentJob.serviceType),
                   const SizedBox(height: 12),
-                  _buildInfoRow(
-                      Icons.person, 'Customer', _currentJob.customerName),
+                  _buildInfoRow(Icons.person, 'Customer', _currentJob.customerName),
                   const SizedBox(height: 12),
-                  _buildInfoRow(
-                      Icons.engineering, 'Mechanic', _currentJob.mechanicName),
+                  _buildInfoRow(Icons.engineering, 'Mechanic', _currentJob.mechanicName),
                   const SizedBox(height: 12),
                   _buildInfoRow(
                     Icons.schedule,
@@ -243,46 +258,32 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
 
             const SizedBox(height: 20),
 
-            // Parts Needed Card
-            if (_currentJob.partsNeeded != null &&
-                _currentJob.partsNeeded!.isNotEmpty)
+            // 🚨 Warning card for overdue / overtime
+            if (specialMessage != null)
               DashboardCard(
-                title: 'Parts Required',
-                child: Column(
-                  children: _currentJob.partsNeeded!
-                      .map((part) => Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.backgroundLight,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.inventory_2,
-                                  color: AppColors.primaryPink,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    part,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 14,
-                                      color: AppColors.textDark,
-                                    ),
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.check_circle,
-                                  color: AppColors.successGreen,
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                          ))
-                      .toList(),
+                title: 'Attention Required',
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.errorRed.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning, color: AppColors.errorRed),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          specialMessage,
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.errorRed,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -339,10 +340,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.check_circle,
-                            color: AppColors.successGreen,
-                          ),
+                          Icon(Icons.check_circle, color: AppColors.successGreen),
                           const SizedBox(width: 12),
                           Text(
                             'Job completed successfully!',
@@ -364,10 +362,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.cancel,
-                            color: AppColors.errorRed,
-                          ),
+                          Icon(Icons.cancel, color: AppColors.errorRed),
                           const SizedBox(width: 12),
                           Text(
                             'Job was cancelled',
@@ -394,11 +389,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: AppColors.primaryPink,
-        ),
+        Icon(icon, size: 20, color: AppColors.primaryPink),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -514,7 +505,6 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
   }
 
   Future<void> _deleteJob() async {
-    // Show confirmation dialog
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -538,9 +528,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
             onPressed: () => Navigator.of(context).pop(false),
             child: Text(
               'Cancel',
-              style: GoogleFonts.poppins(
-                color: AppColors.textSecondary,
-              ),
+              style: GoogleFonts.poppins(color: AppColors.textSecondary),
             ),
           ),
           TextButton(
