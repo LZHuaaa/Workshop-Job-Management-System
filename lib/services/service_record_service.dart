@@ -29,7 +29,10 @@ class ServiceRecordService {
           serviceRecord.customerId, serviceRecord.cost);
 
       // Update vehicle's last service date directly
-      await _firestore.collection('vehicles').doc(serviceRecord.vehicleId).update({
+      await _firestore
+          .collection('vehicles')
+          .doc(serviceRecord.vehicleId)
+          .update({
         'lastServiceDate': serviceRecord.serviceDate,
       });
 
@@ -144,7 +147,6 @@ class ServiceRecordService {
         final updatedCustomer = customer.copyWith(
           totalSpent: (customer.totalSpent - serviceRecord.cost)
               .clamp(0.0, double.infinity),
-          visitCount: (customer.visitCount - 1).clamp(0, customer.visitCount),
         );
         await _customerService.updateCustomer(updatedCustomer);
       }

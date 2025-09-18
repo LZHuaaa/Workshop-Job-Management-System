@@ -209,7 +209,6 @@ class CustomerService {
 
       final updatedCustomer = customer.copyWith(
         totalSpent: customer.totalSpent + additionalSpent,
-        visitCount: customer.visitCount + 1,
         lastVisit: DateTime.now(),
       );
 

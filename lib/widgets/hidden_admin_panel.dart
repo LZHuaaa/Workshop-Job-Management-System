@@ -68,6 +68,35 @@ class _HiddenAdminPanelState extends State<HiddenAdminPanel> {
     }
   }
 
+  Future<void> _repopulateCustomerData() async {
+    setState(() {
+      _isLoading = true;
+      _statusMessage =
+          'Re-populating customer data with correct service history...';
+    });
+
+    try {
+      final result = await _adminService.repopulateCustomerData();
+
+      setState(() {
+        _statusMessage =
+            result.success ? '✅ ${result.message}' : '❌ ${result.message}';
+      });
+
+      if (result.success) {
+        await _loadDataStatistics();
+      }
+    } catch (e) {
+      setState(() {
+        _statusMessage = '❌ Error: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   Future<void> _clearData() async {
     setState(() {
       _isLoading = true;
@@ -193,7 +222,8 @@ class _HiddenAdminPanelState extends State<HiddenAdminPanel> {
 
       if (migrationStatus.containsKey('error')) {
         setState(() {
-          _statusMessage = '❌ Error checking migration status: ${migrationStatus['error']}';
+          _statusMessage =
+              '❌ Error checking migration status: ${migrationStatus['error']}';
         });
         return;
       }
@@ -203,7 +233,8 @@ class _HiddenAdminPanelState extends State<HiddenAdminPanel> {
 
       if (!migrationNeeded) {
         setState(() {
-          _statusMessage = '✅ No migration needed. All $totalItems inventory items already have correct orderRequestStatus values.';
+          _statusMessage =
+              '✅ No migration needed. All $totalItems inventory items already have correct orderRequestStatus values.';
         });
         return;
       }
@@ -213,7 +244,8 @@ class _HiddenAdminPanelState extends State<HiddenAdminPanel> {
 
       // Get updated status
       final updatedStatus = await InventoryMigration.getMigrationStatus();
-      final itemsWithPendingStatus = updatedStatus['itemsWithPendingStatus'] ?? 0;
+      final itemsWithPendingStatus =
+          updatedStatus['itemsWithPendingStatus'] ?? 0;
       final itemsWithNullStatus = updatedStatus['itemsWithNullStatus'] ?? 0;
 
       setState(() {
@@ -304,6 +336,17 @@ class _HiddenAdminPanelState extends State<HiddenAdminPanel> {
             const SizedBox(height: 16),
 
             _buildActionButton(
+              icon: Icons.people_alt,
+              title: 'Fix Customer Visit Counts',
+              subtitle:
+                  'Re-populate customer data with correct service history',
+              color: Colors.indigo,
+              onPressed: _isLoading ? null : _repopulateCustomerData,
+            ),
+
+            const SizedBox(height: 16),
+
+            _buildActionButton(
               icon: Icons.refresh,
               title: 'Refresh Statistics',
               subtitle: 'Reload current data statistics',
@@ -346,7 +389,8 @@ class _HiddenAdminPanelState extends State<HiddenAdminPanel> {
             _buildActionButton(
               icon: Icons.upgrade,
               title: 'Migrate Inventory Records',
-              subtitle: 'Add orderRequestStatus field to existing inventory items',
+              subtitle:
+                  'Add orderRequestStatus field to existing inventory items',
               color: Colors.indigo,
               onPressed: _isLoading ? null : _migrateInventoryRecords,
             ),

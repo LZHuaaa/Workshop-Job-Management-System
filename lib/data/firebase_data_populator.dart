@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/customer.dart';
 import '../models/vehicle.dart';
 import '../models/service_record.dart' as sr;
+import '../models/service_record.dart';
 import '../models/job_appointment.dart';
 import '../models/invoice.dart';
 import '../models/inventory_item.dart';
@@ -61,7 +62,8 @@ class FirebaseDataPopulator {
       debugPrint('   - ${invoices.length} invoices');
       debugPrint('   - ${inventoryItems.length} inventory items');
       debugPrint('   - ${orderRequests.length} order requests');
-      debugPrint('   - $inventoryUsageCount inventory usage records (to be generated)');
+      debugPrint(
+          '   - $inventoryUsageCount inventory usage records (to be generated)');
 
       // Step 2: Update relationships
       debugPrint('🔗 Updating data relationships...');
@@ -105,12 +107,35 @@ class FirebaseDataPopulator {
       final customerServiceRecords =
           serviceRecords.where((s) => s.customerId == customer.id).toList();
 
-      // Update customer with vehicle IDs and calculated values
+      // Convert sr.ServiceRecord to ServiceRecord (customer model type)
+      final customerServiceHistory = customerServiceRecords.map((srRecord) {
+        return ServiceRecord(
+          id: srRecord.id,
+          customerId: srRecord.customerId,
+          vehicleId: srRecord.vehicleId,
+          serviceDate: srRecord.serviceDate,
+          serviceType: srRecord.serviceType,
+          description: srRecord.description,
+          servicesPerformed: srRecord.servicesPerformed,
+          cost: srRecord.cost,
+          mechanicName: srRecord.mechanicName,
+          status: ServiceStatus.values.firstWhere(
+            (e) => e.name == srRecord.status.name,
+            orElse: () => ServiceStatus.completed,
+          ),
+          nextServiceDue: srRecord.nextServiceDue,
+          mileage: srRecord.mileage,
+          partsReplaced: srRecord.partsReplaced,
+          notes: srRecord.notes,
+        );
+      }).toList();
+
+      // Update customer with vehicle IDs, service history, and calculated values
       final updatedCustomer = customer.copyWith(
         vehicleIds: customerVehicles.map((v) => v.id).toList(),
+        serviceHistory: customerServiceHistory,
         totalSpent: customerServiceRecords.fold<double>(
-            0.0, (double total, record) => (total ?? 0.0) + record.cost),
-        visitCount: customerServiceRecords.length,
+            0.0, (double total, record) => total + record.cost),
         lastVisit: customerServiceRecords.isNotEmpty
             ? customerServiceRecords
                 .map((r) => r.serviceDate)
@@ -302,6 +327,145 @@ class FirebaseDataPopulator {
     debugPrint('🎉 All data cleared from Firebase');
   }
 
+  /// Clear only customer data from Firebase
+  static Future<void> clearCustomerData() async {
+    debugPrint('🗑️ Clearing customer data from Firebase...');
+
+    final collection = _firestore.collection(customersCollection);
+    final snapshot = await collection.get();
+
+    final batch = _firestore.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+
+    debugPrint('✅ Cleared customers collection');
+  }
+
+  /// Re-populate customer data with correct service history
+  static Future<void> repopulateCustomerData({int customerCount = 30}) async {
+    try {
+      debugPrint(
+          '🔄 Re-populating customer data with correct service history...');
+
+      // First, get existing vehicles and service records from Firebase
+      debugPrint('📋 Fetching existing vehicles and service records...');
+
+      final vehiclesSnapshot =
+          await _firestore.collection(vehiclesCollection).get();
+      final serviceRecordsSnapshot =
+          await _firestore.collection(serviceRecordsCollection).get();
+
+      if (vehiclesSnapshot.docs.isEmpty ||
+          serviceRecordsSnapshot.docs.isEmpty) {
+        debugPrint(
+            '❌ No existing vehicles or service records found. Please populate all data first.');
+        return;
+      }
+
+      // Clear existing customer data
+      await clearCustomerData();
+
+      // Generate new customers with the same count
+      debugPrint('👥 Generating new customers...');
+      final customers = SampleDataGenerator.generateCustomers(customerCount);
+
+      // Convert Firebase data back to objects for relationship mapping
+      final vehicles = <Vehicle>[];
+      final serviceRecords = <sr.ServiceRecord>[];
+
+      for (final doc in vehiclesSnapshot.docs) {
+        try {
+          vehicles.add(_vehicleFromMap(doc.data(), doc.id));
+        } catch (e) {
+          debugPrint('⚠️ Error parsing vehicle ${doc.id}: $e');
+        }
+      }
+
+      for (final doc in serviceRecordsSnapshot.docs) {
+        try {
+          serviceRecords.add(_serviceRecordFromMap(doc.data(), doc.id));
+        } catch (e) {
+          debugPrint('⚠️ Error parsing service record ${doc.id}: $e');
+        }
+      }
+
+      debugPrint(
+          '✅ Loaded ${vehicles.length} vehicles and ${serviceRecords.length} service records');
+
+      // Update relationships between customers and their data
+      debugPrint('🔗 Updating customer relationships...');
+      _updateCustomerRelationships(customers, vehicles, serviceRecords);
+
+      // Populate customers with correct service history
+      await _populateCustomers(customers);
+
+      debugPrint('🎉 Customer data re-population completed successfully!');
+      debugPrint(
+          '📊 Updated ${customers.length} customers with service history');
+    } catch (e) {
+      debugPrint('❌ Error re-populating customer data: $e');
+      rethrow;
+    }
+  }
+
+  /// Update customer relationships specifically
+  static void _updateCustomerRelationships(
+    List<Customer> customers,
+    List<Vehicle> vehicles,
+    List<sr.ServiceRecord> serviceRecords,
+  ) {
+    for (int i = 0; i < customers.length; i++) {
+      final customer = customers[i];
+      final customerVehicles =
+          vehicles.where((v) => v.customerId == customer.id).toList();
+      final customerServiceRecords =
+          serviceRecords.where((s) => s.customerId == customer.id).toList();
+
+      // Convert sr.ServiceRecord to ServiceRecord (customer model type)
+      final customerServiceHistory = customerServiceRecords.map((srRecord) {
+        return ServiceRecord(
+          id: srRecord.id,
+          customerId: srRecord.customerId,
+          vehicleId: srRecord.vehicleId,
+          serviceDate: srRecord.serviceDate,
+          serviceType: srRecord.serviceType,
+          description: srRecord.description,
+          servicesPerformed: srRecord.servicesPerformed,
+          cost: srRecord.cost,
+          mechanicName: srRecord.mechanicName,
+          status: ServiceStatus.values.firstWhere(
+            (e) => e.name == srRecord.status.name,
+            orElse: () => ServiceStatus.completed,
+          ),
+          nextServiceDue: srRecord.nextServiceDue,
+          mileage: srRecord.mileage,
+          partsReplaced: srRecord.partsReplaced,
+          notes: srRecord.notes,
+        );
+      }).toList();
+
+      // Update customer with vehicle IDs, service history, and calculated values
+      final updatedCustomer = customer.copyWith(
+        vehicleIds: customerVehicles.map((v) => v.id).toList(),
+        serviceHistory: customerServiceHistory,
+        totalSpent: customerServiceRecords.fold<double>(
+            0.0, (double total, record) => total + record.cost),
+        lastVisit: customerServiceRecords.isNotEmpty
+            ? customerServiceRecords
+                .map((r) => r.serviceDate)
+                .reduce((a, b) => a.isAfter(b) ? a : b)
+            : null,
+      );
+
+      customers[i] = updatedCustomer;
+
+      debugPrint(
+          '📝 Customer ${customer.fullName}: ${customerServiceHistory.length} visits, RM${updatedCustomer.totalSpent.toStringAsFixed(2)} spent');
+    }
+  }
+
   // Data mapping methods
 
   /// Convert Customer to Map for Firestore
@@ -329,7 +493,6 @@ class FirebaseDataPopulator {
           .toList(),
       'preferences': _customerPreferencesToMap(customer.preferences),
       'totalSpent': customer.totalSpent,
-      'visitCount': customer.visitCount,
       'notes': customer.notes,
     };
   }
@@ -354,7 +517,8 @@ class FirebaseDataPopulator {
           ? Timestamp.fromDate(vehicle.lastServiceDate!)
           : null,
       'serviceHistoryIds': vehicle.serviceHistoryIds,
-      'serviceHistory': [], // Service history is now stored separately in service_records collection
+      'serviceHistory':
+          [], // Service history is now stored separately in service_records collection
       'photos': vehicle.photos,
       'notes': vehicle.notes,
     };
@@ -463,5 +627,62 @@ class FirebaseDataPopulator {
       'direction': log.direction,
       'staffMember': log.staffMember,
     };
+  }
+
+  // Helper methods to convert Firebase data back to objects
+
+  /// Convert Firebase document to Vehicle object
+  static Vehicle _vehicleFromMap(Map<String, dynamic> data, String docId) {
+    return Vehicle(
+      id: data['id'] ?? docId,
+      make: data['make'] ?? '',
+      model: data['model'] ?? '',
+      year: data['year'] ?? 0,
+      licensePlate: data['licensePlate'] ?? '',
+      vin: data['vin'] ?? '',
+      color: data['color'] ?? '',
+      mileage: data['mileage'] ?? 0,
+      customerId: data['customerId'] ?? '',
+      customerName: data['customerName'] ?? '',
+      customerPhone: data['customerPhone'] ?? '',
+      customerEmail: data['customerEmail'] ?? '',
+      createdAt: data['createdAt'] is Timestamp
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+      lastServiceDate: data['lastServiceDate'] is Timestamp
+          ? (data['lastServiceDate'] as Timestamp).toDate()
+          : null,
+      serviceHistoryIds: List<String>.from(data['serviceHistoryIds'] ?? []),
+      photos: List<String>.from(data['photos'] ?? []),
+      notes: data['notes'],
+    );
+  }
+
+  /// Convert Firebase document to ServiceRecord object
+  static sr.ServiceRecord _serviceRecordFromMap(
+      Map<String, dynamic> data, String docId) {
+    return sr.ServiceRecord(
+      id: data['id'] ?? docId,
+      customerId: data['customerId'] ?? '',
+      vehicleId: data['vehicleId'] ?? '',
+      serviceDate: data['serviceDate'] is Timestamp
+          ? (data['serviceDate'] as Timestamp).toDate()
+          : DateTime.now(),
+      serviceType: data['serviceType'] ?? '',
+      description: data['description'] ?? '',
+      servicesPerformed: List<String>.from(data['servicesPerformed'] ?? []),
+      cost: (data['cost'] ?? 0.0).toDouble(),
+      mechanicName: data['mechanicName'] ?? '',
+      status: sr.ServiceStatus.values.firstWhere(
+        (e) => e.name == data['status'],
+        orElse: () => sr.ServiceStatus.completed,
+      ),
+      nextServiceDue: data['nextServiceDue'] is Timestamp
+          ? (data['nextServiceDue'] as Timestamp).toDate()
+          : null,
+      mileage: data['mileage'] ?? 0,
+      partsReplaced: List<String>.from(data['partsReplaced'] ?? []),
+      notes: data['notes'],
+    );
   }
 }

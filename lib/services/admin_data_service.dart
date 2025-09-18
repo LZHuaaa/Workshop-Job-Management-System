@@ -11,37 +11,38 @@ class AdminDataService {
   AdminDataService._internal();
 
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   // Admin access tracking
   static int _tapCount = 0;
   static DateTime? _lastTapTime;
   static const int _requiredTaps = 7; // Number of taps to unlock admin features
-  static const Duration _tapTimeout = Duration(seconds: 3); // Reset if too much time between taps
+  static const Duration _tapTimeout =
+      Duration(seconds: 3); // Reset if too much time between taps
 
   /// Check if admin mode should be unlocked based on tap sequence
   /// Returns true if the secret tap sequence is completed
   static bool checkAdminUnlock() {
     final now = DateTime.now();
-    
+
     // Reset tap count if too much time has passed
     if (_lastTapTime != null && now.difference(_lastTapTime!) > _tapTimeout) {
       _tapCount = 0;
     }
-    
+
     _tapCount++;
     _lastTapTime = now;
-    
+
     if (_tapCount >= _requiredTaps) {
       _tapCount = 0; // Reset for next time
       return true;
     }
-    
+
     return false;
   }
 
   /// Get current tap count for UI feedback
   static int get currentTapCount => _tapCount;
-  
+
   /// Get remaining taps needed for admin unlock
   static int get remainingTaps => _requiredTaps - _tapCount;
 
@@ -58,7 +59,7 @@ class AdminDataService {
   }) async {
     try {
       debugPrint('🔧 Admin: Starting Malaysian sample data population...');
-      
+
       // Check if collections already have data
       final hasExistingData = await _checkExistingData();
       if (hasExistingData) {
@@ -78,8 +79,9 @@ class AdminDataService {
 
       // Verify data was inserted correctly
       final dataStats = await _getDataStatistics();
-      
-      debugPrint('✅ Admin: Malaysian sample data population completed successfully');
+
+      debugPrint(
+          '✅ Admin: Malaysian sample data population completed successfully');
       debugPrint('📊 Admin: Data statistics: $dataStats');
 
       return AdminOperationResult(
@@ -87,11 +89,10 @@ class AdminDataService {
         message: 'Successfully populated Firebase with Malaysian sample data',
         details: dataStats,
       );
-      
     } catch (e, stackTrace) {
       debugPrint('❌ Admin: Error populating Malaysian sample data: $e');
       debugPrint('📍 Admin: Stack trace: $stackTrace');
-      
+
       return AdminOperationResult(
         success: false,
         message: 'Failed to populate sample data: ${e.toString()}',
@@ -104,7 +105,7 @@ class AdminDataService {
   Future<AdminOperationResult> clearAllData() async {
     try {
       debugPrint('🗑️ Admin: Starting data clearing operation...');
-      
+
       // Get data statistics before clearing
       final beforeStats = await _getDataStatistics();
       debugPrint('📊 Admin: Data before clearing: $beforeStats');
@@ -126,11 +127,10 @@ class AdminDataService {
           'after': afterStats,
         },
       );
-      
     } catch (e, stackTrace) {
       debugPrint('❌ Admin: Error clearing data: $e');
       debugPrint('📍 Admin: Stack trace: $stackTrace');
-      
+
       return AdminOperationResult(
         success: false,
         message: 'Failed to clear data: ${e.toString()}',
@@ -164,7 +164,7 @@ class AdminDataService {
           return true;
         }
       }
-      
+
       return false;
     } catch (e) {
       debugPrint('⚠️ Admin: Error checking existing data: $e');
@@ -176,11 +176,11 @@ class AdminDataService {
   Future<Map<String, dynamic>> _getDataStatistics() async {
     try {
       final stats = <String, dynamic>{};
-      
+
       final collections = [
         'customers',
         'vehicles',
-        'service_records', 
+        'service_records',
         'appointments',
         'invoices',
         'Inventory',
@@ -192,9 +192,10 @@ class AdminDataService {
           final snapshot = await _firestore.collection(collection).get();
           stats[collection] = {
             'count': snapshot.docs.length,
-            'lastUpdated': snapshot.docs.isNotEmpty 
-              ? snapshot.docs.first.data()['createdAt']?.toString() ?? 'Unknown'
-              : 'No data',
+            'lastUpdated': snapshot.docs.isNotEmpty
+                ? snapshot.docs.first.data()['createdAt']?.toString() ??
+                    'Unknown'
+                : 'No data',
           };
         } catch (e) {
           stats[collection] = {
@@ -207,9 +208,9 @@ class AdminDataService {
       stats['totalDocuments'] = stats.values
           .where((v) => v is Map && v.containsKey('count'))
           .fold<int>(0, (sum, v) => sum + (v['count'] as int));
-      
+
       stats['timestamp'] = DateTime.now().toIso8601String();
-      
+
       return stats;
     } catch (e) {
       debugPrint('⚠️ Admin: Error getting data statistics: $e');
@@ -224,31 +225,30 @@ class AdminDataService {
   Future<AdminOperationResult> validateFirebaseConnection() async {
     try {
       debugPrint('🔍 Admin: Validating Firebase connection...');
-      
+
       // Try to read from a collection
       await _firestore.collection('customers').limit(1).get();
-      
+
       // Try to write a test document
       final testDoc = _firestore.collection('_admin_test').doc('test');
       await testDoc.set({
         'test': true,
         'timestamp': FieldValue.serverTimestamp(),
       });
-      
+
       // Clean up test document
       await testDoc.delete();
-      
+
       debugPrint('✅ Admin: Firebase connection validated successfully');
-      
+
       return AdminOperationResult(
         success: true,
         message: 'Firebase connection and permissions validated successfully',
       );
-      
     } catch (e, stackTrace) {
       debugPrint('❌ Admin: Firebase validation failed: $e');
       debugPrint('📍 Admin: Stack trace: $stackTrace');
-      
+
       return AdminOperationResult(
         success: false,
         message: 'Firebase validation failed: ${e.toString()}',
@@ -262,13 +262,15 @@ class AdminDataService {
     try {
       debugPrint('🔧 Starting inventory usage data fix...');
 
-      await InventoryUsageDataPopulator.forceRepopulateWithCorrectData(usageRecordCount: 25);
+      await InventoryUsageDataPopulator.forceRepopulateWithCorrectData(
+          usageRecordCount: 25);
 
       return AdminOperationResult(
         success: true,
         message: 'Inventory usage data fixed successfully',
         details: {
-          'description': 'All usage records now match the actual inventory items with correct names, categories, and prices.',
+          'description':
+              'All usage records now match the actual inventory items with correct names, categories, and prices.',
           'records_updated': 25,
           'operation': 'force_repopulate',
         },
@@ -279,6 +281,40 @@ class AdminDataService {
         success: false,
         message: 'Failed to fix inventory usage data',
         error: e.toString(),
+      );
+    }
+  }
+
+  /// Re-populate customer data with correct service history
+  /// This fixes the visit count issue by ensuring customers have their service history populated
+  Future<AdminOperationResult> repopulateCustomerData(
+      {int customerCount = 30}) async {
+    try {
+      debugPrint('🔧 Admin: Starting customer data re-population...');
+
+      await FirebaseDataPopulator.repopulateCustomerData(
+          customerCount: customerCount);
+
+      debugPrint('✅ Admin: Customer data re-population completed successfully');
+
+      return AdminOperationResult(
+        success: true,
+        message:
+            'Successfully re-populated customer data with correct service history',
+        details: {
+          'customerCount': customerCount,
+          'timestamp': DateTime.now().toIso8601String(),
+          'note': 'Visit counts are now calculated from service history'
+        },
+      );
+    } catch (e, stackTrace) {
+      debugPrint('❌ Admin: Error re-populating customer data: $e');
+      debugPrint('🔍 Admin: Stack trace: $stackTrace');
+
+      return AdminOperationResult(
+        success: false,
+        message: 'Failed to re-populate customer data: ${e.toString()}',
+        details: {'error': e.toString(), 'stackTrace': stackTrace.toString()},
       );
     }
   }

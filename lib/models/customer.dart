@@ -18,7 +18,6 @@ class Customer {
   final List<ServiceRecord> serviceHistory;
   final CustomerPreferences preferences;
   final double totalSpent;
-  final int visitCount;
   final String? notes;
 
   Customer({
@@ -38,7 +37,6 @@ class Customer {
     this.serviceHistory = const [],
     required this.preferences,
     this.totalSpent = 0.0,
-    this.visitCount = 0,
     this.notes,
   });
 
@@ -47,6 +45,9 @@ class Customer {
     if (address == null) return '';
     return '$address${city != null ? ', $city' : ''}${state != null ? ', $state' : ''}${zipCode != null ? ' $zipCode' : ''}';
   }
+
+  // Computed property: visitCount based on service history
+  int get visitCount => serviceHistory.length;
 
   bool get isVip => totalSpent > 1000 || visitCount > 10;
 
@@ -76,7 +77,6 @@ class Customer {
           serviceHistory.map((service) => service.toMap()).toList(),
       'preferences': preferences.toMap(),
       'totalSpent': totalSpent,
-      'visitCount': visitCount,
       'notes': notes,
     };
   }
@@ -106,7 +106,6 @@ class Customer {
           [],
       preferences: CustomerPreferences.fromMap(map['preferences'] ?? {}),
       totalSpent: (map['totalSpent'] ?? 0.0).toDouble(),
-      visitCount: map['visitCount'] ?? 0,
       notes: map['notes'],
     );
   }
@@ -150,7 +149,6 @@ class Customer {
     List<ServiceRecord>? serviceHistory,
     CustomerPreferences? preferences,
     double? totalSpent,
-    int? visitCount,
     String? notes,
   }) {
     return Customer(
@@ -170,7 +168,6 @@ class Customer {
       serviceHistory: serviceHistory ?? this.serviceHistory,
       preferences: preferences ?? this.preferences,
       totalSpent: totalSpent ?? this.totalSpent,
-      visitCount: visitCount ?? this.visitCount,
       notes: notes ?? this.notes,
     );
   }

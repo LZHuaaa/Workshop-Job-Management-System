@@ -488,7 +488,6 @@ class SampleDataGenerator {
           ][_random.nextInt(3)],
         ),
         totalSpent: _random.nextDouble() * 5000 + 500, // RM 500 - RM 5500
-        visitCount: _random.nextInt(20) + 1,
         notes: _random.nextBool()
             ? 'Regular customer, prefers ${_serviceTypes[_random.nextInt(_serviceTypes.length)]}'
             : null,

@@ -234,7 +234,6 @@ class FirebaseDataPopulatorService {
             ? DateTime.now().subtract(Duration(days: _random.nextInt(120)))
             : null,
         totalSpent: _random.nextDouble() * 2000 + 100,
-        visitCount: _random.nextInt(15) + 1,
         preferences: CustomerPreferences(
           preferredContactMethod: [
             'phone',
@@ -445,7 +444,8 @@ class FirebaseDataPopulatorService {
         );
         print('✅ Initial usage data populated successfully!');
       } else {
-        print('📝 Usage collection already has data, preserving existing records');
+        print(
+            '📝 Usage collection already has data, preserving existing records');
       }
     } catch (e) {
       print('⚠️ Could not check/initialize usage data: $e');
