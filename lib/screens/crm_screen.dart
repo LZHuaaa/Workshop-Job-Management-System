@@ -47,13 +47,15 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
       case 'Recent':
         filtered = filtered
             .where((customer) =>
-                customer.lastVisit != null && customer.daysSinceLastVisit <= 30)
+                customer.computedLastVisit != null &&
+                customer.daysSinceLastVisit <= 30)
             .toList();
         break;
       case 'Inactive':
         filtered = filtered
             .where((customer) =>
-                customer.lastVisit == null || customer.daysSinceLastVisit > 90)
+                customer.computedLastVisit == null ||
+                customer.daysSinceLastVisit > 90)
             .toList();
         break;
     }
@@ -75,7 +77,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
 
   Future<void> _addCustomer(Customer customer) async {
     try {
-    setState(() {
+      setState(() {
         _isLoading = true;
         _errorMessage = null;
       });
@@ -116,7 +118,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
 
   Future<void> _updateCustomer(Customer updatedCustomer) async {
     try {
-    setState(() {
+      setState(() {
         _isLoading = true;
         _errorMessage = null;
       });
@@ -255,7 +257,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _initializeRealtimeData();
-    
+
     // Add listener to search controller for real-time search
     _searchController.addListener(_onSearchChanged);
   }
@@ -371,7 +373,8 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
-                        hintText: 'Search customers by name, email, or phone...',
+                        hintText:
+                            'Search customers by name, email, or phone...',
                         prefixIcon: Icon(
                           Icons.search,
                           color: AppColors.textSecondary,
@@ -587,15 +590,15 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
     return RefreshIndicator(
       onRefresh: _loadCustomers,
       child: ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: _filteredCustomers.length,
-      itemBuilder: (context, index) {
-        final customer = _filteredCustomers[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _buildCustomerCard(customer),
-        );
-      },
+        padding: const EdgeInsets.all(20),
+        itemCount: _filteredCustomers.length,
+        itemBuilder: (context, index) {
+          final customer = _filteredCustomers[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildCustomerCard(customer),
+          );
+        },
       ),
     );
   }
@@ -981,7 +984,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              'RM${customer.totalSpent.toStringAsFixed(2)}',
+                              'RM${customer.computedTotalSpent.toStringAsFixed(2)}',
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -1024,8 +1027,8 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        customer.lastVisit != null
-                            ? 'Last visit: ${DateFormat('MMM d').format(customer.lastVisit!)}'
+                        customer.computedLastVisit != null
+                            ? 'Last visit: ${DateFormat('MMM d').format(customer.computedLastVisit!)}'
                             : 'No visits yet',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
@@ -1104,9 +1107,9 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                                 ),
                               ),
                               Text(
-                                customer.lastVisit != null
+                                customer.computedLastVisit != null
                                     ? DateFormat('MMM d, y')
-                                        .format(customer.lastVisit!)
+                                        .format(customer.computedLastVisit!)
                                     : 'No payments',
                                 style: GoogleFonts.poppins(
                                   fontSize: 14,
@@ -1130,21 +1133,21 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   GestureDetector(
-                onTap: () {
-                  _showEditCustomerDialog(customer);
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryPink.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.edit,
-                    size: 16,
-                    color: AppColors.primaryPink,
-                  ),
-                ),
+                    onTap: () {
+                      _showEditCustomerDialog(customer);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryPink.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.edit,
+                        size: 16,
+                        color: AppColors.primaryPink,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
@@ -1583,7 +1586,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                         ),
                       ),
                       Text(
-                        'RM${customer.totalSpent.toStringAsFixed(2)}',
+                        'RM${customer.computedTotalSpent.toStringAsFixed(2)}',
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -1746,8 +1749,11 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
 
   // Helper method to safely get customer initials
   String _getCustomerInitials(Customer customer) {
-    final firstInitial = customer.firstName.isNotEmpty ? customer.firstName[0].toUpperCase() : '';
-    final lastInitial = customer.lastName.isNotEmpty ? customer.lastName[0].toUpperCase() : '';
+    final firstInitial = customer.firstName.isNotEmpty
+        ? customer.firstName[0].toUpperCase()
+        : '';
+    final lastInitial =
+        customer.lastName.isNotEmpty ? customer.lastName[0].toUpperCase() : '';
 
     if (firstInitial.isEmpty && lastInitial.isEmpty) {
       return '?'; // Fallback for customers with no name

@@ -195,7 +195,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
                     Expanded(
                       child: _buildHeaderStat(
                         'Total Spent',
-                        '\$${_currentCustomer.totalSpent.toStringAsFixed(2)}',
+                        'RM${_currentCustomer.computedTotalSpent.toStringAsFixed(2)}',
                         Icons.monetization_on,
                       ),
                     ),
@@ -216,8 +216,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
                     Expanded(
                       child: _buildHeaderStat(
                         'Last Visit',
-                        _currentCustomer.lastVisit != null
-                            ? '${_currentCustomer.daysSinceLastVisit} days ago'
+                        _currentCustomer.computedLastVisit != null
+                            ? '${DateTime.now().difference(_currentCustomer.computedLastVisit!).inDays} days ago'
                             : 'Never',
                         Icons.schedule,
                       ),
@@ -937,8 +937,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
 
   // Helper method to safely get customer initials
   String _getCustomerInitials(Customer customer) {
-    final firstInitial = customer.firstName.isNotEmpty ? customer.firstName[0].toUpperCase() : '';
-    final lastInitial = customer.lastName.isNotEmpty ? customer.lastName[0].toUpperCase() : '';
+    final firstInitial = customer.firstName.isNotEmpty
+        ? customer.firstName[0].toUpperCase()
+        : '';
+    final lastInitial =
+        customer.lastName.isNotEmpty ? customer.lastName[0].toUpperCase() : '';
 
     if (firstInitial.isEmpty && lastInitial.isEmpty) {
       return '?'; // Fallback for customers with no name

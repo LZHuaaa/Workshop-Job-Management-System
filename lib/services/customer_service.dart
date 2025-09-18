@@ -182,10 +182,10 @@ class CustomerService {
           case CustomerFilter.vip:
             return customer.isVip;
           case CustomerFilter.recent:
-            return customer.lastVisit != null &&
+            return customer.computedLastVisit != null &&
                 customer.daysSinceLastVisit <= 30;
           case CustomerFilter.inactive:
-            return customer.lastVisit == null ||
+            return customer.computedLastVisit == null ||
                 customer.daysSinceLastVisit > 90;
           case CustomerFilter.all:
           default:

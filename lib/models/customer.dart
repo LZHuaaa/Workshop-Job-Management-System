@@ -49,11 +49,22 @@ class Customer {
   // Computed property: visitCount based on service history
   int get visitCount => serviceHistory.length;
 
-  bool get isVip => totalSpent > 1000 || visitCount > 10;
+  // Computed property: totalSpent based on service history
+  double get computedTotalSpent => serviceHistory.fold<double>(
+      0.0, (total, service) => total + service.cost);
+
+  // Computed property: lastVisit based on service history
+  DateTime? get computedLastVisit => serviceHistory.isNotEmpty
+      ? serviceHistory
+          .map((service) => service.serviceDate)
+          .reduce((a, b) => a.isAfter(b) ? a : b)
+      : null;
+
+  bool get isVip => computedTotalSpent > 1000 || visitCount > 10;
 
   int get daysSinceLastVisit {
-    if (lastVisit == null) return 0;
-    return DateTime.now().difference(lastVisit!).inDays;
+    if (computedLastVisit == null) return 0;
+    return DateTime.now().difference(computedLastVisit!).inDays;
   }
 
   // Firestore serialization methods
