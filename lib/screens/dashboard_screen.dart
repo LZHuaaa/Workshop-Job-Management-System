@@ -11,7 +11,9 @@ import '../theme/app_colors.dart';
 import 'user_profile_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key});
+  final Function(int)? onTabSwitch;
+  
+  const DashboardScreen({super.key, this.onTabSwitch});
 
   void _showNotificationPanel(BuildContext context) {
     showModalBottomSheet(
@@ -93,9 +95,10 @@ class DashboardScreen extends StatelessWidget {
                           ),
                         );
                       },
+                      onTabSwitch: onTabSwitch,
                     ),
                     const SizedBox(height: 20),
-                    const ManagementHubCard(),
+                    ManagementHubCard(onTabSwitch: onTabSwitch),
                     const SizedBox(
                         height: 100), // Extra space for bottom navigation
                   ],

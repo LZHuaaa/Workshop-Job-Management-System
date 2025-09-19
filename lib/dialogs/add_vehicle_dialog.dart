@@ -7,9 +7,8 @@ import '../models/customer.dart';
 import '../screens/vin_scanner_screen.dart';
 import '../utils/validation_utils.dart';
 import '../services/vin_decoder_service.dart';
-import '../services/customer_service.dart';
 import '../widgets/customer_selection_widget.dart';
-import '../widgets/customer_creation_widget.dart';
+import '../dialogs/add_customer_dialog.dart';
 
 class AddVehicleDialog extends StatefulWidget {
   final Function(Vehicle) onVehicleAdded;
@@ -40,12 +39,9 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
   final _mileageController = TextEditingController();
   final _notesController = TextEditingController();
 
-  final CustomerService _customerService = CustomerService();
-
   bool _isLoading = false;
   AddVehicleStep _currentStep = AddVehicleStep.customerSelection;
   Customer? _selectedCustomer;
-  bool _isCreatingCustomer = false;
 
   final List<String> _makes = [
     'Honda',
@@ -141,57 +137,25 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
   }
 
   void _onCreateNewCustomer() {
+    showDialog(
+      context: context,
+      builder: (context) => AddCustomerDialog(
+        onCustomerAdded: _onCustomerCreated,
+      ),
+    );
+  }
+
+  void _onCustomerCreated(Customer customer) {
+    // Customer is already created by AddCustomerDialog
     if (mounted) {
       setState(() {
-        _isCreatingCustomer = true;
+        _selectedCustomer = customer;
+        _currentStep = AddVehicleStep.vehicleInformation;
       });
     }
   }
 
-  void _onCustomerCreated(Customer customer) async {
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-      });
-    }
 
-    try {
-      final customerId = await _customerService.createCustomer(customer);
-      final createdCustomer = customer.copyWith(id: customerId);
-
-      if (mounted) {
-        setState(() {
-          _selectedCustomer = createdCustomer;
-          _isCreatingCustomer = false;
-          _isLoading = false;
-          _currentStep = AddVehicleStep.vehicleInformation;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to create customer: ${e.toString()}'),
-            backgroundColor: AppColors.errorRed,
-          ),
-        );
-      }
-    }
-  }
-
-  void _onCancelCustomerCreation() {
-    if (mounted) {
-      setState(() {
-        _isCreatingCustomer = false;
-      });
-    }
-  }
 
   void _scanVIN() {
     Navigator.of(context).push(
@@ -300,7 +264,7 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
   String _getStepTitle() {
     switch (_currentStep) {
       case AddVehicleStep.customerSelection:
-        return _isCreatingCustomer ? 'Create New Customer' : 'Add New Vehicle - Select Customer';
+        return 'Add New Vehicle - Select Customer';
       case AddVehicleStep.vehicleInformation:
         return 'Add New Vehicle - Vehicle Information';
       case AddVehicleStep.confirmation:
@@ -311,17 +275,11 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
   Widget _buildStepContent() {
     switch (_currentStep) {
       case AddVehicleStep.customerSelection:
-        return _isCreatingCustomer
-            ? CustomerCreationWidget(
-                onCustomerCreated: _onCustomerCreated,
-                onCancel: _onCancelCustomerCreation,
-                isLoading: _isLoading,
-              )
-            : CustomerSelectionWidget(
-                selectedCustomer: _selectedCustomer,
-                onCustomerSelected: _onCustomerSelected,
-                onCreateNewCustomer: _onCreateNewCustomer,
-              );
+        return CustomerSelectionWidget(
+          selectedCustomer: _selectedCustomer,
+          onCustomerSelected: _onCustomerSelected,
+          onCreateNewCustomer: _onCreateNewCustomer,
+        );
       case AddVehicleStep.vehicleInformation:
         return _buildVehicleInformationStep();
       case AddVehicleStep.confirmation:
@@ -332,9 +290,6 @@ class _AddVehicleDialogState extends State<AddVehicleDialog> {
   List<Widget> _buildStepActions() {
     switch (_currentStep) {
       case AddVehicleStep.customerSelection:
-        if (_isCreatingCustomer) {
-          return []; // Customer creation widget handles its own buttons
-        }
         return [
           SecondaryButton(
             text: 'Cancel',

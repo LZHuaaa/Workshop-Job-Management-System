@@ -20,8 +20,8 @@ class _MainNavigationState extends State<MainNavigation>
   late PageController _pageController;
   late AnimationController _animationController;
 
-  final List<Widget> _screens = [
-    const DashboardScreen(),
+  List<Widget> get _screens => [
+    DashboardScreen(onTabSwitch: _onTabTapped),
     const WorkScreen(),
     const InventoryScreen(),
     const VehicleDetailsScreen(),

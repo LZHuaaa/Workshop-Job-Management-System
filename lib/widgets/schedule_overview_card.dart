@@ -6,16 +6,17 @@ import 'package:intl/intl.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../dialogs/new_job_dialog.dart';
-import '../dialogs/new_service_record_dialog.dart';
 import '../models/job_appointment.dart';
 import '../screens/job_details_screen.dart';
 
 class ScheduleOverviewCard extends StatefulWidget {
   final Function(JobAppointment)? onJobCreated;
+  final Function(int)? onTabSwitch;
 
   const ScheduleOverviewCard({
     super.key,
     this.onJobCreated,
+    this.onTabSwitch,
   });
 
   @override
@@ -244,6 +245,36 @@ class _ScheduleOverviewCardState extends State<ScheduleOverviewCard> {
                 );
               }).toList(),
             ),
+
+          const SizedBox(height: 16),
+
+          // View Full Schedule Button
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () {
+                // Switch to Work tab (index 1)
+                if (widget.onTabSwitch != null) {
+                  widget.onTabSwitch!(1);
+                }
+              },
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: AppColors.primaryPink),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'View Full Schedule',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.primaryPink,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

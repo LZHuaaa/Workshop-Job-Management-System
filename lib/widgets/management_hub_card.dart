@@ -5,7 +5,9 @@ import '../screens/work_analytics_screen.dart';
 import 'dashboard_card.dart';
 
 class ManagementHubCard extends StatelessWidget {
-  const ManagementHubCard({super.key});
+  final Function(int)? onTabSwitch;
+  
+  const ManagementHubCard({super.key, this.onTabSwitch});
 
   @override
   Widget build(BuildContext context) {
@@ -23,13 +25,23 @@ class ManagementHubCard extends StatelessWidget {
             icon: Icons.directions_car,
             title: 'Vehicle Details',
             subtitle: 'Manage customer vehicles',
-            onTap: () {},
+            onTap: () {
+              // Switch to Vehicles tab (index 3)
+              if (onTabSwitch != null) {
+                onTabSwitch!(3);
+              }
+            },
           ),
           _buildHubItem(
             icon: Icons.people,
             title: 'CRM',
             subtitle: 'Customer management',
-            onTap: () {},
+            onTap: () {
+              // Switch to Customers tab (index 4)
+              if (onTabSwitch != null) {
+                onTabSwitch!(4);
+              }
+            },
           ),
           _buildHubItem(
             icon: Icons.analytics,
@@ -48,7 +60,12 @@ class ManagementHubCard extends StatelessWidget {
             icon: Icons.view_list,
             title: 'Full Schedule',
             subtitle: 'Detailed scheduler view',
-            onTap: () {},
+            onTap: () {
+              // Switch to Work tab (index 1)
+              if (onTabSwitch != null) {
+                onTabSwitch!(1);
+              }
+            },
           ),
         ],
       ),
