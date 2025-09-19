@@ -701,27 +701,16 @@ class _EnhancedVehiclePhotoManagerState extends State<EnhancedVehiclePhotoManage
         );
       }
 
-      // Upload to storage
-      final photoUrl = await PhotoStorageService.uploadVehiclePhoto(
+      // Save photo to local storage and metadata to Firestore
+      final vehiclePhoto = await VehiclePhotoService.saveVehiclePhoto(
         vehicleId: widget.vehicle.id,
         photoFile: photoFile,
-      );
-
-      // Create VehiclePhoto object with unique ID
-      final now = DateTime.now();
-      final photoId = '${widget.vehicle.id}_${now.millisecondsSinceEpoch}_${category.name}';
-      final vehiclePhoto = VehiclePhoto(
-        id: photoId,
-        vehicleId: widget.vehicle.id,
-        url: photoUrl,
         category: category,
-        createdAt: now,
+        annotation: null, // Can add annotation support later if needed
       );
 
-      print('📸 Saving photo metadata: ID=${vehiclePhoto.id}, Category=${vehiclePhoto.category.name}, VehicleId=${vehiclePhoto.vehicleId}');
-
-      // Save photo metadata to Firebase
-      await VehiclePhotoService.savePhotoMetadata(vehiclePhoto);
+      print('📸 Photo saved successfully: ID=${vehiclePhoto.id}, Category=${vehiclePhoto.category.name}, VehicleId=${vehiclePhoto.vehicleId}');
+      print('📱 Local path: ${vehiclePhoto.url}');
 
       print('✅ Photo metadata saved successfully');
 
@@ -735,7 +724,7 @@ class _EnhancedVehiclePhotoManagerState extends State<EnhancedVehiclePhotoManage
       }
 
       // Update vehicle photos in Firestore (for backward compatibility)
-      await _vehicleService.addPhotoToVehicle(widget.vehicle.id, photoUrl);
+      await _vehicleService.addPhotoToVehicle(widget.vehicle.id, vehiclePhoto.url);
 
       // Update local state
       setState(() {
@@ -880,11 +869,8 @@ class _EnhancedVehiclePhotoManagerState extends State<EnhancedVehiclePhotoManage
     });
 
     try {
-      // Delete from storage
-      await PhotoStorageService.deleteVehiclePhoto(photo.url);
-
-      // Delete photo metadata from Firebase
-      await VehiclePhotoService.deletePhotoMetadata(photo.id);
+      // Delete photo from local storage and metadata from Firebase
+      await VehiclePhotoService.deleteVehiclePhoto(photo);
 
       // Update vehicle photos in Firestore (for backward compatibility)
       await _vehicleService.removePhotoFromVehicle(widget.vehicle.id, photo.url);

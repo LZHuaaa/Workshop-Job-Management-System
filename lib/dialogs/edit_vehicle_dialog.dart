@@ -112,8 +112,11 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
     _mileageController =
         TextEditingController(text: widget.vehicle.mileage.toString());
 
-    // Initialize customer information if available
-    if (widget.vehicle.customerName != null) {
+    // Initialize customer information if available and valid
+    if (widget.vehicle.customerName != null && 
+        widget.vehicle.customerName != 'Unassigned Customer' &&
+        widget.vehicle.customerName != 'Unknown' &&
+        !widget.vehicle.customerName!.startsWith('Missing Customer')) {
       _selectedCustomer = Customer(
         id: widget.vehicle.customerId,
         firstName: widget.vehicle.customerName?.split(' ').first ?? '',
@@ -127,10 +130,15 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
           receiveReminders: true,
         ),
       );
+      
+      // Start with vehicle information step since customer is already selected
+      _currentStep = EditVehicleStep.vehicleInformation;
+    } else {
+      // For vehicles with unknown/missing customers, start with customer selection
+      _selectedCustomer = null;
+      _currentStep = EditVehicleStep.customerSelection;
     }
 
-    // Start with vehicle information step since customer is already selected
-    _currentStep = EditVehicleStep.vehicleInformation;
     _notesController = TextEditingController(text: widget.vehicle.notes ?? '');
 
     // Add VIN change listener for auto-decoding

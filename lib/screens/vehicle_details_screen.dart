@@ -1316,10 +1316,24 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
             final bCount = _vehicleServiceCounts[b.id] ?? 0;
             comparison = aCount.compareTo(bCount);
             break;
-          case 'Customer':
+          case 'Customer Name':
+            // Sort by last name first, then first name (standard business practice)
             final aCustomer = a.customerName ?? '';
             final bCustomer = b.customerName ?? '';
-            comparison = aCustomer.compareTo(bCustomer);
+            
+            // Extract last name for proper sorting
+            final aLastName = _extractLastName(aCustomer);
+            final bLastName = _extractLastName(bCustomer);
+            
+            // Compare last names first
+            comparison = aLastName.compareTo(bLastName);
+            
+            // If last names are the same, compare first names
+            if (comparison == 0) {
+              final aFirstName = _extractFirstName(aCustomer);
+              final bFirstName = _extractFirstName(bCustomer);
+              comparison = aFirstName.compareTo(bFirstName);
+            }
             break;
         }
 
@@ -1556,7 +1570,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
           _selectedSort = 'Service Count';
           break;
         case SortOption.customerName:
-          _selectedSort = 'Customer';
+          _selectedSort = 'Customer Name';
           break;
       }
       
@@ -1565,5 +1579,38 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
       // Apply sorting using existing method
       _applySorting();
     });
+  }
+
+  // Helper method to extract first name from full name
+  String _extractFirstName(String fullName) {
+    if (fullName.isEmpty) return '';
+    
+    // Handle special placeholder names
+    if (fullName == 'Unassigned Customer' || fullName.startsWith('Missing Customer')) {
+      return fullName; // Return as-is for placeholder names
+    }
+    
+    final parts = fullName.trim().split(' ');
+    return parts.isNotEmpty ? parts.first : '';
+  }
+
+  // Helper method to extract last name from full name
+  String _extractLastName(String fullName) {
+    if (fullName.isEmpty) return '';
+    
+    // Handle special placeholder names
+    if (fullName == 'Unassigned Customer' || fullName.startsWith('Missing Customer')) {
+      return fullName; // Return as-is for placeholder names
+    }
+    
+    final parts = fullName.trim().split(' ');
+    if (parts.length <= 1) {
+      return fullName; // If only one name, use it as the last name for sorting
+    }
+    
+    // For standard Western names: "First Last" -> "Last"
+    // For multi-part names: "First Middle Last" -> "Last"
+    // Return the last part as the last name (most common convention)
+    return parts.last;
   }
 }

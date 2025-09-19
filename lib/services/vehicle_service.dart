@@ -153,13 +153,27 @@ class VehicleService {
 
       // Handle customer relationship changes
       if (currentVehicle.customerId != vehicle.customerId) {
-        // Remove vehicle from old customer
-        await _customerService.removeVehicleFromCustomer(
-            currentVehicle.customerId, vehicle.id);
+        // Remove vehicle from old customer (if old customer exists)
+        if (currentVehicle.customerId.isNotEmpty) {
+          try {
+            await _customerService.removeVehicleFromCustomer(
+                currentVehicle.customerId, vehicle.id);
+          } catch (e) {
+            // If old customer removal fails, log it but continue
+            print('Warning: Failed to remove vehicle from old customer ${currentVehicle.customerId}: $e');
+          }
+        }
 
-        // Add vehicle to new customer
-        await _customerService.addVehicleToCustomer(
-            vehicle.customerId, vehicle.id);
+        // Add vehicle to new customer (if new customer exists)
+        if (vehicle.customerId.isNotEmpty) {
+          try {
+            await _customerService.addVehicleToCustomer(
+                vehicle.customerId, vehicle.id);
+          } catch (e) {
+            // If new customer addition fails, this is more serious
+            throw VehicleServiceException('Failed to add vehicle to new customer: $e');
+          }
+        }
       }
 
       // Update the vehicle
@@ -189,9 +203,16 @@ class VehicleService {
             'Cannot delete vehicle with existing service records. Please remove all service records first.');
       }
 
-      // Remove vehicle ID from customer's vehicle list
-      await _customerService.removeVehicleFromCustomer(
-          vehicle.customerId, vehicleId);
+      // Remove vehicle ID from customer's vehicle list (only if customer exists)
+      if (vehicle.customerId.isNotEmpty) {
+        try {
+          await _customerService.removeVehicleFromCustomer(
+              vehicle.customerId, vehicleId);
+        } catch (e) {
+          // If customer removal fails (customer might not exist), log it but continue with vehicle deletion
+          print('Warning: Failed to remove vehicle from customer ${vehicle.customerId}: $e');
+        }
+      }
 
       // Delete the vehicle
       await _vehiclesRef.doc(vehicleId).delete();
@@ -703,15 +724,37 @@ class VehicleService {
 
       // Enrich vehicles with customer information
       final enrichedVehicles = vehicles.map((vehicle) {
-        if (vehicle.customerId.isNotEmpty && customersMap.containsKey(vehicle.customerId)) {
-          final customer = customersMap[vehicle.customerId]!;
+        print('🚗 Processing vehicle: ${vehicle.make} ${vehicle.model} (ID: ${vehicle.id})');
+        print('   CustomerId: "${vehicle.customerId}"');
+        
+        if (vehicle.customerId.isEmpty) {
+          print('   ❌ No customerId set for this vehicle! Creating placeholder customer name.');
+          // For vehicles without customer ID, set a placeholder that indicates they need customer assignment
           return vehicle.copyWith(
-            customerName: customer.fullName,
-            customerPhone: customer.phone,
-            customerEmail: customer.email,
+            customerName: 'Unassigned Customer',
+            customerPhone: '',
+            customerEmail: '',
           );
         }
-        return vehicle;
+        
+        if (!customersMap.containsKey(vehicle.customerId)) {
+          print('   ❌ Customer not found in fetched data for ID: ${vehicle.customerId}');
+          print('   Available customer IDs: ${customersMap.keys.toList()}');
+          // Customer reference exists but customer doesn't exist - mark as orphaned
+          return vehicle.copyWith(
+            customerName: 'Missing Customer (ID: ${vehicle.customerId})',
+            customerPhone: '',
+            customerEmail: '',
+          );
+        }
+        
+        final customer = customersMap[vehicle.customerId]!;
+        print('   ✅ Found customer: ${customer.fullName}');
+        return vehicle.copyWith(
+          customerName: customer.fullName,
+          customerPhone: customer.phone,
+          customerEmail: customer.email,
+        );
       }).toList();
 
       print('✅ Enriched vehicles with customer info');
