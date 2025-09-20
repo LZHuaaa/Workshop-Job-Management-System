@@ -385,7 +385,7 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
   Widget build(BuildContext context) {
     return CustomDialog(
       title: 'Add Service Record',
-      width: MediaQuery.of(context).size.width * 0.95,
+      width: MediaQuery.of(context).size.width * 0.9,
       content: LayoutBuilder(
         builder: (context, constraints) {
           return Form(
@@ -459,22 +459,29 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
                             onTap: _selectDate,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
+                                  horizontal: 12, vertical: 12),
                               decoration: BoxDecoration(
                                 border: Border.all(color: AppColors.textLight),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
                                     Icons.calendar_today,
-                                    size: 18,
+                                    size: 16,
                                     color: AppColors.primaryPink,
                                   ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    DateFormat('MMM d, y').format(_serviceDate),
-                                    style: GoogleFonts.poppins(fontSize: 14),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      DateFormat('MMM d, y').format(_serviceDate),
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -483,7 +490,7 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: CustomTextField(
                         label: 'Cost (RM)',

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../theme/app_colors.dart';
-import '../models/inventory_item.dart';
-import '../screens/item_details_screen.dart';
-import '../screens/inventory_usage_screen.dart';
+
 import '../dialogs/add_item_dialog.dart';
+import '../models/inventory_item.dart';
+import '../screens/inventory_usage_screen.dart';
+import '../screens/item_details_screen.dart';
 import '../services/inventory_service.dart';
+import '../theme/app_colors.dart';
 
 
 class InventoryScreen extends StatefulWidget {
@@ -175,11 +176,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 );
                               },
                               icon: const Icon(Icons.analytics, size: 18),
-                              label: Text(
-                                'Usage Management',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
+                              label: Flexible(
+                                child: Text(
+                                  'Usage Management',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               style: OutlinedButton.styleFrom(
@@ -197,11 +201,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             child: ElevatedButton.icon(
                               onPressed: () => _showAddItemDialog(),
                               icon: const Icon(Icons.add, size: 18),
-                              label: Text(
-                                'Add Item',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
+                              label: Flexible(
+                                child: Text(
+                                  'Add Item',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               style: ElevatedButton.styleFrom(
@@ -299,12 +306,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   Row(
                     children: [
                       Expanded(
+                        flex: 2,
                         child: DropdownButtonFormField<String>(
                           value: _selectedCategory,
                           decoration: InputDecoration(
                             labelText: 'Category',
                             labelStyle: GoogleFonts.poppins(
-                              fontSize: 12,
+                              fontSize: 11,
                               color: AppColors.textSecondary,
                             ),
                             border: OutlineInputBorder(
@@ -314,16 +322,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               ),
                             ),
                             contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
+                              horizontal: 8,
                               vertical: 8,
                             ),
+                            isDense: true,
                           ),
                           items: _categories.map((category) {
                             return DropdownMenuItem(
                               value: category,
                               child: Text(
                                 category,
-                                style: GoogleFonts.poppins(fontSize: 14),
+                                style: GoogleFonts.poppins(fontSize: 13),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             );
                           }).toList(),
@@ -334,14 +344,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           },
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       Expanded(
+                        flex: 2,
                         child: DropdownButtonFormField<String>(
                           value: _selectedSort,
                           decoration: InputDecoration(
                             labelText: 'Sort by',
                             labelStyle: GoogleFonts.poppins(
-                              fontSize: 12,
+                              fontSize: 11,
                               color: AppColors.textSecondary,
                             ),
                             border: OutlineInputBorder(
@@ -351,16 +362,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               ),
                             ),
                             contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
+                              horizontal: 8,
                               vertical: 8,
                             ),
+                            isDense: true,
                           ),
                           items: _sortOptions.map((sort) {
                             return DropdownMenuItem(
                               value: sort,
                               child: Text(
                                 sort,
-                                style: GoogleFonts.poppins(fontSize: 14),
+                                style: GoogleFonts.poppins(fontSize: 13),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             );
                           }).toList(),
@@ -371,19 +384,28 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           },
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      // Sort direction button
-                      IconButton(
-                        icon: Icon(
-                          _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                          color: AppColors.primaryPink,
+                      const SizedBox(width: 4),
+                      // Sort direction button - made more compact
+                      SizedBox(
+                        width: 40,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
+                          icon: Icon(
+                            _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                            color: AppColors.primaryPink,
+                            size: 20,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _sortAscending = !_sortAscending;
+                            });
+                          },
+                          tooltip: _sortAscending ? 'Sort Ascending' : 'Sort Descending',
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _sortAscending = !_sortAscending;
-                          });
-                        },
-                        tooltip: _sortAscending ? 'Sort Ascending' : 'Sort Descending',
                       ),
                     ],
                   ),
