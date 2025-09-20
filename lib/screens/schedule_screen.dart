@@ -536,10 +536,10 @@ class _ScheduleScreenState extends State<ScheduleScreen>
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _getStatusColor(appointment.status).withOpacity(0.1),
+              color: (isOverdue ? AppColors.errorRed : _getStatusColor(appointment.status)).withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _getStatusColor(appointment.status).withOpacity(0.3),
+                color: (isOverdue ? AppColors.errorRed : _getStatusColor(appointment.status)).withOpacity(0.3),
                 width: 1,
               ),
             ),
@@ -562,11 +562,11 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: _getStatusColor(appointment.status),
+                        color: isOverdue ? AppColors.errorRed : _getStatusColor(appointment.status),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        appointment.status.name.toUpperCase(),
+                        isOverdue ? 'OVERDUE' : appointment.status.name.toUpperCase(),
                         style: GoogleFonts.poppins(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
@@ -698,7 +698,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                 height: 50,
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: _getStatusColor(appointment.status),
+                  color: isOverdue ? AppColors.errorRed : _getStatusColor(appointment.status),
                   borderRadius: BorderRadius.circular(1),
                 ),
               ),
@@ -724,11 +724,11 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: _getStatusColor(appointment.status),
+                            color: isOverdue ? AppColors.errorRed : _getStatusColor(appointment.status),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            appointment.status.name.toUpperCase(),
+                            isOverdue ? 'OVERDUE' : appointment.status.name.toUpperCase(),
                             style: GoogleFonts.poppins(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,

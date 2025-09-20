@@ -52,8 +52,21 @@ class _WorkloadMonitoringScreenState extends State<WorkloadMonitoringScreen> {
     for (final status in JobStatus.values) {
       statusCounts[status] = 0;
     }
+    
+    final now = DateTime.now();
+    
     for (final job in _allJobs) {
-      statusCounts[job.status] = (statusCounts[job.status] ?? 0) + 1;
+      // Check if job is overdue for display purposes
+      final isOverdue = job.startTime.isBefore(now) &&
+          job.status != JobStatus.completed &&
+          job.status != JobStatus.cancelled;
+      
+      if (isOverdue) {
+        // Count overdue jobs separately for display
+        statusCounts[JobStatus.overdue] = (statusCounts[JobStatus.overdue] ?? 0) + 1;
+      } else {
+        statusCounts[job.status] = (statusCounts[job.status] ?? 0) + 1;
+      }
     }
     return statusCounts;
   }
@@ -184,6 +197,9 @@ class _WorkloadMonitoringScreenState extends State<WorkloadMonitoringScreen> {
                         children: JobStatus.values.map((status) {
                           final count = statusCounts[status] ?? 0;
                           final percentage = totalJobs > 0 ? (count / totalJobs) * 100 : 0.0;
+
+                          // Skip showing zero counts for better UI
+                          if (count == 0) return const SizedBox.shrink();
 
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),

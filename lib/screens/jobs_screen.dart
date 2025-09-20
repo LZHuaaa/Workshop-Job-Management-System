@@ -61,7 +61,7 @@ class _JobsScreenState extends State<JobsScreen> {
         filtered = filtered.where((job) => job.isOverdue).toList();
       } else {
         final status = JobStatus.values.firstWhere(
-          (s) => s.name.toLowerCase() ==
+              (s) => s.name.toLowerCase() ==
               _selectedFilter.toLowerCase().replaceAll(' ', ''),
         );
         filtered =
@@ -73,10 +73,10 @@ class _JobsScreenState extends State<JobsScreen> {
       final searchTerm = _searchController.text.toLowerCase();
       filtered = filtered
           .where((job) =>
-              job.vehicleInfo.toLowerCase().contains(searchTerm) ||
-              job.customerName.toLowerCase().contains(searchTerm) ||
-              job.mechanicName.toLowerCase().contains(searchTerm) ||
-              job.serviceType.toLowerCase().contains(searchTerm))
+      job.vehicleInfo.toLowerCase().contains(searchTerm) ||
+          job.customerName.toLowerCase().contains(searchTerm) ||
+          job.mechanicName.toLowerCase().contains(searchTerm) ||
+          job.serviceType.toLowerCase().contains(searchTerm))
           .toList();
     }
 
@@ -298,7 +298,7 @@ class _JobsScreenState extends State<JobsScreen> {
                           fontSize: 14,
                         ),
                         prefixIcon:
-                            Icon(Icons.search, color: AppColors.textSecondary),
+                        Icon(Icons.search, color: AppColors.textSecondary),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.all(16),
                       ),
@@ -432,13 +432,13 @@ class _JobsScreenState extends State<JobsScreen> {
                   ),
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(job.status),
+                      color: isOverdue ? AppColors.errorRed : _getStatusColor(job.status),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      job.status.name.toUpperCase(),
+                      isOverdue ? 'OVERDUE' : job.status.name.toUpperCase(),
                       style: GoogleFonts.poppins(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
@@ -527,21 +527,21 @@ class _JobsScreenState extends State<JobsScreen> {
                   runSpacing: 4,
                   children: job.partsNeeded!
                       .map((part) => Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppColors.softPink,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              part,
-                              style: GoogleFonts.poppins(
-                                fontSize: 10,
-                                color: AppColors.primaryPink,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ))
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.softPink,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      part,
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        color: AppColors.primaryPink,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ))
                       .toList(),
                 ),
               ],
