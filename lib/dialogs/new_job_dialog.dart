@@ -67,6 +67,8 @@ class _NewJobDialogState extends State<NewJobDialog> {
   ];
 
   bool _isLoading = false;
+  bool _isValidatingTime = false;
+  String? _timeConflictError;
 
   @override
   void initState() {
@@ -96,6 +98,81 @@ class _NewJobDialogState extends State<NewJobDialog> {
     super.dispose();
   }
 
+  Future<void> _validateTimeSlot() async {
+    if (_selectedMechanic == null) return;
+
+    setState(() {
+      _isValidatingTime = true;
+      _timeConflictError = null;
+    });
+
+    try {
+      final startDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _startTime.hour,
+        _startTime.minute,
+      );
+
+      final endDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _endTime.hour,
+        _endTime.minute,
+      );
+
+      // Query existing appointments for the selected mechanic only
+      final QuerySnapshot existingAppointments = await FirebaseFirestore.instance
+          .collection('appointments')
+          .where('mechanicName', isEqualTo: _selectedMechanic)
+          .get();
+
+      // Check for time conflicts manually
+      bool hasConflict = false;
+      Map<String, dynamic>? conflictData;
+
+      for (final doc in existingAppointments.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final existingStart = (data['startTime'] as Timestamp).toDate();
+        final existingEnd = (data['endTime'] as Timestamp).toDate();
+
+        // Check if the new appointment overlaps with existing one
+        // Two time slots overlap if: start1 < end2 AND start2 < end1
+        if (startDateTime.isBefore(existingEnd) && existingStart.isBefore(endDateTime)) {
+          hasConflict = true;
+          conflictData = data;
+          break;
+        }
+      }
+
+      if (hasConflict && conflictData != null) {
+        final conflictStart = (conflictData['startTime'] as Timestamp).toDate();
+        final conflictEnd = (conflictData['endTime'] as Timestamp).toDate();
+
+        setState(() {
+          _timeConflictError =
+          'Mechanic $_selectedMechanic is already scheduled from '
+              '${DateFormat('h:mm a').format(conflictStart)} to '
+              '${DateFormat('h:mm a').format(conflictEnd)} on this date.';
+        });
+      } else {
+        setState(() {
+          _timeConflictError = null;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _timeConflictError = 'Error checking time availability: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _isValidatingTime = false;
+      });
+    }
+  }
+
   Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -119,7 +196,10 @@ class _NewJobDialogState extends State<NewJobDialog> {
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
+        _timeConflictError = null;
       });
+      // Validate time slot after date change
+      await _validateTimeSlot();
     }
   }
 
@@ -153,12 +233,31 @@ class _NewJobDialogState extends State<NewJobDialog> {
         } else {
           _endTime = picked;
         }
+        _timeConflictError = null;
       });
+      // Validate time slot after time change
+      await _validateTimeSlot();
     }
   }
 
+  Future<void> _onMechanicChanged(String? mechanic) async {
+    setState(() {
+      _selectedMechanic = mechanic;
+      _timeConflictError = null;
+    });
+    // Validate time slot after mechanic change
+    await _validateTimeSlot();
+  }
+
+  bool get _canCreateJob {
+    return !_isLoading &&
+        !_isValidatingTime &&
+        _timeConflictError == null &&
+        _formKey.currentState?.validate() == true;
+  }
+
   Future<void> _createJob() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate() || _timeConflictError != null) return;
 
     setState(() {
       _isLoading = true;
@@ -180,6 +279,15 @@ class _NewJobDialogState extends State<NewJobDialog> {
         _endTime.hour,
         _endTime.minute,
       );
+
+      // Double-check for conflicts before creating
+      await _validateTimeSlot();
+      if (_timeConflictError != null) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
 
       // Create job in Firestore
       final docRef = await FirebaseFirestore.instance.collection('appointments').add({
@@ -315,7 +423,10 @@ class _NewJobDialogState extends State<NewJobDialog> {
                     items: _serviceTypes.map((type) {
                       return DropdownMenuItem(
                         value: type,
-                        child: Text(type),
+                        child: Text(
+                          type,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       );
                     }).toList(),
                     onChanged: (value) {
@@ -339,14 +450,13 @@ class _NewJobDialogState extends State<NewJobDialog> {
                     items: _mechanics.map((mechanic) {
                       return DropdownMenuItem(
                         value: mechanic,
-                        child: Text(mechanic),
+                        child: Text(
+                          mechanic,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       );
                     }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedMechanic = value;
-                      });
-                    },
+                    onChanged: _onMechanicChanged,
                     validator: (value) {
                       if (value == null) {
                         return 'Please select mechanic';
@@ -359,147 +469,207 @@ class _NewJobDialogState extends State<NewJobDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Date and Time Selection
-            Row(
+            // Date and Time Selection - Split into two rows for better space management
+            Column(
               children: [
-                // Date Field
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Date',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textDark,
+                // Date Field (Full width)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Date',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: _selectDate,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: AppColors.textSecondary.withOpacity(0.3),
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today,
+                              color: AppColors.primaryPink,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              DateFormat('MMM d, y').format(_selectedDate),
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: AppColors.textDark,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: _selectDate,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: AppColors.textSecondary.withOpacity(0.3),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Time Fields Row
+                Row(
+                  children: [
+                    // Start Time Field
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Start Time',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textDark,
                             ),
-                            borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.calendar_today,
-                                color: AppColors.primaryPink,
-                                size: 20,
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () => _selectTime(true),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                DateFormat('MMM d, y').format(_selectedDate),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: AppColors.textDark,
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: AppColors.textSecondary.withOpacity(0.3),
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  _startTime.format(context),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: AppColors.textDark,
+                                  ),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-
-                // Start Time Field
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Start Time',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: () => _selectTime(true),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: AppColors.textSecondary.withOpacity(0.3),
                             ),
-                            borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Center(
-                            child: Text(
-                              _startTime.format(context),
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                color: AppColors.textDark,
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+
+                    // End Time Field
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'End Time',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () => _selectTime(false),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: AppColors.textSecondary.withOpacity(0.3),
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  _endTime.format(context),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: AppColors.textDark,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-
-                // End Time Field
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'End Time',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: () => _selectTime(false),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: AppColors.textSecondary.withOpacity(0.3),
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Center(
-                            child: Text(
-                              _endTime.format(context),
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                color: AppColors.textDark,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ],
             ),
+
+            // Time Conflict Error Message
+            if (_isValidatingTime || _timeConflictError != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: _isValidatingTime
+                      ? Colors.orange.withOpacity(0.1)
+                      : Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _isValidatingTime
+                        ? Colors.orange.withOpacity(0.3)
+                        : Colors.red.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    if (_isValidatingTime)
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                        ),
+                      )
+                    else
+                      Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 16,
+                      ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _isValidatingTime
+                            ? 'Checking availability...'
+                            : _timeConflictError!,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: _isValidatingTime ? Colors.orange : Colors.red,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             const SizedBox(height: 16),
 
             Row(
@@ -511,7 +681,10 @@ class _NewJobDialogState extends State<NewJobDialog> {
                     items: JobStatus.values.map((status) {
                       return DropdownMenuItem(
                         value: status,
-                        child: Text(status.name.toUpperCase()),
+                        child: Text(
+                          status.name.toUpperCase(),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       );
                     }).toList(),
                     onChanged: (value) {
@@ -549,8 +722,8 @@ class _NewJobDialogState extends State<NewJobDialog> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         PrimaryButton(
-          text: 'Create Job',
-          onPressed: _createJob,
+          text: _isValidatingTime ? 'Checking...' : 'Create Job',
+          onPressed: _canCreateJob ? _createJob : null,
           isLoading: _isLoading,
         ),
       ],

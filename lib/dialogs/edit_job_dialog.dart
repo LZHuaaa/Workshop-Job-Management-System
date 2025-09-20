@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_colors.dart';
 import '../widgets/custom_dialog.dart';
 import '../models/job_appointment.dart';
@@ -33,6 +34,8 @@ class _EditJobDialogState extends State<EditJobDialog> {
   late JobStatus _selectedStatus;
   String? _selectedMechanic;
   bool _isLoading = false;
+  bool _isValidatingTime = false;
+  String? _timeConflictError;
 
   final List<String> _mechanics = [
     'Lee Chong Wei',
@@ -61,20 +64,20 @@ class _EditJobDialogState extends State<EditJobDialog> {
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize controllers with existing job data
     _vehicleController = TextEditingController(text: widget.job.vehicleInfo);
     _customerController = TextEditingController(text: widget.job.customerName);
-    
+
     // Ensure service type is in the list
-    final serviceType = _serviceTypes.contains(widget.job.serviceType) 
-        ? widget.job.serviceType 
+    final serviceType = _serviceTypes.contains(widget.job.serviceType)
+        ? widget.job.serviceType
         : _serviceTypes.isNotEmpty ? _serviceTypes.first : '';
     _serviceTypeController = TextEditingController(text: serviceType);
-    
+
     _notesController = TextEditingController(text: widget.job.notes ?? '');
     _estimatedCostController = TextEditingController(
-      text: widget.job.estimatedCost?.toStringAsFixed(2) ?? ''
+        text: widget.job.estimatedCost?.toStringAsFixed(2) ?? ''
     );
 
     _selectedDate = DateTime(
@@ -101,6 +104,85 @@ class _EditJobDialogState extends State<EditJobDialog> {
     super.dispose();
   }
 
+  Future<void> _validateTimeSlot() async {
+    if (_selectedMechanic == null) return;
+
+    setState(() {
+      _isValidatingTime = true;
+      _timeConflictError = null;
+    });
+
+    try {
+      final startDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _startTime.hour,
+        _startTime.minute,
+      );
+
+      final endDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _endTime.hour,
+        _endTime.minute,
+      );
+
+      // Query existing appointments for the selected mechanic only
+      final QuerySnapshot existingAppointments = await FirebaseFirestore.instance
+          .collection('appointments')
+          .where('mechanicName', isEqualTo: _selectedMechanic)
+          .get();
+
+      // Check for time conflicts manually (exclude current job being edited)
+      bool hasConflict = false;
+      Map<String, dynamic>? conflictData;
+
+      for (final doc in existingAppointments.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+
+        // Skip the current job being edited
+        if (data['id'] == widget.job.id) continue;
+
+        final existingStart = (data['startTime'] as Timestamp).toDate();
+        final existingEnd = (data['endTime'] as Timestamp).toDate();
+
+        // Check if the new appointment overlaps with existing one
+        // Two time slots overlap if: start1 < end2 AND start2 < end1
+        if (startDateTime.isBefore(existingEnd) && existingStart.isBefore(endDateTime)) {
+          hasConflict = true;
+          conflictData = data;
+          break;
+        }
+      }
+
+      if (hasConflict && conflictData != null) {
+        final conflictStart = (conflictData['startTime'] as Timestamp).toDate();
+        final conflictEnd = (conflictData['endTime'] as Timestamp).toDate();
+
+        setState(() {
+          _timeConflictError =
+          'Mechanic $_selectedMechanic is already scheduled from '
+              '${DateFormat('h:mm a').format(conflictStart)} to '
+              '${DateFormat('h:mm a').format(conflictEnd)} on this date.';
+        });
+      } else {
+        setState(() {
+          _timeConflictError = null;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _timeConflictError = 'Error checking time availability: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _isValidatingTime = false;
+      });
+    }
+  }
+
   Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -125,7 +207,10 @@ class _EditJobDialogState extends State<EditJobDialog> {
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
+        _timeConflictError = null;
       });
+      // Validate time slot after date change
+      await _validateTimeSlot();
     }
   }
 
@@ -153,7 +238,7 @@ class _EditJobDialogState extends State<EditJobDialog> {
         if (isStartTime) {
           _startTime = picked;
           // Auto-adjust end time if it's before start time
-          if (_endTime.hour < _startTime.hour || 
+          if (_endTime.hour < _startTime.hour ||
               (_endTime.hour == _startTime.hour && _endTime.minute <= _startTime.minute)) {
             _endTime = TimeOfDay(
               hour: (_startTime.hour + 1) % 24,
@@ -163,12 +248,31 @@ class _EditJobDialogState extends State<EditJobDialog> {
         } else {
           _endTime = picked;
         }
+        _timeConflictError = null;
       });
+      // Validate time slot after time change
+      await _validateTimeSlot();
     }
   }
 
+  Future<void> _onMechanicChanged(String? mechanic) async {
+    setState(() {
+      _selectedMechanic = mechanic;
+      _timeConflictError = null;
+    });
+    // Validate time slot after mechanic change
+    await _validateTimeSlot();
+  }
+
+  bool get _canUpdateJob {
+    return !_isLoading &&
+        !_isValidatingTime &&
+        _timeConflictError == null &&
+        _formKey.currentState?.validate() == true;
+  }
+
   Future<void> _updateJob() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate() || _timeConflictError != null) return;
 
     // Show confirmation dialog
     final bool? confirmed = await showDialog<bool>(
@@ -235,6 +339,15 @@ class _EditJobDialogState extends State<EditJobDialog> {
         _endTime.hour,
         _endTime.minute,
       );
+
+      // Double-check for conflicts before updating
+      await _validateTimeSlot();
+      if (_timeConflictError != null) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
 
       final updatedJob = widget.job.copyWith(
         vehicleInfo: _vehicleController.text,
@@ -304,9 +417,9 @@ class _EditJobDialogState extends State<EditJobDialog> {
                 return null;
               },
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             CustomTextField(
               label: 'Customer Name',
               hint: 'Enter customer name',
@@ -318,8 +431,6 @@ class _EditJobDialogState extends State<EditJobDialog> {
                 return null;
               },
             ),
-            
-            const SizedBox(height: 16),
 
             const SizedBox(height: 16),
 
@@ -334,7 +445,10 @@ class _EditJobDialogState extends State<EditJobDialog> {
                     items: _serviceTypes.map((type) {
                       return DropdownMenuItem(
                         value: type,
-                        child: Text(type),
+                        child: Text(
+                          type,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       );
                     }).toList(),
                     onChanged: (value) {
@@ -358,14 +472,13 @@ class _EditJobDialogState extends State<EditJobDialog> {
                     items: _mechanics.map((mechanic) {
                       return DropdownMenuItem(
                         value: mechanic,
-                        child: Text(mechanic),
+                        child: Text(
+                          mechanic,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       );
                     }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedMechanic = value;
-                      });
-                    },
+                    onChanged: _onMechanicChanged,
                     validator: (value) {
                       if (value == null) {
                         return 'Please select mechanic';
@@ -383,6 +496,7 @@ class _EditJobDialogState extends State<EditJobDialog> {
             GestureDetector(
               onTap: _selectDate,
               child: Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   border: Border.all(color: AppColors.borderLight),
@@ -396,11 +510,14 @@ class _EditJobDialogState extends State<EditJobDialog> {
                       size: 20,
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      'Date: ${DateFormat('EEEE, MMMM d, y').format(_selectedDate)}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: AppColors.textDark,
+                    Expanded(
+                      child: Text(
+                        'Date: ${DateFormat('EEEE, MMMM d, y').format(_selectedDate)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: AppColors.textDark,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -417,6 +534,7 @@ class _EditJobDialogState extends State<EditJobDialog> {
                   child: GestureDetector(
                     onTap: () => _selectTime(true),
                     child: Container(
+                      width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         border: Border.all(color: AppColors.borderLight),
@@ -430,11 +548,14 @@ class _EditJobDialogState extends State<EditJobDialog> {
                             size: 20,
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            'Start: ${_startTime.format(context)}',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: AppColors.textDark,
+                          Flexible(
+                            child: Text(
+                              'Start: ${_startTime.format(context)}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: AppColors.textDark,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -447,6 +568,7 @@ class _EditJobDialogState extends State<EditJobDialog> {
                   child: GestureDetector(
                     onTap: () => _selectTime(false),
                     child: Container(
+                      width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         border: Border.all(color: AppColors.borderLight),
@@ -460,11 +582,14 @@ class _EditJobDialogState extends State<EditJobDialog> {
                             size: 20,
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            'End: ${_endTime.format(context)}',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: AppColors.textDark,
+                          Flexible(
+                            child: Text(
+                              'End: ${_endTime.format(context)}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: AppColors.textDark,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -474,6 +599,60 @@ class _EditJobDialogState extends State<EditJobDialog> {
                 ),
               ],
             ),
+
+            // Time Conflict Error Message
+            if (_isValidatingTime || _timeConflictError != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: _isValidatingTime
+                      ? Colors.orange.withOpacity(0.1)
+                      : Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _isValidatingTime
+                        ? Colors.orange.withOpacity(0.3)
+                        : Colors.red.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    if (_isValidatingTime)
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                        ),
+                      )
+                    else
+                      Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 16,
+                      ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _isValidatingTime
+                            ? 'Checking availability...'
+                            : _timeConflictError!,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: _isValidatingTime ? Colors.orange : Colors.red,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             const SizedBox(height: 16),
 
@@ -501,6 +680,7 @@ class _EditJobDialogState extends State<EditJobDialog> {
                   child: Text(
                     status.name.toUpperCase(),
                     style: GoogleFonts.poppins(fontSize: 14),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 );
               }).toList(),
@@ -537,8 +717,8 @@ class _EditJobDialogState extends State<EditJobDialog> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         PrimaryButton(
-          text: 'Update Job',
-          onPressed: _updateJob,
+          text: _isValidatingTime ? 'Checking...' : 'Update Job',
+          onPressed: _canUpdateJob ? _updateJob : null,
           isLoading: _isLoading,
         ),
       ],
