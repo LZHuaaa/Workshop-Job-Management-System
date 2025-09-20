@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../theme/app_colors.dart';
+
 import '../models/notification.dart';
-import '../services/notification_service_factory.dart';
-import '../services/inventory_service.dart';
-import '../widgets/notification_item.dart';
+import '../screens/inventory_screen.dart';
 import '../screens/inventory_usage_screen.dart';
 import '../screens/item_details_screen.dart';
-import '../screens/inventory_screen.dart';
+import '../services/inventory_service.dart';
+import '../services/notification_service_factory.dart';
+import '../theme/app_colors.dart';
+import '../widgets/notification_item.dart';
 
 class NotificationPanel extends StatefulWidget {
   final VoidCallback? onClose;
@@ -57,17 +58,23 @@ class _NotificationPanelState extends State<NotificationPanel> {
             ),
             child: Row(
               children: [
-                Text(
-                  'Notifications',
-                  style: GoogleFonts.poppins(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
+                Expanded(
+                  child: Text(
+                    'Notifications',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                    ),
                   ),
                 ),
-                const Spacer(),
                 // Mark all as read button
                 TextButton(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   onPressed: () async {
                     await _notificationService.markAllAsRead();
                     if (mounted) {
@@ -83,29 +90,46 @@ class _NotificationPanelState extends State<NotificationPanel> {
                     }
                   },
                   child: Text(
-                    'Mark all read',
+                    'Mark all',
                     style: GoogleFonts.poppins(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: AppColors.primaryPink,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
                 // Delete all notifications button (for managers)
                 TextButton(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   onPressed: () => _showDeleteAllConfirmation(),
                   child: Text(
                     'Delete all',
                     style: GoogleFonts.poppins(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: AppColors.errorRed,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
-                IconButton(
-                  onPressed: widget.onClose,
-                  icon: Icon(
-                    Icons.close,
-                    color: AppColors.textSecondary,
+                SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    onPressed: widget.onClose,
+                    icon: Icon(
+                      Icons.close,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
                   ),
                 ),
               ],
