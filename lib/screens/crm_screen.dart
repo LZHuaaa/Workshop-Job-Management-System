@@ -12,6 +12,7 @@ import '../dialogs/edit_customer_dialog.dart';
 import '../services/crm_analytics_service.dart';
 import '../services/customer_service.dart';
 import '../services/service_record_service.dart';
+import '../widgets/radial_action_menu.dart';
 
 class CrmScreen extends StatefulWidget {
   const CrmScreen({super.key});
@@ -939,6 +940,17 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
+          // Analytics Report Header
+          Text(
+            'Analytics Report',
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 20),
+
           // Key Performance Indicators
           _buildKpiRow(analytics),
           const SizedBox(height: 20),
@@ -1164,7 +1176,14 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
 
   Widget _buildCustomerCard(Customer customer) {
     return GestureDetector(
-      onTap: () => _showCustomerDetails(customer),
+      onTap: () {
+        // Dismiss any open radial menu first
+        RadialMenuOverlay.dismiss();
+        _showCustomerDetails(customer);
+      },
+      onLongPressStart: (details) {
+        _showRadialActionMenuAtPosition(customer, details.globalPosition);
+      },
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1177,274 +1196,164 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
             ),
           ],
         ),
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 25,
-                        backgroundColor:
-                            AppColors.primaryPink.withValues(alpha: 0.1),
-                        child: Text(
-                          _getCustomerInitials(customer),
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primaryPink,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    customer.fullName,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textDark,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                  ),
-                                ),
-                                if (_isCustomerVip(customer)) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.accentPink,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      'VIP',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            Text(
-                              customer.email,
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(
-                            right: 80), // Space for action buttons
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              'RM${_getCustomerTotalSpent(customer).toStringAsFixed(2)}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primaryPink,
-                              ),
-                            ),
-                            Text(
-                              '${_getCustomerVisitCount(customer)} visits',
-                              style: GoogleFonts.poppins(
-                                fontSize: 10,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.phone,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        customer.phone,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Icon(
-                        Icons.calendar_today,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _getCustomerLastVisit(customer) != null
-                            ? 'Last visit: ${DateFormat('MMM d').format(_getCustomerLastVisit(customer)!)}'
-                            : 'No visits yet',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (customer.vehicleIds.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.softPink,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.directions_car,
-                            size: 16,
-                            color: AppColors.primaryPink,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${customer.vehicleIds.length} vehicle${customer.vehicleIds.length != 1 ? 's' : ''}',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: AppColors.primaryPink,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (customer.totalSpent > 0) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.backgroundLight,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Total Spent',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                              Text(
-                                'RM ${customer.totalSpent.toStringAsFixed(2)}',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.primaryPink,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                'Last Payment',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                              Text(
-                                customer.computedLastVisit != null
-                                    ? DateFormat('MMM d, y')
-                                        .format(customer.computedLastVisit!)
-                                    : 'No payments',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: AppColors.textDark,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            // Action buttons
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      _showEditCustomerDialog(customer);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryPink.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.edit,
-                        size: 16,
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundColor:
+                        AppColors.primaryPink.withValues(alpha: 0.1),
+                    child: Text(
+                      _getCustomerInitials(customer),
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.primaryPink,
                       ),
                     ),
                   ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                customer.fullName,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textDark,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                            if (_isCustomerVip(customer)) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accentPink,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'VIP',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        Text(
+                          customer.email,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'RM${_getCustomerTotalSpent(customer).toStringAsFixed(2)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryPink,
+                        ),
+                      ),
+                      Text(
+                        '${_getCustomerVisitCount(customer)} visits',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Icon(
+                    Icons.phone,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
                   const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () {
-                      _deleteCustomer(customer);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.errorRed.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.delete,
-                        size: 16,
-                        color: AppColors.errorRed,
-                      ),
+                  Text(
+                    customer.phone,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(
+                    Icons.calendar_today,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _getCustomerLastVisit(customer) != null
+                        ? 'Last visit: ${DateFormat('MMM d').format(_getCustomerLastVisit(customer)!)}'
+                        : 'No visits yet',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+              if (customer.vehicleIds.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.softPink,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.directions_car,
+                        size: 16,
+                        color: AppColors.primaryPink,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${customer.vehicleIds.length} vehicle${customer.vehicleIds.length != 1 ? 's' : ''}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppColors.primaryPink,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -1894,6 +1803,84 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
     );
   }
 
+  void _showRadialActionMenuAtPosition(
+      Customer customer, Offset globalPosition) {
+    final screenSize = MediaQuery.of(context).size;
+    final menuSize =
+        296.0; // (80 + 48 + 20) * 2 = updated size to match widget calculation
+
+    // Calculate position relative to the long-press location
+    var menuPosition = Offset(
+      globalPosition.dx - menuSize / 2,
+      globalPosition.dy - menuSize / 2,
+    );
+
+    // Ensure menu stays within screen bounds
+    if (menuPosition.dx < 0) {
+      menuPosition = Offset(0, menuPosition.dy);
+    }
+    if (menuPosition.dy < 0) {
+      menuPosition = Offset(menuPosition.dx, 0);
+    }
+    if (menuPosition.dx + menuSize > screenSize.width) {
+      menuPosition = Offset(screenSize.width - menuSize, menuPosition.dy);
+    }
+    if (menuPosition.dy + menuSize > screenSize.height) {
+      menuPosition = Offset(menuPosition.dx, screenSize.height - menuSize);
+    }
+
+    final actions = [
+      RadialAction(
+        icon: Icons.person,
+        label: 'View',
+        color: AppColors.primaryPink,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CustomerProfileScreen(
+                customer: customer,
+                onCustomerUpdated: _updateCustomer,
+              ),
+            ),
+          );
+        },
+        semanticLabel: 'View ${customer.fullName} details',
+      ),
+      RadialAction(
+        icon: Icons.edit,
+        label: 'Edit',
+        color: AppColors.accentPink,
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (context) => EditCustomerDialog(
+              customer: customer,
+              onCustomerUpdated: _updateCustomer,
+            ),
+          );
+        },
+        semanticLabel: 'Edit ${customer.fullName}',
+      ),
+      RadialAction(
+        icon: Icons.delete,
+        label: 'Delete',
+        color: AppColors.errorRed,
+        onTap: () => _deleteCustomerWithRelatedData(customer),
+        semanticLabel: 'Delete ${customer.fullName}',
+      ),
+    ];
+
+    RadialMenuOverlay.show(
+      context: context,
+      position: menuPosition,
+      actions: actions,
+      radius: 80.0, // Increased radius to show all buttons
+      itemSize: 48.0, // Slightly larger buttons
+      showLabels: true,
+    );
+  }
+
   Widget _buildCommunicationItem(CommunicationLog comm) {
     final customer =
         _allCustomers.firstWhere((c) => c.communicationHistory.contains(comm));
@@ -1974,32 +1961,28 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
             ),
           ),
           const SizedBox(height: 8), // Reduced spacing
-          Flexible(
-            child: Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 16, // Smaller font
-                fontWeight: FontWeight.w700,
-                color: AppColors.textDark,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 16, // Smaller font
+              fontWeight: FontWeight.w700,
+              color: AppColors.textDark,
             ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2), // Reduced spacing
-          Flexible(
-            child: Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontSize: 10, // Smaller font
-                fontWeight: FontWeight.w500,
-                color: AppColors.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 10, // Smaller font
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
             ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -2169,6 +2152,212 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
     }
 
     return monthlyData;
+  }
+
+  // Quick Action Methods
+  void _makePhoneCall(String phoneNumber) {
+    // Show confirmation dialog first
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Make Call',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Call $phoneNumber?',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Here you would typically use url_launcher to make the call
+              // For now, show a success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Opening phone app to call $phoneNumber'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Call',
+              style: GoogleFonts.poppins(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _sendEmail(String email) {
+    // Show email composition dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Send Email',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Open email app to send email to $email?',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Here you would typically use url_launcher to open email app
+              // For now, show a success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Opening email app to send to $email'),
+                  backgroundColor: Colors.blue,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Send Email',
+              style: GoogleFonts.poppins(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _loadAllCustomers() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final customers = await _customerService.getAllCustomers();
+
+      // Load service records for all customers
+      final Map<String, List<dynamic>> serviceRecordsMap = {};
+      for (final customer in customers) {
+        try {
+          final serviceRecords = await _serviceRecordService
+              .getServiceRecordsByCustomer(customer.id);
+          serviceRecordsMap[customer.id] = serviceRecords;
+        } catch (e) {
+          serviceRecordsMap[customer.id] = [];
+        }
+      }
+
+      setState(() {
+        _allCustomers = customers;
+        _customerServiceRecords = serviceRecordsMap;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load customers: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _deleteCustomerWithRelatedData(Customer customer) async {
+    try {
+      final relatedData =
+          await _customerService.getRelatedDataInfo(customer.id);
+
+      if (relatedData.vehicleCount > 0 || relatedData.serviceRecordCount > 0) {
+        final shouldDelete = await showDialog<bool>(
+          context: context,
+          builder: (context) => _DeleteWithRelatedDataDialog(
+            customer: customer,
+            relatedInfo: relatedData,
+          ),
+        );
+
+        if (shouldDelete == true) {
+          await _customerService.deleteCustomerWithRelatedData(customer.id);
+          _loadAllCustomers();
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                    '${customer.fullName} and all related data deleted successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      } else {
+        // Simple delete for customers without related data
+        final shouldDelete = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Delete Customer'),
+            content:
+                Text('Are you sure you want to delete ${customer.fullName}?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.errorRed),
+                child: Text('Delete', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldDelete == true) {
+          await _customerService.deleteCustomer(customer.id);
+          _loadAllCustomers();
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${customer.fullName} deleted successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting customer: $e'),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
   }
 }
 

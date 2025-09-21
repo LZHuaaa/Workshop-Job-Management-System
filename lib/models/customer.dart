@@ -19,6 +19,7 @@ class Customer {
   final CustomerPreferences preferences;
   final double totalSpent;
   final String? notes;
+  final List<String> tags;
 
   Customer({
     required this.id,
@@ -38,6 +39,7 @@ class Customer {
     required this.preferences,
     this.totalSpent = 0.0,
     this.notes,
+    this.tags = const [],
   });
 
   String get fullName => '$firstName $lastName';
@@ -161,6 +163,7 @@ class Customer {
     CustomerPreferences? preferences,
     double? totalSpent,
     String? notes,
+    List<String>? tags,
   }) {
     return Customer(
       id: id ?? this.id,
@@ -180,6 +183,7 @@ class Customer {
       preferences: preferences ?? this.preferences,
       totalSpent: totalSpent ?? this.totalSpent,
       notes: notes ?? this.notes,
+      tags: tags ?? this.tags,
     );
   }
 }
