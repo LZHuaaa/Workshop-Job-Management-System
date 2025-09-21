@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 import '../dialogs/add_vehicle_dialog.dart';
 import '../dialogs/edit_vehicle_dialog.dart';
@@ -410,10 +414,23 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
 
   @override
   void dispose() {
-    _isUpdating = false; // Cancel any ongoing operations
+    // Cancel any ongoing operations
+    _isUpdating = false;
+    
+    // Clean up listeners
     _searchController.removeListener(_onSearchChanged);
+    
+    // Dispose controllers
     _tabController.dispose();
     _searchController.dispose();
+    
+    // Clear data structures to help with garbage collection
+    _allVehicles.clear();
+    _filteredVehicles.clear();
+    _vehicleServiceRecords.clear();
+    _vehicleServiceCounts.clear();
+    _vehicleLastServiceDates.clear();
+    
     super.dispose();
   }
 
@@ -478,42 +495,52 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                           ),
                           const SizedBox(width: 8),
                           PopupMenuButton<String>(
-                            onSelected: _handleMenuAction,
-                            itemBuilder: (context) => [
-                              PopupMenuItem(
-                                value: 'export_csv',
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.file_download, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text('Export CSV',
-                                        style: GoogleFonts.poppins()),
-                                  ],
+                            onSelected: (String action) {
+                              // Add mounted check before handling action
+                              if (mounted) {
+                                _handleMenuAction(action);
+                              }
+                            },
+                            itemBuilder: (BuildContext context) {
+                              // Ensure we're still mounted when building items
+                              if (!mounted) return <PopupMenuEntry<String>>[];
+                              
+                              return [
+                                PopupMenuItem(
+                                  value: 'export_csv',
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.file_download, size: 18),
+                                      const SizedBox(width: 8),
+                                      Text('Export CSV',
+                                          style: GoogleFonts.poppins()),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              PopupMenuItem(
-                                value: 'export_json',
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.code, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text('Export JSON',
-                                        style: GoogleFonts.poppins()),
-                                  ],
+                                PopupMenuItem(
+                                  value: 'export_json',
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.code, size: 18),
+                                      const SizedBox(width: 8),
+                                      Text('Export JSON',
+                                          style: GoogleFonts.poppins()),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              PopupMenuItem(
-                                value: 'generate_report',
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.description, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text('Generate Report',
-                                        style: GoogleFonts.poppins()),
-                                  ],
+                                PopupMenuItem(
+                                  value: 'generate_report',
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.description, size: 18),
+                                      const SizedBox(width: 8),
+                                      Text('Generate Report',
+                                          style: GoogleFonts.poppins()),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ];
+                            },
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
@@ -1362,19 +1389,23 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
   }
 
   void _handleMenuAction(String action) async {
+    // Early exit if widget is disposed
+    if (!mounted) return;
+    
     try {
       switch (action) {
         case 'export_csv':
-          await _exportToCSV();
+          if (mounted) await _exportToCSV();
           break;
         case 'export_json':
-          await _exportToJSON();
+          if (mounted) await _exportToJSON();
           break;
         case 'generate_report':
-          await _generateReport();
+          if (mounted) await _generateReport();
           break;
       }
     } catch (e) {
+      print('❌ Error in menu action $action: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1390,53 +1421,230 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
   }
 
   Future<void> _exportToCSV() async {
-    final filePath = await _dataService.exportVehiclesToCSV(_allVehicles);
-    await _dataService.shareExportedFile(filePath, 'CSV');
+    try {
+      // Handle permissions for different Android versions
+      bool hasPermission = await _requestStoragePermission();
+      if (!hasPermission) return;
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Vehicle data exported to CSV',
-            style: GoogleFonts.poppins(),
-          ),
-          backgroundColor: AppColors.successGreen,
-        ),
+      // Generate CSV content using existing service
+      final filePath = await _dataService.exportVehiclesToCSV(_allVehicles);
+      
+      // Get the CSV file content
+      final csvFile = File(filePath);
+      final csvContent = await csvFile.readAsString();
+      
+      // Save to Downloads folder
+      final downloadPath = await _saveToDownloads(
+        csvContent, 
+        'Vehicles_Export_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.csv',
+        'CSV'
       );
+      
+      if (downloadPath != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '✅ Vehicle data exported to CSV successfully!',
+                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'File: ${downloadPath.split('/').last}',
+                  style: GoogleFonts.poppins(fontSize: 12),
+                ),
+                Text(
+                  'Location: Downloads',
+                  style: GoogleFonts.poppins(fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '📁 Open: File Manager > Downloads folder',
+                  style: GoogleFonts.poppins(fontSize: 11, fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.successGreen,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+      
+      // Clean up temporary file
+      try {
+        await csvFile.delete();
+      } catch (e) {
+        print('Could not delete temporary file: $e');
+      }
+      
+    } catch (e) {
+      print('❌ Error exporting CSV: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to export CSV: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _exportToJSON() async {
-    final filePath = await _dataService.exportVehiclesToJSON(_allVehicles);
-    await _dataService.shareExportedFile(filePath, 'JSON');
+    try {
+      // Handle permissions for different Android versions
+      bool hasPermission = await _requestStoragePermission();
+      if (!hasPermission) return;
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Vehicle data exported to JSON',
-            style: GoogleFonts.poppins(),
-          ),
-          backgroundColor: AppColors.successGreen,
-        ),
+      // Generate JSON content using existing service
+      final filePath = await _dataService.exportVehiclesToJSON(_allVehicles);
+      
+      // Get the JSON file content
+      final jsonFile = File(filePath);
+      final jsonContent = await jsonFile.readAsString();
+      
+      // Save to Downloads folder
+      final downloadPath = await _saveToDownloads(
+        jsonContent, 
+        'Vehicles_Export_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.json',
+        'JSON'
       );
+      
+      if (downloadPath != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '✅ Vehicle data exported to JSON successfully!',
+                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'File: ${downloadPath.split('/').last}',
+                  style: GoogleFonts.poppins(fontSize: 12),
+                ),
+                Text(
+                  'Location: Downloads',
+                  style: GoogleFonts.poppins(fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '📁 Open: File Manager > Downloads folder',
+                  style: GoogleFonts.poppins(fontSize: 11, fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.successGreen,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+      
+      // Clean up temporary file
+      try {
+        await jsonFile.delete();
+      } catch (e) {
+        print('Could not delete temporary file: $e');
+      }
+      
+    } catch (e) {
+      print('❌ Error exporting JSON: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to export JSON: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _generateReport() async {
-    final filePath = await _dataService.generateVehicleReport(_allVehicles);
-    await _dataService.shareExportedFile(filePath, 'PDF Report');
+    try {
+      // Handle permissions for different Android versions
+      bool hasPermission = await _requestStoragePermission();
+      if (!hasPermission) return;
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Vehicle PDF report generated',
-            style: GoogleFonts.poppins(),
-          ),
-          backgroundColor: AppColors.successGreen,
-        ),
+      // Generate PDF report using existing service
+      final filePath = await _dataService.generateVehicleReport(_allVehicles);
+      
+      // Get the PDF file content as bytes
+      final pdfFile = File(filePath);
+      final pdfBytes = await pdfFile.readAsBytes();
+      
+      // Save to Downloads folder
+      final downloadPath = await _saveBytesToDownloads(
+        pdfBytes, 
+        'Vehicle_Report_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf',
+        'PDF Report'
       );
+      
+      if (downloadPath != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '✅ Vehicle PDF report generated successfully!',
+                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'File: ${downloadPath.split('/').last}',
+                  style: GoogleFonts.poppins(fontSize: 12),
+                ),
+                Text(
+                  'Location: Downloads',
+                  style: GoogleFonts.poppins(fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '📁 Open: File Manager > Downloads folder',
+                  style: GoogleFonts.poppins(fontSize: 11, fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.successGreen,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+      
+      // Clean up temporary file
+      try {
+        await pdfFile.delete();
+      } catch (e) {
+        print('Could not delete temporary file: $e');
+      }
+      
+    } catch (e) {
+      print('❌ Error generating report: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to generate report: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
     }
   }
 
@@ -1631,5 +1839,187 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
     // For multi-part names: "First Middle Last" -> "Last"
     // Return the last part as the last name (most common convention)
     return parts.last;
+  }
+
+  // Request storage permission based on Android version
+  Future<bool> _requestStoragePermission() async {
+    if (!Platform.isAndroid) return true;
+
+    try {
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      
+      if (androidInfo.version.sdkInt >= 30) {
+        // Android 11+ (API 30+) - Use manage external storage permission
+        var status = await Permission.manageExternalStorage.status;
+        if (!status.isGranted) {
+          status = await Permission.manageExternalStorage.request();
+        }
+        
+        if (!status.isGranted && mounted) {
+          _showPermissionDialog();
+          return false;
+        }
+        return status.isGranted;
+      } else {
+        // Android 10 and below - Use regular storage permission
+        var status = await Permission.storage.status;
+        if (!status.isGranted) {
+          status = await Permission.storage.request();
+        }
+        
+        if (!status.isGranted && mounted) {
+          _showPermissionDialog();
+          return false;
+        }
+        return status.isGranted;
+      }
+    } catch (e) {
+      print('❌ Error requesting storage permission: $e');
+      return false;
+    }
+  }
+
+  void _showPermissionDialog() {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Storage permission is required to save files to Downloads folder',
+          style: GoogleFonts.poppins(),
+        ),
+        backgroundColor: AppColors.errorRed,
+        action: SnackBarAction(
+          label: 'Settings',
+          textColor: Colors.white,
+          onPressed: () {
+            openAppSettings();
+          },
+        ),
+        duration: const Duration(seconds: 6),
+      ),
+    );
+  }
+
+  // Save string content to Downloads folder
+  Future<String?> _saveToDownloads(String content, String fileName, String fileType) async {
+    try {
+      // Get Downloads directory
+      Directory? directory;
+      String directoryName = "Downloads";
+      
+      if (Platform.isAndroid) {
+        // Try multiple possible Download directory paths
+        final List<String> downloadPaths = [
+          '/storage/emulated/0/Download',
+          '/storage/emulated/0/Downloads',
+          '/sdcard/Download',
+          '/sdcard/Downloads',
+        ];
+        
+        for (String path in downloadPaths) {
+          final testDir = Directory(path);
+          if (await testDir.exists()) {
+            directory = testDir;
+            directoryName = path.split('/').last;
+            break;
+          }
+        }
+        
+        // If no Downloads folder found, create one in external storage
+        if (directory == null) {
+          final externalDir = await getExternalStorageDirectory();
+          if (externalDir != null) {
+            directory = Directory('${externalDir.path}/Download');
+            await directory.create(recursive: true);
+            directoryName = "Android/data/Download";
+          }
+        }
+      } else {
+        directory = await getApplicationDocumentsDirectory();
+        directoryName = "Documents";
+      }
+
+      if (directory == null) {
+        throw Exception('Could not access storage directory');
+      }
+
+      final file = File('${directory.path}/$fileName');
+      
+      // Write content to file
+      await file.writeAsString(content);
+      
+      print('📄 $fileType saved successfully:');
+      print('   File name: $fileName');
+      print('   Full path: ${file.path}');
+      print('   File exists: ${await file.exists()}');
+      print('   File size: ${await file.length()} bytes');
+
+      return file.path;
+    } catch (e) {
+      print('❌ Error saving $fileType to Downloads: $e');
+      return null;
+    }
+  }
+
+  // Save bytes content to Downloads folder (for PDFs)
+  Future<String?> _saveBytesToDownloads(List<int> bytes, String fileName, String fileType) async {
+    try {
+      // Get Downloads directory
+      Directory? directory;
+      String directoryName = "Downloads";
+      
+      if (Platform.isAndroid) {
+        // Try multiple possible Download directory paths
+        final List<String> downloadPaths = [
+          '/storage/emulated/0/Download',
+          '/storage/emulated/0/Downloads',
+          '/sdcard/Download',
+          '/sdcard/Downloads',
+        ];
+        
+        for (String path in downloadPaths) {
+          final testDir = Directory(path);
+          if (await testDir.exists()) {
+            directory = testDir;
+            directoryName = path.split('/').last;
+            break;
+          }
+        }
+        
+        // If no Downloads folder found, create one in external storage
+        if (directory == null) {
+          final externalDir = await getExternalStorageDirectory();
+          if (externalDir != null) {
+            directory = Directory('${externalDir.path}/Download');
+            await directory.create(recursive: true);
+            directoryName = "Android/data/Download";
+          }
+        }
+      } else {
+        directory = await getApplicationDocumentsDirectory();
+        directoryName = "Documents";
+      }
+
+      if (directory == null) {
+        throw Exception('Could not access storage directory');
+      }
+
+      final file = File('${directory.path}/$fileName');
+      
+      // Write bytes to file
+      await file.writeAsBytes(bytes);
+      
+      print('📄 $fileType saved successfully:');
+      print('   File name: $fileName');
+      print('   Full path: ${file.path}');
+      print('   File exists: ${await file.exists()}');
+      print('   File size: ${await file.length()} bytes');
+
+      return file.path;
+    } catch (e) {
+      print('❌ Error saving $fileType to Downloads: $e');
+      return null;
+    }
   }
 }

@@ -306,7 +306,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   Row(
                     children: [
                       Expanded(
-                        flex: 2,
+                        flex: 3,
                         child: DropdownButtonFormField<String>(
                           value: _selectedCategory,
                           decoration: InputDecoration(
@@ -322,7 +322,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               ),
                             ),
                             contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 8,
+                              horizontal: 4,
                               vertical: 8,
                             ),
                             isDense: true,
@@ -332,7 +332,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               value: category,
                               child: Text(
                                 category,
-                                style: GoogleFonts.poppins(fontSize: 13),
+                                style: GoogleFonts.poppins(fontSize: 11),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             );
@@ -344,9 +344,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           },
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 4),
                       Expanded(
-                        flex: 2,
+                        flex: 3,
                         child: DropdownButtonFormField<String>(
                           value: _selectedSort,
                           decoration: InputDecoration(
@@ -362,7 +362,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               ),
                             ),
                             contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 8,
+                              horizontal: 4,
                               vertical: 8,
                             ),
                             isDense: true,
@@ -372,7 +372,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               value: sort,
                               child: Text(
                                 sort,
-                                style: GoogleFonts.poppins(fontSize: 13),
+                                style: GoogleFonts.poppins(fontSize: 11),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             );
@@ -384,20 +384,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           },
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 2),
                       // Sort direction button - made more compact
                       SizedBox(
-                        width: 40,
+                        width: 32,
                         child: IconButton(
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
+                            minWidth: 24,
+                            minHeight: 24,
                           ),
                           icon: Icon(
                             _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
                             color: AppColors.primaryPink,
-                            size: 20,
+                            size: 16,
                           ),
                           onPressed: () {
                             setState(() {

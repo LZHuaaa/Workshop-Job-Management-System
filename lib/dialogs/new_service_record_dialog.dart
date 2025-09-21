@@ -167,7 +167,6 @@ class _NewServiceRecordDialogState extends State<NewServiceRecordDialog> {
         'id': serviceRecordId,
         'appointmentId': widget.job.id, // Link to the original appointment
       });
-
       // ✅ UPDATE VEHICLE MILEAGE: Update the vehicle's current mileage with the service record mileage
       if (vehicleId.isNotEmpty && !vehicleId.startsWith('unknown')) {
         try {
