@@ -48,6 +48,7 @@ class _EditCustomerDialogState extends State<EditCustomerDialog> {
     'Muhammad Faiz bin Omar',
     'Tan Mei Ling',
     'Priya d/o Raman',
+    'Salmah binti Ibrahim',
   ];
 
   @override
@@ -67,12 +68,17 @@ class _EditCustomerDialogState extends State<EditCustomerDialog> {
     _notesController = TextEditingController(text: widget.customer.notes ?? '');
 
     // Initialize preferences
-    if (widget.customer.preferences != null) {
-      _selectedContactMethod =
-          widget.customer.preferences!.preferredContactMethod;
-      _receivePromotions = widget.customer.preferences!.receivePromotions;
-      _receiveReminders = widget.customer.preferences!.receiveReminders;
-      _preferredMechanic = widget.customer.preferences!.preferredMechanic;
+    _selectedContactMethod = widget.customer.preferences.preferredContactMethod;
+    _receivePromotions = widget.customer.preferences.receivePromotions;
+    _receiveReminders = widget.customer.preferences.receiveReminders;
+
+    // Validate preferred mechanic exists in our list
+    final storedMechanic = widget.customer.preferences.preferredMechanic;
+    if (storedMechanic != null && _mechanics.contains(storedMechanic)) {
+      _preferredMechanic = storedMechanic;
+    } else {
+      // If the stored mechanic doesn't exist in our list, reset to null
+      _preferredMechanic = null;
     }
   }
 

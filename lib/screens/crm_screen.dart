@@ -40,6 +40,18 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
     'Inactive',
   ];
 
+  // Sorting options
+  String _selectedSort = 'Name';
+  bool _sortAscending = true;
+
+  final List<Map<String, dynamic>> _sortOptions = [
+    {'label': 'Name', 'icon': Icons.sort_by_alpha},
+    {'label': 'Date Added', 'icon': Icons.access_time},
+    {'label': 'Total Spent', 'icon': Icons.attach_money},
+    {'label': 'Visit Count', 'icon': Icons.repeat},
+    {'label': 'Last Visit', 'icon': Icons.schedule},
+  ];
+
   List<Customer> get _filteredCustomers {
     List<Customer> filtered = _allCustomers;
 
@@ -75,6 +87,42 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
               customer.phone.contains(searchTerm) ||
               (customer.address?.toLowerCase().contains(searchTerm) ?? false))
           .toList();
+    }
+
+    // Apply sorting
+    switch (_selectedSort) {
+      case 'Name':
+        filtered.sort((a, b) => _sortAscending
+            ? a.fullName.compareTo(b.fullName)
+            : b.fullName.compareTo(a.fullName));
+        break;
+      case 'Date Added':
+        filtered.sort((a, b) => _sortAscending
+            ? a.createdAt.compareTo(b.createdAt)
+            : b.createdAt.compareTo(a.createdAt));
+        break;
+      case 'Total Spent':
+        filtered.sort((a, b) => _sortAscending
+            ? _getCustomerTotalSpent(a).compareTo(_getCustomerTotalSpent(b))
+            : _getCustomerTotalSpent(b).compareTo(_getCustomerTotalSpent(a)));
+        break;
+      case 'Visit Count':
+        filtered.sort((a, b) => _sortAscending
+            ? _getCustomerVisitCount(a).compareTo(_getCustomerVisitCount(b))
+            : _getCustomerVisitCount(b).compareTo(_getCustomerVisitCount(a)));
+        break;
+      case 'Last Visit':
+        filtered.sort((a, b) {
+          final lastVisitA = _getCustomerLastVisit(a);
+          final lastVisitB = _getCustomerLastVisit(b);
+          if (lastVisitA == null && lastVisitB == null) return 0;
+          if (lastVisitA == null) return 1; // null values go to end
+          if (lastVisitB == null) return -1;
+          return _sortAscending
+              ? lastVisitA.compareTo(lastVisitB)
+              : lastVisitB.compareTo(lastVisitA);
+        });
+        break;
     }
 
     return filtered;
@@ -498,50 +546,175 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                     ),
                   ),
 
+                  const SizedBox(height: 20),
+
+                  // Filter Section
+                  Row(
+                    children: [
+                      Text(
+                        'Filter:',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 40,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _filterOptions.length,
+                            itemBuilder: (context, index) {
+                              final filter = _filterOptions[index];
+                              final isSelected = filter == _selectedFilter;
+
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: FilterChip(
+                                  label: Text(
+                                    filter,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  selected: isSelected,
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      _selectedFilter = filter;
+                                    });
+                                  },
+                                  backgroundColor: Colors.white,
+                                  selectedColor: AppColors.primaryPink,
+                                  checkmarkColor: Colors.white,
+                                  side: BorderSide(
+                                    color: isSelected
+                                        ? AppColors.primaryPink
+                                        : AppColors.textSecondary
+                                            .withValues(alpha: 0.3),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
                   const SizedBox(height: 16),
 
-                  // Filter Chips
-                  SizedBox(
-                    height: 40,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _filterOptions.length,
-                      itemBuilder: (context, index) {
-                        final filter = _filterOptions[index];
-                        final isSelected = filter == _selectedFilter;
+                  // Sort Section
+                  Row(
+                    children: [
+                      Text(
+                        'Sort by:',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
 
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Text(
-                              filter,
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: isSelected
-                                    ? Colors.white
-                                    : AppColors.textSecondary,
-                              ),
-                            ),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                _selectedFilter = filter;
-                              });
-                            },
-                            backgroundColor: Colors.white,
-                            selectedColor: AppColors.primaryPink,
-                            checkmarkColor: Colors.white,
-                            side: BorderSide(
-                              color: isSelected
-                                  ? AppColors.primaryPink
-                                  : AppColors.textSecondary
-                                      .withValues(alpha: 0.3),
-                            ),
+                      // Sort Dropdown
+                      Container(
+                        height: 40,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color:
+                                AppColors.textSecondary.withValues(alpha: 0.3),
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedSort,
+                            items: _sortOptions
+                                .map<DropdownMenuItem<String>>((option) {
+                              return DropdownMenuItem<String>(
+                                value: option['label'],
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      option['icon'],
+                                      size: 16,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      option['label'],
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.textDark,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (String? newValue) {
+                              if (newValue != null) {
+                                setState(() {
+                                  _selectedSort = newValue;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 8),
+
+                      // Sort Direction Toggle
+                      Container(
+                        height: 40,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color:
+                                AppColors.textSecondary.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: IconButton(
+                          onPressed: () {
+                            setState(() {
+                              _sortAscending = !_sortAscending;
+                            });
+                          },
+                          icon: Icon(
+                            _sortAscending
+                                ? Icons.arrow_upward
+                                : Icons.arrow_downward,
+                            size: 18,
+                            color: AppColors.primaryPink,
+                          ),
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+
+                      const Spacer(),
+
+                      // Results count
+                      Text(
+                        '${_filteredCustomers.length} customers',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -760,7 +933,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildAnalyticsTab() {
-    final analytics = CrmAnalyticsService.calculateAnalytics(_allCustomers);
+    final analytics = _calculateUpdatedAnalytics();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -1861,6 +2034,141 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
     }
 
     return firstInitial + lastInitial;
+  }
+
+  // Calculate analytics using actual service records data
+  CrmAnalytics _calculateUpdatedAnalytics() {
+    if (_allCustomers.isEmpty) {
+      return CrmAnalytics.empty();
+    }
+
+    // Basic metrics using helper methods
+    final totalCustomers = _allCustomers.length;
+    final totalRevenue =
+        _allCustomers.fold(0.0, (sum, c) => sum + _getCustomerTotalSpent(c));
+    final averageSpend = totalRevenue / totalCustomers;
+    final totalVisits =
+        _allCustomers.fold(0, (sum, c) => sum + _getCustomerVisitCount(c));
+
+    // Customer segmentation using helper methods
+    final vipCustomers = _allCustomers.where((c) => _isCustomerVip(c)).length;
+    final regularCustomers = _allCustomers
+        .where((c) => !_isCustomerVip(c) && _getCustomerVisitCount(c) > 0)
+        .length;
+    final newCustomers =
+        _allCustomers.where((c) => _getCustomerVisitCount(c) == 0).length;
+
+    // Retention analysis
+    final returningCustomers =
+        _allCustomers.where((c) => _getCustomerVisitCount(c) > 1).length;
+    final retentionRate = (returningCustomers / totalCustomers) * 100;
+
+    // Communication analytics (using embedded data as this hasn't changed)
+    final allCommunications =
+        _allCustomers.expand((c) => c.communicationHistory).toList();
+
+    final communicationsByType = <String, int>{};
+    final communicationsByDirection = <String, int>{};
+
+    for (final comm in allCommunications) {
+      communicationsByType[comm.type] =
+          (communicationsByType[comm.type] ?? 0) + 1;
+      communicationsByDirection[comm.direction] =
+          (communicationsByDirection[comm.direction] ?? 0) + 1;
+    }
+
+    // Customer lifecycle analysis using helper methods
+    final now = DateTime.now();
+    final activeCustomers = _allCustomers.where((c) {
+      final lastVisit = _getCustomerLastVisit(c);
+      if (lastVisit == null) return false;
+      final daysSinceLastVisit = now.difference(lastVisit).inDays;
+      return daysSinceLastVisit <= 90; // Active within 90 days
+    }).length;
+
+    final dormantCustomers = _allCustomers.where((c) {
+      final lastVisit = _getCustomerLastVisit(c);
+      if (lastVisit == null) return true;
+      final daysSinceLastVisit = now.difference(lastVisit).inDays;
+      return daysSinceLastVisit > 90 && daysSinceLastVisit <= 365;
+    }).length;
+
+    final lostCustomers = _allCustomers.where((c) {
+      final lastVisit = _getCustomerLastVisit(c);
+      if (lastVisit == null) return false;
+      final daysSinceLastVisit = now.difference(lastVisit).inDays;
+      return daysSinceLastVisit > 365;
+    }).length;
+
+    // Growth metrics
+    final growthData = _generateUpdatedGrowthData(_allCustomers);
+
+    // Top customers by spend using helper methods
+    final topCustomers = List<Customer>.from(_allCustomers)
+      ..sort((a, b) =>
+          _getCustomerTotalSpent(b).compareTo(_getCustomerTotalSpent(a)));
+
+    // Communication frequency analysis
+    final customersWithCommunications =
+        _allCustomers.where((c) => c.communicationHistory.isNotEmpty).length;
+    final communicationEngagementRate =
+        (customersWithCommunications / totalCustomers) * 100;
+
+    // Preferred contact methods
+    final contactMethodPreferences = <String, int>{};
+    for (final customer in _allCustomers) {
+      final method = customer.preferences.preferredContactMethod;
+      contactMethodPreferences[method] =
+          (contactMethodPreferences[method] ?? 0) + 1;
+    }
+
+    return CrmAnalytics(
+      totalCustomers: totalCustomers,
+      totalRevenue: totalRevenue,
+      averageSpend: averageSpend,
+      totalVisits: totalVisits,
+      vipCustomers: vipCustomers,
+      regularCustomers: regularCustomers,
+      newCustomers: newCustomers,
+      retentionRate: retentionRate,
+      activeCustomers: activeCustomers,
+      dormantCustomers: dormantCustomers,
+      lostCustomers: lostCustomers,
+      totalCommunications: allCommunications.length,
+      communicationsByType: communicationsByType,
+      communicationsByDirection: communicationsByDirection,
+      communicationEngagementRate: communicationEngagementRate,
+      contactMethodPreferences: contactMethodPreferences,
+      growthData: growthData,
+      topCustomers: topCustomers.take(5).toList(),
+    );
+  }
+
+  // Generate growth data using actual service records
+  List<MonthlyGrowthData> _generateUpdatedGrowthData(List<Customer> customers) {
+    final now = DateTime.now();
+    final monthlyData = <MonthlyGrowthData>[];
+
+    for (int i = 11; i >= 0; i--) {
+      final month = DateTime(now.year, now.month - i, 1);
+      final customersUpToMonth = customers
+          .where(
+              (c) => c.createdAt.isBefore(month.add(const Duration(days: 31))))
+          .length;
+
+      final revenue = customers
+          .where(
+              (c) => c.createdAt.isBefore(month.add(const Duration(days: 31))))
+          .fold(0.0, (sum, c) => sum + _getCustomerTotalSpent(c));
+
+      monthlyData.add(MonthlyGrowthData(
+        month: month,
+        customerCount: customersUpToMonth,
+        revenue: revenue,
+      ));
+    }
+
+    return monthlyData;
   }
 }
 
