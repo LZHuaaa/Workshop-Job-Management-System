@@ -333,7 +333,7 @@ class VehicleDataService {
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Text('Average Fleet Age: ${averageAge.toStringAsFixed(1)} years'),
-                          pw.Text('Total Fleet Mileage: ${NumberFormat('#,###').format(totalMileage)} miles'),
+                          pw.Text('Total Fleet Mileage: ${NumberFormat('#,###').format(totalMileage)} km'),
                         ],
                       ),
                     ],
@@ -461,7 +461,7 @@ class VehicleDataService {
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('Mileage: ${NumberFormat('#,###').format(vehicle.mileage)} miles', style: const pw.TextStyle(fontSize: 12)),
+                            pw.Text('Mileage: ${NumberFormat('#,###').format(vehicle.mileage)} km', style: const pw.TextStyle(fontSize: 12)),
                             pw.Text('Last Service: ${vehicle.lastServiceDate != null ? formatter.format(vehicle.lastServiceDate!) : 'Never'}', style: const pw.TextStyle(fontSize: 12)),
                             pw.Text('Color: ${vehicle.color}', style: const pw.TextStyle(fontSize: 12)),
                           ],

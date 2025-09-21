@@ -1,16 +1,18 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+
+import '../dialogs/edit_vehicle_dialog.dart';
+import '../dialogs/new_job_dialog.dart';
+import '../models/service_record.dart';
+import '../models/vehicle.dart';
+import '../services/service_record_service.dart';
+import '../services/vehicle_photo_service.dart';
+import '../services/vehicle_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
-import '../models/vehicle.dart';
-import '../models/service_record.dart';
-import '../dialogs/new_job_dialog.dart';
-import '../dialogs/edit_vehicle_dialog.dart';
-import '../services/vehicle_photo_service.dart';
-import '../services/service_record_service.dart';
-import '../services/vehicle_service.dart';
 import 'enhanced_vehicle_photo_manager.dart';
 import 'service_record_details_screen.dart';
 
@@ -29,7 +31,7 @@ class VehicleProfileScreen extends StatefulWidget {
 }
 
 class _VehicleProfileScreenState extends State<VehicleProfileScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   late Vehicle _currentVehicle;
   List<VehiclePhoto> _photos = [];
@@ -44,12 +46,23 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _currentVehicle = widget.vehicle;
+    WidgetsBinding.instance.addObserver(this);
     _loadPhotos();
     _loadServiceRecords();
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Refresh service records when app comes back to foreground
+    if (state == AppLifecycleState.resumed) {
+      _loadServiceRecords();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     super.dispose();
   }
@@ -103,12 +116,20 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
     }
   }
 
-  void _scheduleService() {
-    showDialog(
+  // Method to refresh service records (can be called externally)
+  void refreshServiceRecords() {
+    _loadServiceRecords();
+  }
+
+  void _scheduleService() async {
+    final result = await showDialog<bool>(
       context: context,
       builder: (context) => NewJobDialog(
         vehicleInfo: _currentVehicle.fullDisplayName,
         customerName: _currentVehicle.customerName,
+        phoneNumber: _currentVehicle.customerPhone,
+        vehicleId: widget.vehicle.id, // Pass the actual vehicle ID
+        customerId: _currentVehicle.customerId, // Pass the actual customer ID
         onJobCreated: (appointment) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -122,6 +143,11 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
         },
       ),
     );
+    
+    // Refresh service records if a job was created or completed
+    if (result == true) {
+      _loadServiceRecords();
+    }
   }
 
   void _managePhotos() async {
@@ -451,7 +477,7 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
                             ),
                           ),
                           const SizedBox(height: 8),
-                          if (_currentVehicle.needsService)
+                          if (_currentVehicle.needsServiceWithRecords(_serviceRecords))
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
@@ -481,16 +507,14 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
                     Expanded(
                       child: _buildHeaderStat(
                         'Mileage',
-                        '${NumberFormat('#,###').format(_currentVehicle.mileage)} mi',
+                        '${NumberFormat('#,###').format(_currentVehicle.mileage)} km',
                         Icons.speed,
                       ),
                     ),
                     Expanded(
                       child: _buildHeaderStat(
                         'Last Service',
-                        _currentVehicle.lastServiceDate != null
-                            ? '${_currentVehicle.daysSinceLastService} days ago'
-                            : 'Never',
+                        _getLastServiceDisplayText(),
                         Icons.build,
                       ),
                     ),
@@ -575,6 +599,25 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
     );
   }
 
+  /// Calculate last service display text from actual service records
+  String _getLastServiceDisplayText() {
+    if (_serviceRecords.isEmpty) {
+      return 'Never';
+    }
+
+    // Service records are already sorted by date descending from the service
+    final mostRecentService = _serviceRecords.first;
+    final daysSinceService = DateTime.now().difference(mostRecentService.serviceDate).inDays;
+    
+    if (daysSinceService == 0) {
+      return 'Today';
+    } else if (daysSinceService == 1) {
+      return '1 day ago';
+    } else {
+      return '$daysSinceService days ago';
+    }
+  }
+
   Widget _buildDetailsTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -591,7 +634,7 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
                 _buildDetailRow('VIN', _currentVehicle.vin),
                 _buildDetailRow('License Plate', _currentVehicle.licensePlate),
                 _buildDetailRow('Current Mileage',
-                    '${NumberFormat('#,###').format(_currentVehicle.mileage)} miles'),
+                    '${NumberFormat('#,###').format(_currentVehicle.mileage)} km'),
               ],
             ),
           ),
@@ -1106,7 +1149,7 @@ class _VehicleProfileScreenState extends State<VehicleProfileScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Mechanic: ${service.mechanicName} • ${service.mileage.toString()} miles',
+            'Mechanic: ${service.mechanicName} • ${service.mileage.toString()} km',
             style: GoogleFonts.poppins(
               fontSize: 12,
               color: AppColors.textSecondary,

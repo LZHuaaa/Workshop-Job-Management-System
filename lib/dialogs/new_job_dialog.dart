@@ -1,10 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../models/job_appointment.dart';
 import '../theme/app_colors.dart';
 import '../widgets/custom_dialog.dart';
-import '../models/job_appointment.dart';
 import 'new_service_record_dialog.dart';
 
 class NewJobDialog extends StatefulWidget {
@@ -13,6 +14,8 @@ class NewJobDialog extends StatefulWidget {
   final String? customerName;
   final String? phoneNumber;
   final String? initialMechanic;
+  final String? vehicleId; // Actual vehicle document ID
+  final String? customerId; // Actual customer document ID
 
   const NewJobDialog({
     super.key,
@@ -21,6 +24,8 @@ class NewJobDialog extends StatefulWidget {
     this.customerName,
     this.phoneNumber,
     this.initialMechanic,
+    this.vehicleId,
+    this.customerId,
   });
 
   @override
@@ -293,6 +298,8 @@ class _NewJobDialogState extends State<NewJobDialog> {
       final docRef = await FirebaseFirestore.instance.collection('appointments').add({
         'vehicleInfo': _vehicleController.text,
         'customerName': _customerController.text,
+        'vehicleId': widget.vehicleId,
+        'customerId': widget.customerId,
         'mechanicName': _selectedMechanic!,
         'startTime': Timestamp.fromDate(startDateTime),
         'endTime': Timestamp.fromDate(endDateTime),
@@ -311,6 +318,8 @@ class _NewJobDialogState extends State<NewJobDialog> {
         id: docRef.id,
         vehicleInfo: _vehicleController.text,
         customerName: _customerController.text,
+        vehicleId: widget.vehicleId,
+        customerId: widget.customerId,
         mechanicName: _selectedMechanic!,
         startTime: startDateTime,
         endTime: endDateTime,

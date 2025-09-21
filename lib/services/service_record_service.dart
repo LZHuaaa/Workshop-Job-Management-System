@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/service_record.dart';
 import 'customer_service.dart';
 
@@ -28,12 +29,12 @@ class ServiceRecordService {
       await _customerService.updateCustomerStats(
           serviceRecord.customerId, serviceRecord.cost);
 
-      // Update vehicle's last service date directly
+      // Update vehicle's last service date directly - use Timestamp for consistency
       await _firestore
           .collection('vehicles')
           .doc(serviceRecord.vehicleId)
           .update({
-        'lastServiceDate': serviceRecord.serviceDate,
+        'lastServiceDate': Timestamp.fromDate(serviceRecord.serviceDate),
       });
 
       return docRef.id;
@@ -245,10 +246,10 @@ class ServiceRecordService {
   Future<List<ServiceRecord>> getServiceRecordsByDateRange(
       DateTime startDate, DateTime endDate) async {
     try {
+      // Use Timestamp format for Firestore consistency
       final querySnapshot = await _serviceRecordsRef
-          .where('serviceDate',
-              isGreaterThanOrEqualTo: startDate.toIso8601String())
-          .where('serviceDate', isLessThanOrEqualTo: endDate.toIso8601String())
+          .where('serviceDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
+          .where('serviceDate', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
           .orderBy('serviceDate', descending: true)
           .get();
 
@@ -316,11 +317,10 @@ class ServiceRecordService {
       final now = DateTime.now();
       final nextMonth = now.add(const Duration(days: 30));
 
+      // Use Timestamp format for Firestore consistency
       final querySnapshot = await _serviceRecordsRef
-          .where('nextServiceDue',
-              isGreaterThanOrEqualTo: now.toIso8601String())
-          .where('nextServiceDue',
-              isLessThanOrEqualTo: nextMonth.toIso8601String())
+          .where('nextServiceDue', isGreaterThanOrEqualTo: Timestamp.fromDate(now))
+          .where('nextServiceDue', isLessThanOrEqualTo: Timestamp.fromDate(nextMonth))
           .orderBy('nextServiceDue')
           .get();
 
@@ -418,10 +418,10 @@ class ServiceRecordService {
   Future<List<ServiceRecord>> getRecentServiceRecords() async {
     try {
       final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
-
+      
+      // Use Timestamp format for Firestore consistency
       final querySnapshot = await _serviceRecordsRef
-          .where('serviceDate',
-              isGreaterThanOrEqualTo: thirtyDaysAgo.toIso8601String())
+          .where('serviceDate', isGreaterThanOrEqualTo: Timestamp.fromDate(thirtyDaysAgo))
           .orderBy('serviceDate', descending: true)
           .get();
 

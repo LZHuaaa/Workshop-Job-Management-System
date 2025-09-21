@@ -39,14 +39,14 @@ class ServiceRecord {
       'id': id,
       'customerId': customerId,
       'vehicleId': vehicleId,
-      'serviceDate': serviceDate.toIso8601String(),
+      'serviceDate': Timestamp.fromDate(serviceDate),
       'serviceType': serviceType,
       'description': description,
       'servicesPerformed': servicesPerformed,
       'cost': cost,
       'mechanicName': mechanicName,
       'status': status.name,
-      'nextServiceDue': nextServiceDue?.toIso8601String(),
+      'nextServiceDue': nextServiceDue != null ? Timestamp.fromDate(nextServiceDue!) : null,
       'mileage': mileage,
       'partsReplaced': partsReplaced,
       'notes': notes,
@@ -88,7 +88,27 @@ class ServiceRecord {
     }
 
     if (dateValue is String) {
-      return DateTime.parse(dateValue);
+      try {
+        // Try parsing ISO8601 format first
+        return DateTime.parse(dateValue);
+      } catch (e) {
+        try {
+          // Try parsing other common formats
+          if (dateValue.contains('/')) {
+            // Handle MM/dd/yyyy format
+            final parts = dateValue.split('/');
+            if (parts.length == 3) {
+              return DateTime(int.parse(parts[2]), int.parse(parts[0]), int.parse(parts[1]));
+            }
+          }
+          // If all parsing fails, return current time
+          print('Warning: Could not parse date string "$dateValue", using current time');
+          return DateTime.now();
+        } catch (e2) {
+          print('Warning: Failed to parse date "$dateValue": $e2');
+          return DateTime.now();
+        }
+      }
     }
 
     if (dateValue is DateTime) {
@@ -96,6 +116,7 @@ class ServiceRecord {
     }
 
     // Fallback to current time if we can't parse
+    print('Warning: Unknown date value type "${dateValue.runtimeType}", using current time');
     return DateTime.now();
   }
 

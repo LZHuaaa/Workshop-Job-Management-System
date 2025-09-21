@@ -10,6 +10,8 @@ class JobAppointment {
   final String id;
   final String vehicleInfo;
   final String customerName;
+  final String? vehicleId; // Actual vehicle document ID
+  final String? customerId; // Actual customer document ID
   final String mechanicName;
   final DateTime startTime;
   final DateTime endTime;
@@ -23,6 +25,8 @@ class JobAppointment {
     required this.id,
     required this.vehicleInfo,
     required this.customerName,
+    this.vehicleId,
+    this.customerId,
     required this.mechanicName,
     required this.startTime,
     required this.endTime,
@@ -37,6 +41,8 @@ class JobAppointment {
     String? id,
     String? vehicleInfo,
     String? customerName,
+    String? vehicleId,
+    String? customerId,
     String? mechanicName,
     DateTime? startTime,
     DateTime? endTime,
@@ -50,6 +56,8 @@ class JobAppointment {
       id: id ?? this.id,
       vehicleInfo: vehicleInfo ?? this.vehicleInfo,
       customerName: customerName ?? this.customerName,
+      vehicleId: vehicleId ?? this.vehicleId,
+      customerId: customerId ?? this.customerId,
       mechanicName: mechanicName ?? this.mechanicName,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
@@ -80,6 +88,8 @@ class JobAppointment {
       id: map['id'] ?? '',
       vehicleInfo: map['vehicleInfo'] ?? '',
       customerName: map['customerName'] ?? '',
+      vehicleId: map['vehicleId'],
+      customerId: map['customerId'],
       mechanicName: map['mechanicName'] ?? '',
       startTime: map['startTime'] is DateTime
           ? map['startTime']
@@ -106,6 +116,8 @@ class JobAppointment {
       'id': id,
       'vehicleInfo': vehicleInfo,
       'customerName': customerName,
+      'vehicleId': vehicleId,
+      'customerId': customerId,
       'mechanicName': mechanicName,
       'startTime': startTime.toIso8601String(),
       'endTime': endTime.toIso8601String(),

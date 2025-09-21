@@ -128,7 +128,7 @@ class ServiceRecordDetailsScreen extends StatelessWidget {
                       Expanded(
                         child: _buildInfoCard(
                           'Mileage',
-                          '${NumberFormat('#,###').format(serviceRecord.mileage)} mi',
+                          '${NumberFormat('#,###').format(serviceRecord.mileage)} km',
                           Icons.speed,
                         ),
                       ),

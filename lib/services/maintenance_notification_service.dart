@@ -219,7 +219,7 @@ class MaintenanceNotificationService {
     await _flutterLocalNotificationsPlugin.zonedSchedule(
       vehicle.id.hashCode + 2000,
       'Mileage Maintenance Due',
-      '${vehicle.displayName} has reached $targetMileage miles - maintenance required',
+      '${vehicle.displayName} has reached $targetMileage km - maintenance required',
       _convertToTZDateTime(estimatedDate),
       const NotificationDetails(
         android: AndroidNotificationDetails(
@@ -250,7 +250,7 @@ class MaintenanceNotificationService {
     await _flutterLocalNotificationsPlugin.show(
       vehicle.id.hashCode + 2000,
       'Mileage Maintenance Required',
-      '${vehicle.displayName} has reached $targetMileage miles',
+      '${vehicle.displayName} has reached $targetMileage km',
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'maintenance_alerts',

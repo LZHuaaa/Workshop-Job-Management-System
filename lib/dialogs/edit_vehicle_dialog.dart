@@ -690,7 +690,7 @@ class _EditVehicleDialogState extends State<EditVehicleDialog> {
               _buildConfirmationRow('License Plate', _licensePlateController.text),
               _buildConfirmationRow('VIN', _vinController.text),
               _buildConfirmationRow('Color', _colorController.text),
-              _buildConfirmationRow('Mileage', '${_mileageController.text} miles'),
+              _buildConfirmationRow('Mileage', '${_mileageController.text} km'),
               if (_notesController.text.isNotEmpty)
                 _buildConfirmationRow('Notes', _notesController.text),
             ],

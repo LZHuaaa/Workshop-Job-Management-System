@@ -1,9 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../theme/app_colors.dart';
+
 import '../models/job_appointment.dart';
 import '../models/service_details.dart';
+import '../theme/app_colors.dart';
 import 'new_job_dialog.dart';
 
 class NewServiceRecordDialog extends StatefulWidget {
@@ -52,10 +53,92 @@ class _NewServiceRecordDialogState extends State<NewServiceRecordDialog> {
     setState(() => _isLoading = true);
 
     try {
+      // Try to get actual IDs from the job first, otherwise look them up
+      String? vehicleId = widget.job.vehicleId;
+      String? customerId = widget.job.customerId;
+      
+      print('🔍 Job has Vehicle ID: $vehicleId, Customer ID: $customerId');
+      
+      // If we don't have the IDs in the job, look them up from display names
+      if (vehicleId == null || customerId == null) {
+        print('🔍 Looking up IDs from display info: ${widget.job.vehicleInfo}');
+        
+        try {
+          // First, try to extract license plate from vehicleInfo (format: "YYYY Make Model - LicensePlate")
+          String? licensePlate;
+          if (widget.job.vehicleInfo.contains(' - ')) {
+            licensePlate = widget.job.vehicleInfo.split(' - ').last.trim();
+            print('🔍 Extracted license plate: $licensePlate');
+            
+            // Query vehicles by license plate
+            final vehicleQuery = await FirebaseFirestore.instance
+                .collection('vehicles')
+                .where('licensePlate', isEqualTo: licensePlate)
+                .limit(1)
+                .get();
+            
+            if (vehicleQuery.docs.isNotEmpty) {
+              vehicleId = vehicleQuery.docs.first.id;
+              customerId = vehicleQuery.docs.first.data()['customerId'];
+              print('✅ Found vehicle by license plate - Vehicle ID: $vehicleId, Customer ID: $customerId');
+            }
+          }
+          
+          // If we couldn't find by license plate, try to find by matching the full display name
+          if (vehicleId == null) {
+            print('🔍 Trying full display name search...');
+            final allVehicles = await FirebaseFirestore.instance
+                .collection('vehicles')
+                .get();
+            
+            for (final doc in allVehicles.docs) {
+              final data = doc.data();
+              final displayName = '${data['year']} ${data['make']} ${data['model']} - ${data['licensePlate']}';
+              if (displayName == widget.job.vehicleInfo) {
+                vehicleId = doc.id;
+                customerId = data['customerId'];
+                print('✅ Found vehicle by display name match - Vehicle ID: $vehicleId, Customer ID: $customerId');
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          print('❌ Error looking up vehicle ID: $e');
+        }
+      }
+      
+      // If still no vehicle ID found, use the job info as fallback (for backwards compatibility)
+      if (vehicleId == null) {
+        print('⚠️ Could not find vehicle ID, using fallback values');
+        vehicleId = widget.job.vehicleInfo;
+        customerId = widget.job.customerName;
+      } else {
+        // Double-check that the customer ID is valid if we looked it up
+        if (widget.job.customerId == null && customerId != null) {
+          try {
+            final customerDoc = await FirebaseFirestore.instance
+                .collection('customers')
+                .doc(customerId)
+                .get();
+            
+            if (!customerDoc.exists) {
+              print('⚠️ Customer ID $customerId does not exist, using fallback');
+              customerId = widget.job.customerName;
+            } else {
+              print('✅ Customer ID $customerId verified');
+            }
+          } catch (e) {
+            print('⚠️ Error verifying customer ID: $e');
+          }
+        }
+        
+        print('✅ Using IDs - Vehicle: $vehicleId, Customer: $customerId');
+      }
+
       // Create a new service record
       final serviceRecord = {
         'cost': _cost,
-        'customerId': widget.job.customerName,
+        'customerId': customerId,
         'description': _descriptionController.text,
         'id': DateTime.now().millisecondsSinceEpoch.toString(),
         'mechanicName': widget.job.mechanicName,
@@ -67,7 +150,7 @@ class _NewServiceRecordDialogState extends State<NewServiceRecordDialog> {
         'serviceType': widget.job.serviceType,
         'servicesPerformed': _selectedServices,
         'status': 'completed',
-        'vehicleId': widget.job.vehicleInfo,
+        'vehicleId': vehicleId,
         'previousAppointmentId': widget.job.id, // Link to the appointment that created this service
         'nextAppointmentId': null, // Will be updated after creating next appointment
       };
@@ -84,6 +167,42 @@ class _NewServiceRecordDialogState extends State<NewServiceRecordDialog> {
         'id': serviceRecordId,
         'appointmentId': widget.job.id, // Link to the original appointment
       });
+
+      // ✅ UPDATE VEHICLE MILEAGE: Update the vehicle's current mileage with the service record mileage
+      if (vehicleId.isNotEmpty && !vehicleId.startsWith('unknown')) {
+        try {
+          final newMileage = int.parse(_mileageController.text);
+          
+          // Get current vehicle data to check existing mileage
+          final vehicleDoc = await FirebaseFirestore.instance
+              .collection('vehicles')
+              .doc(vehicleId)
+              .get();
+          
+          if (vehicleDoc.exists) {
+            final currentVehicleMileage = vehicleDoc.data()?['mileage'] ?? 0;
+            
+            // Update if new mileage is higher or equal (service should never decrease mileage)
+            if (newMileage >= currentVehicleMileage) {
+              await FirebaseFirestore.instance
+                  .collection('vehicles')
+                  .doc(vehicleId)
+                  .update({
+                    'mileage': newMileage,
+                    'lastUpdated': Timestamp.fromDate(DateTime.now()),
+                  });
+              print('✅ Updated vehicle $vehicleId mileage from $currentVehicleMileage to $newMileage km');
+            } else {
+              print('⚠️ New mileage ($newMileage) is less than current mileage ($currentVehicleMileage). Skipping update.');
+            }
+          } else {
+            print('⚠️ Vehicle document $vehicleId not found. Cannot update mileage.');
+          }
+        } catch (e) {
+          print('⚠️ Error updating vehicle mileage: $e');
+          // Don't fail the service record creation if mileage update fails
+        }
+      }
 
       // Update original appointment with completed status and link to service record
       await FirebaseFirestore.instance
@@ -146,7 +265,7 @@ class _NewServiceRecordDialogState extends State<NewServiceRecordDialog> {
           ),
         );
 
-        // Show final success message
+        // Show final success message and return success
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -157,6 +276,9 @@ class _NewServiceRecordDialogState extends State<NewServiceRecordDialog> {
               backgroundColor: AppColors.successGreen,
             ),
           );
+          
+          // Pop with success result to notify parent
+          Navigator.of(context).pop(true);
         }
       }
     } catch (e) {

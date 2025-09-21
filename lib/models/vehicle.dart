@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'service_record.dart';
+
 import 'customer.dart';
+import 'service_record.dart';
 
 class Vehicle {
   final String id;
@@ -54,7 +55,37 @@ class Vehicle {
       return daysSinceCreation > 30; // Grace period for new vehicles
     }
     final daysSinceService = DateTime.now().difference(lastServiceDate!).inDays;
-    return daysSinceService > 90; // Needs service every 3 months
+    return daysSinceService > 90; // Fallback: Needs service every 3 months
+  }
+
+  /// Enhanced service due logic that directly checks nextServiceDue dates from service records
+  /// Returns true if ANY service record has a nextServiceDue date that is overdue
+  bool needsServiceWithRecords(List<ServiceRecord> serviceRecords) {
+    if (serviceRecords.isEmpty) {
+      // No service history - use the original 90-day logic as fallback
+      return needsService;
+    }
+
+    final now = DateTime.now();
+    
+    // Direct check: if ANY service record has nextServiceDue that is overdue, return true
+    return serviceRecords.any((record) => 
+      record.nextServiceDue != null && record.nextServiceDue!.isBefore(now));
+  }
+
+  /// Get the earliest next service due date from all service records
+  /// Returns null if no service records have nextServiceDue dates
+  DateTime? getNextServiceDue(List<ServiceRecord> serviceRecords) {
+    final dueDates = serviceRecords
+        .where((record) => record.nextServiceDue != null)
+        .map((record) => record.nextServiceDue!)
+        .toList();
+    
+    if (dueDates.isEmpty) return null;
+    
+    // Return the earliest (most urgent) next service due date
+    dueDates.sort();
+    return dueDates.first;
   }
 
   int get daysSinceLastService {

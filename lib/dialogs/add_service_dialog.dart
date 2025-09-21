@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+
+import '../models/customer.dart';
+import '../models/inventory_item.dart';
+import '../models/inventory_usage.dart';
+import '../models/service_record.dart';
+import '../services/inventory_usage_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/custom_dialog.dart';
-import '../models/customer.dart';
-import '../models/service_record.dart';
-import '../models/inventory_usage.dart';
-import '../models/inventory_item.dart';
-import '../services/inventory_usage_service.dart';
 
 class AddServiceDialog extends StatefulWidget {
   final Customer customer;

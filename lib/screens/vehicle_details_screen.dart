@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../theme/app_colors.dart';
-import '../widgets/dashboard_card.dart';
-import '../models/vehicle.dart';
-import '../models/service_record.dart';
-import '../screens/vehicle_profile_screen.dart';
+
 import '../dialogs/add_vehicle_dialog.dart';
 import '../dialogs/edit_vehicle_dialog.dart';
-import 'vehicle_search_filter.dart';
-import 'vehicle_analytics_screen.dart';
-import '../services/vehicle_service.dart';
-import '../services/vehicle_data_service.dart';
+import '../models/service_record.dart';
+import '../models/vehicle.dart';
+import '../screens/vehicle_profile_screen.dart';
 import '../services/maintenance_notification_service.dart';
 import '../services/service_record_service.dart';
+import '../services/vehicle_data_service.dart';
+import '../services/vehicle_service.dart';
+import '../theme/app_colors.dart';
+import 'vehicle_analytics_screen.dart';
+import 'vehicle_search_filter.dart';
 
 class VehicleDetailsScreen extends StatefulWidget {
   const VehicleDetailsScreen({super.key});
@@ -71,18 +71,12 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
         .toList();
   }
 
-  // Check if vehicle needs service based on last service date from service records
+  // Enhanced service due logic using nextServiceDue dates from service records
   bool _needsService(Vehicle vehicle) {
-    final lastServiceDate = _vehicleLastServiceDates[vehicle.id];
-    if (lastServiceDate == null) {
-      // For new vehicles, give them a grace period of 30 days from creation date
-      // before marking them as needing service
-      final daysSinceCreation = DateTime.now().difference(vehicle.createdAt).inDays;
-      return daysSinceCreation > 30; // Grace period for new vehicles
-    }
+    final serviceRecords = _vehicleServiceRecords[vehicle.id] ?? [];
     
-    final daysSinceService = DateTime.now().difference(lastServiceDate).inDays;
-    return daysSinceService > 90; // Needs service every 3 months
+    // Use the enhanced logic from Vehicle model that considers nextServiceDue dates
+    return vehicle.needsServiceWithRecords(serviceRecords);
   }
 
 
@@ -158,6 +152,14 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
       // Get all service records at once
       final allServiceRecords = await _serviceRecordService.getAllServiceRecords();
       print('📊 Loaded ${allServiceRecords.length} service records');
+      
+      // Test: Print first few service dates to debug date parsing
+      if (allServiceRecords.isNotEmpty) {
+        print('🧪 Sample service dates:');
+        for (final record in allServiceRecords.take(3)) {
+          print('   Record ${record.id}: ${record.serviceDate} (${record.serviceType})');
+        }
+      }
 
       // Group by vehicle ID
       final serviceRecordsByVehicle = <String, List<ServiceRecord>>{};
@@ -190,9 +192,26 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
       });
 
       print('✅ Service data loaded successfully');
+      print('   - Service records by vehicle: ${serviceRecordsByVehicle.keys.length} vehicles');
+      print('   - Last service dates: ${lastServiceDatesByVehicle.keys.length} vehicles');
       
-    } catch (e) {
+      // Diagnostic: Print vehicles with no service dates
+      final vehiclesWithoutServiceDates = _allVehicles
+          .where((v) => !lastServiceDatesByVehicle.containsKey(v.id))
+          .length;
+      if (vehiclesWithoutServiceDates > 0) {
+        print('ℹ️ Vehicles without service dates: $vehiclesWithoutServiceDates');
+      }
+      
+    } catch (e, stackTrace) {
       print('❌ Error loading service data: $e');
+      print('Stack trace: $stackTrace');
+      
+      // Specifically handle date parsing errors
+      if (e.toString().contains('Invalid date format') || e.toString().contains('FormatException')) {
+        print('🔧 Date parsing error detected. This should be fixed with the new date handling.');
+      }
+      
       // Don't show error for background loading
     }
   }
@@ -882,7 +901,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen>
                     child: _buildInfoItem(
                       Icons.speed,
                       'Mileage',
-                      '${NumberFormat('#,###').format(vehicle.mileage)} mi',
+                      '${NumberFormat('#,###').format(vehicle.mileage)} km',
                     ),
                   ),
                 ],
