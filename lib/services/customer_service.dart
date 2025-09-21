@@ -93,6 +93,67 @@ class CustomerService {
     }
   }
 
+  // Delete a customer along with all related data (vehicles and service records)
+  Future<void> deleteCustomerWithRelatedData(String customerId) async {
+    try {
+      final batch = _firestore.batch();
+
+      // Delete all vehicles belonging to this customer
+      final vehiclesQuery = await _firestore
+          .collection('vehicles')
+          .where('customerId', isEqualTo: customerId)
+          .get();
+
+      for (final vehicleDoc in vehiclesQuery.docs) {
+        batch.delete(vehicleDoc.reference);
+      }
+
+      // Delete all service records belonging to this customer
+      final serviceRecordsQuery = await _firestore
+          .collection('service_records')
+          .where('customerId', isEqualTo: customerId)
+          .get();
+
+      for (final serviceDoc in serviceRecordsQuery.docs) {
+        batch.delete(serviceDoc.reference);
+      }
+
+      // Delete the customer
+      batch.delete(_customersRef.doc(customerId));
+
+      // Execute all deletions in a single batch
+      await batch.commit();
+    } catch (e) {
+      throw CustomerServiceException(
+          'Failed to delete customer and related data: ${e.toString()}');
+    }
+  }
+
+  // Get related data counts for a customer
+  Future<RelatedDataInfo> getRelatedDataInfo(String customerId) async {
+    try {
+      // Count vehicles
+      final vehiclesQuery = await _firestore
+          .collection('vehicles')
+          .where('customerId', isEqualTo: customerId)
+          .get();
+
+      // Count service records
+      final serviceRecordsQuery = await _firestore
+          .collection('service_records')
+          .where('customerId', isEqualTo: customerId)
+          .get();
+
+      return RelatedDataInfo(
+        vehicleCount: vehiclesQuery.docs.length,
+        serviceRecordCount: serviceRecordsQuery.docs.length,
+      );
+    } catch (e) {
+      throw CustomerServiceException(
+          'Failed to get related data info: ${e.toString()}');
+    }
+  }
+
   // Check if customer has related data (vehicles, service records)
   Future<bool> _hasRelatedData(String customerId) async {
     try {
@@ -188,7 +249,6 @@ class CustomerService {
             return customer.computedLastVisit == null ||
                 customer.daysSinceLastVisit > 90;
           case CustomerFilter.all:
-          default:
             return true;
         }
       }).toList();
@@ -338,4 +398,29 @@ enum CustomerFilter {
   vip,
   recent,
   inactive,
+}
+
+// Related data information for a customer
+class RelatedDataInfo {
+  final int vehicleCount;
+  final int serviceRecordCount;
+
+  RelatedDataInfo({
+    required this.vehicleCount,
+    required this.serviceRecordCount,
+  });
+
+  bool get hasRelatedData => vehicleCount > 0 || serviceRecordCount > 0;
+
+  String get relatedDataDescription {
+    final parts = <String>[];
+    if (vehicleCount > 0) {
+      parts.add('$vehicleCount vehicle${vehicleCount != 1 ? 's' : ''}');
+    }
+    if (serviceRecordCount > 0) {
+      parts.add(
+          '$serviceRecordCount service record${serviceRecordCount != 1 ? 's' : ''}');
+    }
+    return parts.join(' and ');
+  }
 }

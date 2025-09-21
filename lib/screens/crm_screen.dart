@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -5,7 +6,6 @@ import 'package:fl_chart/fl_chart.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../models/customer.dart';
-import '../models/service_record.dart';
 import '../screens/customer_profile_screen.dart';
 import '../dialogs/add_customer_dialog.dart';
 import '../dialogs/edit_customer_dialog.dart';
@@ -158,8 +158,70 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _deleteCustomer(Customer customer) async {
-    // Show confirmation dialog
-    final bool? shouldDelete = await showDialog<bool>(
+    try {
+      // First check if customer has related data
+      final relatedInfo =
+          await _customerService.getRelatedDataInfo(customer.id);
+
+      bool? shouldDelete;
+
+      if (relatedInfo.hasRelatedData) {
+        // Show warning dialog for customers with related data
+        shouldDelete =
+            await _showDeleteWithRelatedDataDialog(customer, relatedInfo);
+      } else {
+        // Show simple confirmation for customers without related data
+        shouldDelete = await _showSimpleDeleteDialog(customer);
+      }
+
+      if (shouldDelete == true) {
+        setState(() {
+          _isLoading = true;
+          _errorMessage = null;
+        });
+
+        if (relatedInfo.hasRelatedData) {
+          await _customerService.deleteCustomerWithRelatedData(customer.id);
+        } else {
+          await _customerService.deleteCustomer(customer.id);
+        }
+
+        await _loadCustomers(); // Reload customers from Firebase
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Customer deleted successfully!',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: AppColors.successGreen,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to delete customer: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<bool?> _showSimpleDeleteDialog(Customer customer) async {
+    return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
@@ -188,47 +250,18 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
         ],
       ),
     );
+  }
 
-    if (shouldDelete == true) {
-      try {
-        setState(() {
-          _isLoading = true;
-          _errorMessage = null;
-        });
-
-        await _customerService.deleteCustomer(customer.id);
-        await _loadCustomers(); // Reload customers from Firebase
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Customer deleted successfully!',
-                style: GoogleFonts.poppins(),
-              ),
-              backgroundColor: AppColors.successGreen,
-            ),
-          );
-        }
-      } catch (e) {
-        setState(() {
-          _errorMessage = e.toString();
-          _isLoading = false;
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Failed to delete customer: ${e.toString()}',
-                style: GoogleFonts.poppins(),
-              ),
-              backgroundColor: AppColors.errorRed,
-            ),
-          );
-        }
-      }
-    }
+  Future<bool?> _showDeleteWithRelatedDataDialog(
+      Customer customer, dynamic relatedInfo) async {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _DeleteWithRelatedDataDialog(
+        customer: customer,
+        relatedInfo: relatedInfo,
+      ),
+    );
   }
 
   Future<void> _loadCustomers() async {
@@ -1760,5 +1793,224 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
     }
 
     return firstInitial + lastInitial;
+  }
+}
+
+class _DeleteWithRelatedDataDialog extends StatefulWidget {
+  final Customer customer;
+  final dynamic relatedInfo;
+
+  const _DeleteWithRelatedDataDialog({
+    required this.customer,
+    required this.relatedInfo,
+  });
+
+  @override
+  State<_DeleteWithRelatedDataDialog> createState() =>
+      _DeleteWithRelatedDataDialogState();
+}
+
+class _DeleteWithRelatedDataDialogState
+    extends State<_DeleteWithRelatedDataDialog> {
+  int _countdown = 3;
+  bool _isCountingDown = false;
+  bool _canDelete = false;
+
+  void _startCountdown() {
+    setState(() {
+      _isCountingDown = true;
+      _countdown = 3;
+    });
+
+    Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      setState(() {
+        _countdown--;
+      });
+
+      if (_countdown <= 0) {
+        timer.cancel();
+        setState(() {
+          _isCountingDown = false;
+          _canDelete = true;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(
+            Icons.warning,
+            color: AppColors.warningOrange,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Delete Customer & Data',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.errorRed,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Warning: ${widget.customer.fullName} has related data that will also be deleted:',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.warningOrange.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.warningOrange.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (widget.relatedInfo.vehicleCount > 0)
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.directions_car,
+                        size: 16,
+                        color: AppColors.warningOrange,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${widget.relatedInfo.vehicleCount} vehicle${widget.relatedInfo.vehicleCount != 1 ? 's' : ''}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                if (widget.relatedInfo.serviceRecordCount > 0) ...[
+                  if (widget.relatedInfo.vehicleCount > 0)
+                    const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.build,
+                        size: 16,
+                        color: AppColors.warningOrange,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${widget.relatedInfo.serviceRecordCount} service record${widget.relatedInfo.serviceRecordCount != 1 ? 's' : ''}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'This action cannot be undone. All data will be permanently deleted.',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: AppColors.errorRed,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          if (_isCountingDown) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.errorRed.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.errorRed,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Deletion will proceed in $_countdown second${_countdown != 1 ? 's' : ''}...',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: AppColors.errorRed,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(
+            _isCountingDown ? 'Cancel Deletion' : 'Cancel',
+            style: GoogleFonts.poppins(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        if (!_isCountingDown && !_canDelete)
+          ElevatedButton(
+            onPressed: _startCountdown,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.warningOrange,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Delete All Data',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+            ),
+          ),
+        if (_canDelete)
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.errorRed,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Confirm Deletion',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+            ),
+          ),
+      ],
+    );
   }
 }
