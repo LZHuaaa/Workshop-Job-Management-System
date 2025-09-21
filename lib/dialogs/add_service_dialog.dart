@@ -7,6 +7,7 @@ import '../models/inventory_item.dart';
 import '../models/inventory_usage.dart';
 import '../models/service_record.dart';
 import '../services/inventory_usage_service.dart';
+import '../services/service_record_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/custom_dialog.dart';
 
@@ -32,6 +33,7 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
   final _mileageController = TextEditingController();
   final _notesController = TextEditingController();
   final InventoryUsageService _usageService = InventoryUsageService();
+  final ServiceRecordService _serviceRecordService = ServiceRecordService();
 
   String? _selectedVehicleId;
   String? _selectedMechanic;
@@ -189,64 +191,85 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
       _isLoading = true;
     });
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      // Create service record object
+      final newService = ServiceRecord(
+        id: '', // Will be set by Firestore
+        customerId: widget.customer.id,
+        vehicleId: _selectedVehicleId ?? '',
+        serviceDate: _serviceDate,
+        serviceType: _serviceTypeController.text,
+        description: _descriptionController.text,
+        servicesPerformed: _selectedServices,
+        cost: double.tryParse(_costController.text) ?? 0.0,
+        mechanicName: _selectedMechanic ?? '',
+        status: _status,
+        nextServiceDue: _nextServiceDue,
+        mileage: int.tryParse(_mileageController.text) ?? 0,
+        partsReplaced: _selectedParts,
+        notes: _notesController.text,
+      );
 
-    final serviceId = DateTime.now().millisecondsSinceEpoch.toString();
-    final newService = ServiceRecord(
-      id: serviceId,
-      customerId: widget.customer.id,
-      vehicleId: _selectedVehicleId ?? '',
-      serviceDate: _serviceDate,
-      serviceType: _serviceTypeController.text,
-      description: _descriptionController.text,
-      servicesPerformed: _selectedServices,
-      cost: double.tryParse(_costController.text) ?? 0.0,
-      mechanicName: _selectedMechanic ?? '',
-      status: _status,
-      nextServiceDue: _nextServiceDue,
-      mileage: int.tryParse(_mileageController.text) ?? 0,
-      partsReplaced: _selectedParts,
-      notes: _notesController.text,
-    );
+      // Save service record to Firestore
+      final serviceId =
+          await _serviceRecordService.createServiceRecord(newService);
+      final savedService = newService.copyWith(id: serviceId);
 
-    // Record inventory usage for each part used
-    for (final partName in _selectedParts) {
-      final inventoryItem = _partToInventoryMap[partName];
-      if (inventoryItem != null) {
-        final quantity = _partQuantities[partName] ?? 1;
-        final usage = InventoryUsage(
-          id: '${serviceId}_${partName.replaceAll(' ', '_').toLowerCase()}',
-          itemId: inventoryItem.id,
-          itemName: inventoryItem.name,
-          itemCategory: inventoryItem.category,
-          quantityUsed: quantity,
-          unitPrice: inventoryItem.unitPrice,
-          totalCost: quantity * inventoryItem.unitPrice,
-          usageType: UsageType.service,
-          status: UsageStatus.recorded,
-          usageDate: _serviceDate,
-          usedBy: _selectedMechanic ?? '',
-          customerId: widget.customer.id,
-          customerName: widget.customer.fullName,
-          vehicleId: _selectedVehicleId,
-          serviceRecordId: serviceId,
-          purpose: 'Used in ${_serviceTypeController.text} service',
-          notes: 'Auto-recorded from service: ${_descriptionController.text}',
-          createdAt: DateTime.now(),
-        );
+      // Record inventory usage for each part used
+      for (final partName in _selectedParts) {
+        final inventoryItem = _partToInventoryMap[partName];
+        if (inventoryItem != null) {
+          final quantity = _partQuantities[partName] ?? 1;
+          final usage = InventoryUsage(
+            id: '${serviceId}_${partName.replaceAll(' ', '_').toLowerCase()}',
+            itemId: inventoryItem.id,
+            itemName: inventoryItem.name,
+            itemCategory: inventoryItem.category,
+            quantityUsed: quantity,
+            unitPrice: inventoryItem.unitPrice,
+            totalCost: quantity * inventoryItem.unitPrice,
+            usageType: UsageType.service,
+            status: UsageStatus.recorded,
+            usageDate: _serviceDate,
+            usedBy: _selectedMechanic ?? '',
+            customerId: widget.customer.id,
+            customerName: widget.customer.fullName,
+            vehicleId: _selectedVehicleId,
+            serviceRecordId: serviceId,
+            purpose: 'Used in ${_serviceTypeController.text} service',
+            notes: 'Auto-recorded from service: ${_descriptionController.text}',
+            createdAt: DateTime.now(),
+          );
 
-        try {
-          final usageId = await _usageService.recordUsage(usage);
-          debugPrint('Recorded usage for $partName with ID: $usageId');
-        } catch (e) {
-          // Log error but don't fail the service creation
-          debugPrint('Failed to record usage for $partName: $e');
+          try {
+            final usageId = await _usageService.recordUsage(usage);
+            debugPrint('Recorded usage for $partName with ID: $usageId');
+          } catch (e) {
+            // Log error but don't fail the service creation
+            debugPrint('Failed to record usage for $partName: $e');
+          }
         }
       }
-    }
 
-    widget.onServiceAdded(newService);
+      widget.onServiceAdded(savedService);
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to add service record: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+      return;
+    }
 
     setState(() {
       _isLoading = false;
@@ -476,7 +499,8 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
                                   const SizedBox(width: 6),
                                   Flexible(
                                     child: Text(
-                                      DateFormat('MMM d, y').format(_serviceDate),
+                                      DateFormat('MMM d, y')
+                                          .format(_serviceDate),
                                       style: GoogleFonts.poppins(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
@@ -607,12 +631,17 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
                           });
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: isSelected ? AppColors.primaryPink : Colors.grey[100],
+                            color: isSelected
+                                ? AppColors.primaryPink
+                                : Colors.grey[100],
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: isSelected ? AppColors.primaryPink : Colors.grey[300]!,
+                              color: isSelected
+                                  ? AppColors.primaryPink
+                                  : Colors.grey[300]!,
                             ),
                           ),
                           child: Row(
@@ -622,7 +651,9 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
                                 part,
                                 style: GoogleFonts.poppins(
                                   fontSize: 12,
-                                  color: isSelected ? Colors.white : AppColors.textDark,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : AppColors.textDark,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -631,7 +662,8 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
                                 GestureDetector(
                                   onTap: () => _showQuantityDialog(part),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
                                       color: Colors.white.withOpacity(0.3),
                                       borderRadius: BorderRadius.circular(8),

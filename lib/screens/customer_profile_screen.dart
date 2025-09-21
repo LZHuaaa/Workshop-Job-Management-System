@@ -4,8 +4,8 @@ import 'package:intl/intl.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
 import '../models/customer.dart';
-import '../models/vehicle.dart';
 import '../models/service_record.dart' as service;
+import '../services/service_record_service.dart';
 import '../dialogs/add_communication_dialog.dart';
 import '../dialogs/edit_customer_dialog.dart';
 import '../dialogs/add_service_dialog.dart';
@@ -28,12 +28,51 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
   late Customer _currentCustomer;
+  final ServiceRecordService _serviceRecordService = ServiceRecordService();
+  List<service.ServiceRecord> _serviceRecords = [];
+  bool _isLoadingServiceRecords = false;
+
+  // Computed properties - fallback to embedded data while loading
+  double get _computedTotalSpent => _serviceRecords.isNotEmpty
+      ? _serviceRecords.fold(0.0, (sum, record) => sum + record.cost)
+      : _currentCustomer.computedTotalSpent;
+
+  int get _computedVisitCount => _serviceRecords.isNotEmpty
+      ? _serviceRecords.length
+      : _currentCustomer.visitCount;
+
+  DateTime? get _computedLastVisit => _serviceRecords.isNotEmpty
+      ? _serviceRecords
+          .map((r) => r.serviceDate)
+          .reduce((a, b) => a.isAfter(b) ? a : b)
+      : _currentCustomer.computedLastVisit;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _currentCustomer = widget.customer;
+    _loadServiceRecords();
+  }
+
+  Future<void> _loadServiceRecords() async {
+    setState(() {
+      _isLoadingServiceRecords = true;
+    });
+
+    try {
+      final serviceRecords = await _serviceRecordService
+          .getServiceRecordsByCustomer(_currentCustomer.id);
+      setState(() {
+        _serviceRecords = serviceRecords;
+        _isLoadingServiceRecords = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingServiceRecords = false;
+      });
+      print('Error loading service records: $e');
+    }
   }
 
   @override
@@ -63,11 +102,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
       builder: (context) => AddServiceDialog(
         customer: _currentCustomer,
         onServiceAdded: (newService) {
-          setState(() {
-            _currentCustomer = _currentCustomer.copyWith(
-              serviceHistory: [..._currentCustomer.serviceHistory, newService],
-            );
-          });
+          // Reload service records from database to get the latest data
+          _loadServiceRecords();
           widget.onCustomerUpdated(_currentCustomer);
         },
       ),
@@ -195,14 +231,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
                     Expanded(
                       child: _buildHeaderStat(
                         'Total Spent',
-                        'RM${_currentCustomer.computedTotalSpent.toStringAsFixed(2)}',
+                        'RM${_computedTotalSpent.toStringAsFixed(2)}',
                         Icons.monetization_on,
                       ),
                     ),
                     Expanded(
                       child: _buildHeaderStat(
                         'Visits',
-                        '${_currentCustomer.visitCount}',
+                        '${_computedVisitCount}',
                         Icons.event,
                       ),
                     ),
@@ -216,8 +252,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
                     Expanded(
                       child: _buildHeaderStat(
                         'Last Visit',
-                        _currentCustomer.computedLastVisit != null
-                            ? '${DateTime.now().difference(_currentCustomer.computedLastVisit!).inDays} days ago'
+                        _computedLastVisit != null
+                            ? '${DateTime.now().difference(_computedLastVisit!).inDays} days ago'
                             : 'Never',
                         Icons.schedule,
                       ),
@@ -477,12 +513,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
   }
 
   Widget _buildServiceHistoryTab() {
-    // Get service history from customer's vehicles
-    final serviceHistory = _currentCustomer.serviceHistory;
-
-    // Display customer's actual service history
-    // For now, we'll show an empty state with proper styling
-
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -526,18 +556,37 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
 
           // Service history content
           Expanded(
-            child: serviceHistory.isEmpty
-                ? _buildEmptyServiceState()
-                : ListView.builder(
-                    itemCount: serviceHistory.length,
-                    itemBuilder: (context, index) {
-                      final service = serviceHistory[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        child: _buildServiceCard(service),
-                      );
-                    },
-                  ),
+            child: _isLoadingServiceRecords
+                ? const Center(child: CircularProgressIndicator())
+                : _serviceRecords.isEmpty &&
+                        _currentCustomer.serviceHistory.isEmpty
+                    ? _buildEmptyServiceState()
+                    : RefreshIndicator(
+                        onRefresh: _loadServiceRecords,
+                        child: ListView.builder(
+                          itemCount: _serviceRecords.isNotEmpty
+                              ? _serviceRecords.length
+                              : _currentCustomer.serviceHistory.length,
+                          itemBuilder: (context, index) {
+                            if (_serviceRecords.isNotEmpty) {
+                              // Use database records
+                              final serviceRecord = _serviceRecords[index];
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                child: _buildServiceCard(serviceRecord),
+                              );
+                            } else {
+                              // Fallback to embedded records
+                              final serviceRecord =
+                                  _currentCustomer.serviceHistory[index];
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                child: _buildServiceCard(serviceRecord),
+                              );
+                            }
+                          },
+                        ),
+                      ),
           ),
         ],
       ),

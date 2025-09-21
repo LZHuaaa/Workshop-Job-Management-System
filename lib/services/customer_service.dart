@@ -138,7 +138,7 @@ class CustomerService {
           .where('customerId', isEqualTo: customerId)
           .get();
 
-      // Count service records
+      // Count service records from service_records collection
       final serviceRecordsQuery = await _firestore
           .collection('service_records')
           .where('customerId', isEqualTo: customerId)

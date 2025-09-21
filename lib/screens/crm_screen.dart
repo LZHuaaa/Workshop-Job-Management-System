@@ -11,6 +11,7 @@ import '../dialogs/add_customer_dialog.dart';
 import '../dialogs/edit_customer_dialog.dart';
 import '../services/crm_analytics_service.dart';
 import '../services/customer_service.dart';
+import '../services/service_record_service.dart';
 
 class CrmScreen extends StatefulWidget {
   const CrmScreen({super.key});
@@ -25,7 +26,10 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
   String _selectedFilter = 'All';
 
   final CustomerService _customerService = CustomerService();
+  final ServiceRecordService _serviceRecordService = ServiceRecordService();
   List<Customer> _allCustomers = [];
+  Map<String, List<dynamic>> _customerServiceRecords =
+      {}; // Cache service records per customer
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -42,20 +46,21 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
     // Apply filter
     switch (_selectedFilter) {
       case 'VIP':
-        filtered = filtered.where((customer) => customer.isVip).toList();
+        filtered =
+            filtered.where((customer) => _isCustomerVip(customer)).toList();
         break;
       case 'Recent':
         filtered = filtered
             .where((customer) =>
-                customer.computedLastVisit != null &&
-                customer.daysSinceLastVisit <= 30)
+                _getCustomerLastVisit(customer) != null &&
+                _getCustomerDaysSinceLastVisit(customer) <= 30)
             .toList();
         break;
       case 'Inactive':
         filtered = filtered
             .where((customer) =>
-                customer.computedLastVisit == null ||
-                customer.daysSinceLastVisit > 90)
+                _getCustomerLastVisit(customer) == null ||
+                _getCustomerDaysSinceLastVisit(customer) > 90)
             .toList();
         break;
     }
@@ -273,6 +278,9 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
 
       final customers = await _customerService.getAllCustomers();
 
+      // Load service records for each customer in parallel
+      await _loadServiceRecordsForCustomers(customers);
+
       setState(() {
         _allCustomers = customers;
         _isLoading = false;
@@ -283,6 +291,66 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _loadServiceRecordsForCustomers(List<Customer> customers) async {
+    final serviceRecordsFutures = customers.map((customer) async {
+      try {
+        final serviceRecords = await _serviceRecordService
+            .getServiceRecordsByCustomer(customer.id);
+        return MapEntry(customer.id, serviceRecords);
+      } catch (e) {
+        // If service records fail to load, use empty list for this customer
+        print('Failed to load service records for customer ${customer.id}: $e');
+        return MapEntry(customer.id, <dynamic>[]);
+      }
+    });
+
+    final results = await Future.wait(serviceRecordsFutures);
+    _customerServiceRecords = Map.fromEntries(results);
+  }
+
+  // Helper methods to compute stats from database service records
+  double _getCustomerTotalSpent(Customer customer) {
+    final serviceRecords = _customerServiceRecords[customer.id] ?? [];
+    if (serviceRecords.isEmpty) {
+      return customer.computedTotalSpent; // Fallback to embedded data
+    }
+    return serviceRecords.fold(0.0, (sum, record) => sum + record.cost);
+  }
+
+  int _getCustomerVisitCount(Customer customer) {
+    final serviceRecords = _customerServiceRecords[customer.id] ?? [];
+    if (serviceRecords.isEmpty) {
+      return customer.visitCount; // Fallback to embedded data
+    }
+    return serviceRecords.length;
+  }
+
+  DateTime? _getCustomerLastVisit(Customer customer) {
+    final serviceRecords = _customerServiceRecords[customer.id] ?? [];
+    if (serviceRecords.isEmpty) {
+      return customer.computedLastVisit; // Fallback to embedded data
+    }
+
+    if (serviceRecords.isNotEmpty) {
+      return serviceRecords
+          .map((record) => record.serviceDate)
+          .reduce((a, b) => a.isAfter(b) ? a : b);
+    }
+    return null;
+  }
+
+  bool _isCustomerVip(Customer customer) {
+    final totalSpent = _getCustomerTotalSpent(customer);
+    final visitCount = _getCustomerVisitCount(customer);
+    return totalSpent > 1000 || visitCount > 10;
+  }
+
+  int _getCustomerDaysSinceLastVisit(Customer customer) {
+    final lastVisit = _getCustomerLastVisit(customer);
+    if (lastVisit == null) return 0;
+    return DateTime.now().difference(lastVisit).inDays;
   }
 
   @override
@@ -977,7 +1045,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                                     maxLines: 1,
                                   ),
                                 ),
-                                if (customer.isVip) ...[
+                                if (_isCustomerVip(customer)) ...[
                                   const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
@@ -1017,7 +1085,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              'RM${customer.computedTotalSpent.toStringAsFixed(2)}',
+                              'RM${_getCustomerTotalSpent(customer).toStringAsFixed(2)}',
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -1025,7 +1093,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                               ),
                             ),
                             Text(
-                              '${customer.visitCount} visits',
+                              '${_getCustomerVisitCount(customer)} visits',
                               style: GoogleFonts.poppins(
                                 fontSize: 10,
                                 color: AppColors.textSecondary,
@@ -1060,8 +1128,8 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        customer.computedLastVisit != null
-                            ? 'Last visit: ${DateFormat('MMM d').format(customer.computedLastVisit!)}'
+                        _getCustomerLastVisit(customer) != null
+                            ? 'Last visit: ${DateFormat('MMM d').format(_getCustomerLastVisit(customer)!)}'
                             : 'No visits yet',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
@@ -1609,7 +1677,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                               ),
                             ),
                             Text(
-                              '${customer.visitCount} visits',
+                              '${_getCustomerVisitCount(customer)} visits',
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -1619,7 +1687,7 @@ class _CrmScreenState extends State<CrmScreen> with TickerProviderStateMixin {
                         ),
                       ),
                       Text(
-                        'RM${customer.computedTotalSpent.toStringAsFixed(2)}',
+                        'RM${_getCustomerTotalSpent(customer).toStringAsFixed(2)}',
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -1812,14 +1880,13 @@ class _DeleteWithRelatedDataDialog extends StatefulWidget {
 
 class _DeleteWithRelatedDataDialogState
     extends State<_DeleteWithRelatedDataDialog> {
-  int _countdown = 3;
+  int _countdown = 5;
   bool _isCountingDown = false;
-  bool _canDelete = false;
 
   void _startCountdown() {
     setState(() {
       _isCountingDown = true;
-      _countdown = 3;
+      _countdown = 5;
     });
 
     Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -1834,10 +1901,8 @@ class _DeleteWithRelatedDataDialogState
 
       if (_countdown <= 0) {
         timer.cancel();
-        setState(() {
-          _isCountingDown = false;
-          _canDelete = true;
-        });
+        // Automatically proceed with deletion
+        Navigator.of(context).pop(true);
       }
     });
   }
@@ -1986,7 +2051,7 @@ class _DeleteWithRelatedDataDialogState
             ),
           ),
         ),
-        if (!_isCountingDown && !_canDelete)
+        if (!_isCountingDown)
           ElevatedButton(
             onPressed: _startCountdown,
             style: ElevatedButton.styleFrom(
@@ -1995,18 +2060,6 @@ class _DeleteWithRelatedDataDialogState
             ),
             child: Text(
               'Delete All Data',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-            ),
-          ),
-        if (_canDelete)
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.errorRed,
-              foregroundColor: Colors.white,
-            ),
-            child: Text(
-              'Confirm Deletion',
               style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
             ),
           ),
