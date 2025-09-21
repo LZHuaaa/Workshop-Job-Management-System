@@ -255,10 +255,15 @@ class _NotificationDetailViewState extends State<NotificationDetailView> {
         ),
         const SizedBox(height: 8),
         ...actionData.entries.where((entry) => entry.key != 'navigationTarget').map(
-          (entry) => _buildMetadataRow(
-            _formatActionDataKey(entry.key),
-            entry.value.toString(),
-          ),
+          (entry) {
+            String value = entry.key == 'totalCost' && entry.value is num
+                ? 'RM ${(entry.value as num).toStringAsFixed(2)}'
+                : entry.value.toString();
+            return _buildMetadataRow(
+              _formatActionDataKey(entry.key),
+              value,
+            );
+          },
         ),
       ],
     );
