@@ -6,7 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import '../models/job_appointment.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_card.dart';
@@ -38,7 +39,7 @@ class InvoicePreviewScreen extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.picture_as_pdf, color: AppColors.primaryPink),
             onPressed: () => _exportToPDF(context),
-            tooltip: 'Export as PDF',
+            tooltip: 'Download PDF',
           ),
           IconButton(
             icon: Icon(Icons.print, color: AppColors.primaryPink),
@@ -286,6 +287,53 @@ class InvoicePreviewScreen extends StatelessWidget {
 
   Future<void> _exportToPDF(BuildContext context) async {
     try {
+      // Handle permissions for different Android versions
+      bool hasPermission = false;
+      
+      if (Platform.isAndroid) {
+        final androidInfo = await DeviceInfoPlugin().androidInfo;
+        
+        if (androidInfo.version.sdkInt >= 30) {
+          // Android 11+ (API 30+) - Use manage external storage permission
+          var status = await Permission.manageExternalStorage.status;
+          if (!status.isGranted) {
+            status = await Permission.manageExternalStorage.request();
+          }
+          hasPermission = status.isGranted;
+        } else {
+          // Android 10 and below - Use regular storage permission
+          var status = await Permission.storage.status;
+          if (!status.isGranted) {
+            status = await Permission.storage.request();
+          }
+          hasPermission = status.isGranted;
+        }
+        
+        if (!hasPermission) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Storage permission is required to save files to Downloads folder',
+                  style: GoogleFonts.poppins(),
+                ),
+                backgroundColor: AppColors.errorRed,
+                action: SnackBarAction(
+                  label: 'Settings',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    openAppSettings();
+                  },
+                ),
+              ),
+            );
+          }
+          return;
+        }
+      } else {
+        hasPermission = true; // iOS doesn't need this permission
+      }
+
       // Create PDF document
       final pdf = pw.Document();
 
@@ -485,28 +533,56 @@ class InvoicePreviewScreen extends StatelessWidget {
         ),
       );
 
-      // Get directory for saving file
-      final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/invoice_${job.id}.pdf');
+      // Get Downloads directory
+      Directory? directory;
+      if (Platform.isAndroid) {
+        directory = Directory('/storage/emulated/0/Download');
+        if (!await directory.exists()) {
+          directory = await getExternalStorageDirectory();
+        }
+      } else {
+        directory = await getApplicationDocumentsDirectory();
+      }
 
-      // Save PDF file
+      final fileName = 'Invoice_${job.customerName.replaceAll(' ', '_')}_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
+      final file = File('${directory!.path}/$fileName');
+
+      // Save PDF file to Downloads folder
       await file.writeAsBytes(await pdf.save());
 
-      // Share the PDF file
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: 'Invoice for ${job.customerName}',
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to export PDF: ${e.toString()}',
-            style: GoogleFonts.poppins(),
+      // Show success message with file path
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Invoice downloaded successfully!\nLocation: Downloads/$fileName\n\nCheck your file manager > Downloads folder',
+              style: GoogleFonts.poppins(fontSize: 13),
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              },
+            ),
           ),
-          backgroundColor: AppColors.errorRed,
-        ),
-      );
+        );
+      }
+
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to download PDF: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
     }
   }
 
@@ -727,15 +803,17 @@ class InvoicePreviewScreen extends StatelessWidget {
         name: 'Invoice_${job.id}',
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to print: ${e.toString()}',
-            style: GoogleFonts.poppins(),
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to print: ${e.toString()}',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.errorRed,
           ),
-          backgroundColor: AppColors.errorRed,
-        ),
-      );
+        );
+      }
     }
   }
 
